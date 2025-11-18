@@ -3,233 +3,81 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Tilt Dot — Gyro MVP</title>
+<title>Gyro Dot MVP</title>
 <style>
-  html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;color:#111}
-  .wrap{display:flex;flex-direction:column;height:100vh;padding:12px;box-sizing:border-box;gap:10px}
-  header{display:flex;gap:10px;align-items:center;justify-content:space-between}
-  #arena{flex:1;background:#f7f7f9;border-radius:12px;position:relative;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
-  #dot{position:absolute;width:36px;height:36px;border-radius:50%;background:#0575e6;left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 6px 12px rgba(5,117,230,0.25)}
-  #target{position:absolute;width:28px;height:28px;border-radius:50%;background:#ff5c5c;box-shadow:0 6px 10px rgba(255,92,92,0.2)}
-  .controls{display:flex;gap:8px;align-items:center}
-  .big{font-size:18px;font-weight:600}
-  input[type="text"]{padding:6px 8px;border-radius:8px;border:1px solid #ddd}
-  button{padding:8px 12px;border-radius:8px;border:0;background:#111;color:#fff}
-  .small{font-size:13px;color:#555}
-  #leaderboard{max-width:320px}
-  #messages{color:#c33}
-  footer{display:flex;gap:10px;align-items:center;justify-content:space-between}
+  html,body{margin:0;padding:0;height:100%;background:#f7f7f9;display:flex;justify-content:center;align-items:center}
+  #arena{position:relative;width:100%;height:100%;overflow:hidden;background:#fff}
+  #dot{position:absolute;width:36px;height:36px;border-radius:50%;background:#0575e6;transform:translate(-50%,-50%)}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div>
-      <div class="big">Tilt Dot — Gyro MVP</div>
-      <div class="small">Tilt your phone to move the blue dot. Collect red targets.</div>
-    </div>
-    <div id="scoreUI" class="controls">
-      <div>Score: <span id="score">0</span></div>
-      <button id="resetScores">Reset Scores</button>
-    </div>
-  </header>
-
-  <div id="arena">
-    <div id="dot"></div>
-    <div id="target"></div>
-  </div>
-
-  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-    <div style="display:flex;gap:8px;align-items:center">
-      <input id="nameInput" type="text" placeholder="Your name" />
-      <button id="saveScore">Save Score</button>
-    </div>
-
-    <div id="messages" class="small"></div>
-
-    <div id="leaderboard" style="margin-left:auto">
-      <div class="small">Leaderboard (local)</div>
-      <ol id="lbList"></ol>
-    </div>
-  </div>
-
-  <footer>
-    <div class="small">Tips: On iOS allow Motion & Orientation access. Use touch fallback if gyro is unavailable.</div>
-  </footer>
+<div id="arena">
+  <div id="dot"></div>
 </div>
-
 <script>
-/* ---------- Setup ---------- */
+const dot = document.getElementById('dot');
 const arena = document.getElementById('arena');
-const dotEl = document.getElementById('dot');
-const targetEl = document.getElementById('target');
-const scoreEl = document.getElementById('score');
-const saveBtn = document.getElementById('saveScore');
-const nameInput = document.getElementById('nameInput');
-const lbList = document.getElementById('lbList');
-const messages = document.getElementById('messages');
-const resetBtn = document.getElementById('resetScores');
 
-let arenaRect;
-let dot = { x: 0, y: 0, r: 18 };
-let target = { x: 100, y: 100, r: 14 };
-let score = 0;
-let vel = { x: 0, y: 0 };
-const smooth = 0.12;
-const sensitivity = 0.6; // smoother, mobile-friendly
-let gyroActive = false;
+let arenaRect = arena.getBoundingClientRect();
+let dotPos = {x: arenaRect.width/2, y: arenaRect.height/2};
+const speed = 2; // adjust speed multiplier
 
-/* ---------- Setup ---------- */
-function setup() {
-  arenaRect = arena.getBoundingClientRect();
-  dot.x = arenaRect.width / 2;
-  dot.y = arenaRect.height / 2;
-  placeTargetRandom();
-  updatePositions();
-  loadLeaderboard();
+function updateDot() {
+  dot.style.left = dotPos.x + 'px';
+  dot.style.top = dotPos.y + 'px';
+  requestAnimationFrame(updateDot);
 }
-window.addEventListener('resize', setup);
-window.addEventListener('orientationchange', setup);
-setup();
+updateDot();
 
-/* ---------- Update loop ---------- */
-function updatePositions() {
-  dot.x = Math.max(dot.r, Math.min(arenaRect.width - dot.r, dot.x));
-  dot.y = Math.max(dot.r, Math.min(arenaRect.height - dot.r, dot.y));
-  dotEl.style.left = dot.x + 'px';
-  dotEl.style.top = dot.y + 'px';
-  targetEl.style.left = (target.x - target.r) + 'px';
-  targetEl.style.top = (target.y - target.r) + 'px';
-
-  const dx = dot.x - target.x;
-  const dy = dot.y - target.y;
-  if (Math.hypot(dx, dy) < dot.r + target.r) {
-    score++;
-    scoreEl.textContent = score;
-    placeTargetRandom();
-  }
-
-  requestAnimationFrame(updatePositions);
-}
-
-/* ---------- Target ---------- */
-function placeTargetRandom() {
-  const margin = 40;
-  target.x = Math.random() * (arenaRect.width - 2*margin) + margin;
-  target.y = Math.random() * (arenaRect.height - 2*margin) + margin;
-}
-
-/* ---------- Gyroscope ---------- */
 function handleOrientation(event) {
-  if(!gyroActive) return;
-  const gamma = event.gamma ?? 0;
-  const beta  = event.beta ?? 0;
+  const gamma = event.gamma || 0; // left-right tilt
+  const beta  = event.beta  || 0; // front-back tilt
 
-  let targetVelX = (gamma / 45) * sensitivity;
-  let targetVelY = (beta  / 45) * sensitivity;
+  // map tilt to velocity
+  dotPos.x += gamma * 0.5; 
+  dotPos.y += beta  * 0.5;
 
-  vel.x += (targetVelX - vel.x) * smooth;
-  vel.y += (targetVelY - vel.y) * smooth;
-
-  dot.x += vel.x;
-  dot.y += vel.y;
+  // clamp inside arena
+  dotPos.x = Math.max(18, Math.min(arenaRect.width-18, dotPos.x));
+  dotPos.y = Math.max(18, Math.min(arenaRect.height-18, dotPos.y));
 }
 
-/* ---------- Touch fallback ---------- */
-let dragging = false;
-function touchStartHandler(e){ dragging=true; vel.x=0; vel.y=0; }
-function touchMoveHandler(e){
-  if(!dragging) return;
-  const rect = arena.getBoundingClientRect();
-  const t = e.touches[0];
-  dot.x = t.clientX - rect.left;
-  dot.y = t.clientY - rect.top;
-}
-function touchEndHandler(){ dragging=false; }
-
-function enableTouchFallback(){
-  arena.addEventListener('touchstart', touchStartHandler);
-  arena.addEventListener('touchmove', touchMoveHandler);
-  arena.addEventListener('touchend', touchEndHandler);
-}
-
-/* ---------- Enable gyro on tap ---------- */
-function requestStartOnTap() {
-  const startBtn = document.createElement('button');
-  startBtn.textContent = 'Enable Motion (tap)';
-  startBtn.style.position = 'absolute';
-  startBtn.style.left = '50%';
-  startBtn.style.top = '50%';
-  startBtn.style.transform = 'translate(-50%,-50%)';
-  startBtn.style.padding = '12px 16px';
-  startBtn.style.borderRadius = '10px';
-  startBtn.style.background = '#111';
-  startBtn.style.color = '#fff';
-  startBtn.style.zIndex = 9999;
-  arena.appendChild(startBtn);
-
-  startBtn.addEventListener('click', async () => {
-    arena.removeChild(startBtn);
-    // Request permission on iOS
-    if(typeof DeviceOrientationEvent !== 'undefined' &&
-       typeof DeviceOrientationEvent.requestPermission === 'function'){
-      try {
-        const res = await DeviceOrientationEvent.requestPermission();
-        if(res==='granted'){
-          gyroActive = true;
-          window.addEventListener('deviceorientation', handleOrientation);
-          messages.textContent = 'Gyro enabled. Tilt your device!';
-        } else {
-          messages.textContent = 'Gyro denied. Using touch fallback.';
-          enableTouchFallback();
-        }
-      } catch(err){
-        messages.textContent = 'Permission error. Using touch fallback.';
-        enableTouchFallback();
+async function enableGyro() {
+  if(typeof DeviceOrientationEvent !== 'undefined' &&
+     typeof DeviceOrientationEvent.requestPermission === 'function'){
+    try{
+      const res = await DeviceOrientationEvent.requestPermission();
+      if(res === 'granted'){
+        window.addEventListener('deviceorientation', handleOrientation);
+      } else {
+        alert('Gyro permission denied');
       }
-    } else {
-      // Android / desktop fallback
-      gyroActive = true;
-      window.addEventListener('deviceorientation', handleOrientation);
-      messages.textContent = 'Gyro attached. Use tilt or touch.';
+    }catch(err){
+      alert('Error requesting gyro permission');
     }
-  });
-}
-requestStartOnTap();
-
-/* ---------- Leaderboard ---------- */
-const LB_KEY = 'tilt_dot_leaderboard_v2';
-
-function saveScoreLocal() {
-  const name = (nameInput.value || 'Player').trim();
-  const entry = { name, score, date: Date.now() };
-  const list = JSON.parse(localStorage.getItem(LB_KEY) || '[]');
-  list.push(entry);
-  list.sort((a,b)=>b.score - a.score || a.date - b.date);
-  localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0,20)));
-  loadLeaderboard();
-  messages.textContent = 'Score saved locally!';
-}
-
-function loadLeaderboard() {
-  const list = JSON.parse(localStorage.getItem(LB_KEY) || '[]');
-  lbList.innerHTML = '';
-  for(const e of list){
-    const li = document.createElement('li');
-    li.textContent = `${e.name} — ${e.score}`;
-    lbList.appendChild(li);
+  } else {
+    window.addEventListener('deviceorientation', handleOrientation);
   }
 }
 
-/* ---------- Reset ---------- */
-resetBtn.addEventListener('click', ()=>{
-  if(!confirm('Reset local leaderboard?')) return;
-  localStorage.removeItem(LB_KEY);
-  loadLeaderboard();
+const btn = document.createElement('button');
+btn.innerText = "Enable Gyro";
+btn.style.position="absolute";
+btn.style.left="50%";
+btn.style.top="50%";
+btn.style.transform="translate(-50%,-50%)";
+btn.style.padding="12px 18px";
+btn.style.fontSize="16px";
+arena.appendChild(btn);
+btn.addEventListener('click', ()=>{
+  enableGyro();
+  btn.remove();
 });
 
-saveBtn.addEventListener('click', saveScoreLocal);
-nameInput.addEventListener('keyup',(e)=>{ if(e.key==='Enter') saveScoreLocal(); });
+// resize handler
+window.addEventListener('resize', ()=>{
+  arenaRect = arena.getBoundingClientRect();
+});
 </script>
 </body>
 </html>
