@@ -3,24 +3,27 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Gyro Dot MVP</title>
+<title>Gyro Dot Test</title>
 <style>
-  html,body{margin:0;padding:0;height:100%;background:#f7f7f9;display:flex;justify-content:center;align-items:center}
-  #arena{position:relative;width:100%;height:100%;overflow:hidden;background:#fff}
-  #dot{position:absolute;width:36px;height:36px;border-radius:50%;background:#0575e6;transform:translate(-50%,-50%)}
+html, body { margin:0; padding:0; height:100%; width:100%; display:flex; justify-content:center; align-items:center; background:#f7f7f9; }
+#arena { position:relative; width:100%; height:100%; background:#eee; }
+#dot { position:absolute; width:36px; height:36px; border-radius:50%; background:#0575e6; transform:translate(-50%,-50%); top:50%; left:50%; }
+#btn { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); padding:12px 18px; font-size:16px; z-index:10; }
 </style>
 </head>
 <body>
 <div id="arena">
   <div id="dot"></div>
+  <button id="btn">Enable Gyro</button>
 </div>
+
 <script>
 const dot = document.getElementById('dot');
+const btn = document.getElementById('btn');
 const arena = document.getElementById('arena');
 
 let arenaRect = arena.getBoundingClientRect();
-let dotPos = {x: arenaRect.width/2, y: arenaRect.height/2};
-const speed = 2; // adjust speed multiplier
+let dotPos = { x: arenaRect.width/2, y: arenaRect.height/2 };
 
 function updateDot() {
   dot.style.left = dotPos.x + 'px';
@@ -29,15 +32,11 @@ function updateDot() {
 }
 updateDot();
 
-function handleOrientation(event) {
-  const gamma = event.gamma || 0; // left-right tilt
-  const beta  = event.beta  || 0; // front-back tilt
-
-  // map tilt to velocity
-  dotPos.x += gamma * 0.5; 
-  dotPos.y += beta  * 0.5;
-
-  // clamp inside arena
+function handleOrientation(e) {
+  const gamma = e.gamma || 0; // left-right
+  const beta = e.beta || 0;   // front-back
+  dotPos.x += gamma * 0.5;
+  dotPos.y += beta * 0.5;
   dotPos.x = Math.max(18, Math.min(arenaRect.width-18, dotPos.x));
   dotPos.y = Math.max(18, Math.min(arenaRect.height-18, dotPos.y));
 }
@@ -45,39 +44,26 @@ function handleOrientation(event) {
 async function enableGyro() {
   if(typeof DeviceOrientationEvent !== 'undefined' &&
      typeof DeviceOrientationEvent.requestPermission === 'function'){
-    try{
+    try {
       const res = await DeviceOrientationEvent.requestPermission();
-      if(res === 'granted'){
+      if(res==='granted'){
         window.addEventListener('deviceorientation', handleOrientation);
+        btn.style.display='none';
       } else {
-        alert('Gyro permission denied');
+        alert('Permission denied');
       }
-    }catch(err){
-      alert('Error requesting gyro permission');
+    } catch(err) {
+      alert('Error requesting permission');
     }
   } else {
     window.addEventListener('deviceorientation', handleOrientation);
+    btn.style.display='none';
   }
 }
 
-const btn = document.createElement('button');
-btn.innerText = "Enable Gyro";
-btn.style.position="absolute";
-btn.style.left="50%";
-btn.style.top="50%";
-btn.style.transform="translate(-50%,-50%)";
-btn.style.padding="12px 18px";
-btn.style.fontSize="16px";
-arena.appendChild(btn);
-btn.addEventListener('click', ()=>{
-  enableGyro();
-  btn.remove();
-});
+btn.addEventListener('click', enableGyro);
 
-// resize handler
-window.addEventListener('resize', ()=>{
-  arenaRect = arena.getBoundingClientRect();
-});
+window.addEventListener('resize', () => { arenaRect = arena.getBoundingClientRect(); });
 </script>
 </body>
 </html>
