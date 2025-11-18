@@ -3,17 +3,21 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Gyro Dot Test</title>
+<title>Gyro Dot Target MVP</title>
 <style>
-html, body { margin:0; padding:0; height:100%; width:100%; display:flex; justify-content:center; align-items:center; background:#f7f7f9; }
+html, body { margin:0; padding:0; height:100%; width:100%; display:flex; justify-content:center; align-items:center; background:#f7f7f9; font-family:sans-serif; }
 #arena { position:relative; width:100%; height:100%; background:#eee; }
-#dot { position:absolute; width:36px; height:36px; border-radius:50%; background:#0575e6; transform:translate(-50%,-50%); top:50%; left:50%; }
+#dot { position:absolute; width:36px; height:36px; border-radius:50%; background:#0575e6; transform:translate(-50%,-50%); }
 #btn { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); padding:12px 18px; font-size:16px; z-index:10; }
+#scoreDisplay { position:absolute; top:12px; left:12px; font-size:20px; font-weight:600; color:#111; background:rgba(255,255,255,0.7); padding:6px 12px; border-radius:8px; }
+canvas { position:absolute; left:0; top:0; }
 </style>
 </head>
 <body>
 <div id="arena">
+  <canvas id="targetCanvas"></canvas>
   <div id="dot"></div>
+  <div id="scoreDisplay">Score: 0</div>
   <button id="btn">Enable Gyro</button>
 </div>
 
@@ -21,40 +25,90 @@ html, body { margin:0; padding:0; height:100%; width:100%; display:flex; justify
 const dot = document.getElementById('dot');
 const btn = document.getElementById('btn');
 const arena = document.getElementById('arena');
+const scoreDisplay = document.getElementById('scoreDisplay');
+const canvas = document.getElementById('targetCanvas');
+const ctx = canvas.getContext('2d');
 
 let arenaRect = arena.getBoundingClientRect();
+canvas.width = arenaRect.width;
+canvas.height = arenaRect.height;
+
 let dotPos = { x: arenaRect.width/2, y: arenaRect.height/2 };
 
+// ----- Target parameters -----
+const targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
+const ringRadii = [30, 60, 90]; // 3 rings
+const maxDistance = ringRadii[ringRadii.length-1]; // outermost ring
+const maxPointsPerSecond = 10;
+
+// ----- Scoring -----
+let score = 0;
+let lastTime = performance.now();
+
+// ----- Update loop -----
 function updateDot() {
-  dot.style.left = dotPos.x + 'px';
-  dot.style.top = dotPos.y + 'px';
+  // Draw target rings
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+  ctx.lineWidth = 2;
+  ringRadii.forEach(r => {
+    ctx.beginPath();
+    ctx.arc(targetCenter.x, targetCenter.y, r, 0, Math.PI*2);
+    ctx.stroke();
+  });
+  // Small center dot
+  ctx.fillStyle = '#ff5c5c';
+  ctx.beginPath();
+  ctx.arc(targetCenter.x, targetCenter.y, 6, 0, Math.PI*2);
+  ctx.fill();
+
+  // Continuous scoring
+  const now = performance.now();
+  const deltaTime = (now - lastTime)/1000; // seconds
+  lastTime = now;
+
+  const dx = dotPos.x - targetCenter.x;
+  const dy = dotPos.y - targetCenter.y;
+  const distance = Math.hypot(dx, dy);
+
+  let pointsThisFrame = 0;
+  if(distance <= maxDistance){
+    pointsThisFrame = maxPointsPerSecond * (1 - distance/maxDistance) * deltaTime;
+    score += pointsThisFrame;
+  }
+  scoreDisplay.textContent = 'Score: ' + Math.floor(score);
+
   requestAnimationFrame(updateDot);
 }
 updateDot();
 
-function handleOrientation(e) {
+// ----- Gyro control -----
+function handleOrientation(e){
   const gamma = e.gamma || 0; // left-right
   const beta = e.beta || 0;   // front-back
   dotPos.x += gamma * 0.5;
   dotPos.y += beta * 0.5;
+
+  // Clamp inside arena
   dotPos.x = Math.max(18, Math.min(arenaRect.width-18, dotPos.x));
   dotPos.y = Math.max(18, Math.min(arenaRect.height-18, dotPos.y));
+
+  // Update dot element
+  dot.style.left = dotPos.x + 'px';
+  dot.style.top = dotPos.y + 'px';
 }
 
-async function enableGyro() {
+// ----- Gyro enable -----
+async function enableGyro(){
   if(typeof DeviceOrientationEvent !== 'undefined' &&
      typeof DeviceOrientationEvent.requestPermission === 'function'){
-    try {
+    try{
       const res = await DeviceOrientationEvent.requestPermission();
       if(res==='granted'){
         window.addEventListener('deviceorientation', handleOrientation);
         btn.style.display='none';
-      } else {
-        alert('Permission denied');
-      }
-    } catch(err) {
-      alert('Error requesting permission');
-    }
+      } else alert('Permission denied');
+    }catch(err){ alert('Error requesting permission'); }
   } else {
     window.addEventListener('deviceorientation', handleOrientation);
     btn.style.display='none';
@@ -63,7 +117,14 @@ async function enableGyro() {
 
 btn.addEventListener('click', enableGyro);
 
-window.addEventListener('resize', () => { arenaRect = arena.getBoundingClientRect(); });
+// ----- Resize -----
+window.addEventListener('resize', ()=>{
+  arenaRect = arena.getBoundingClientRect();
+  canvas.width = arenaRect.width;
+  canvas.height = arenaRect.height;
+  targetCenter.x = arenaRect.width/2;
+  targetCenter.y = arenaRect.height/2;
+});
 </script>
 </body>
 </html>
