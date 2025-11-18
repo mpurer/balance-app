@@ -54,8 +54,7 @@
   </div>
 
   <footer>
-    <div class="small">Tips: On iOS you need to allow Motion & Orientation access.</div>
-    <div class="small">Controls fallback: drag the screen if sensors aren't available.</div>
+    <div class="small">Tips: On iOS allow Motion & Orientation access. Use touch fallback if gyro is unavailable.</div>
   </footer>
 </div>
 
@@ -76,10 +75,11 @@ let dot = { x: 0, y: 0, r: 18 };
 let target = { x: 100, y: 100, r: 14 };
 let score = 0;
 let vel = { x: 0, y: 0 };
-const smooth = 0.12;     // smoothing factor
-const sensitivity = 1.2; // tilt sensitivity
+const smooth = 0.12;
+const sensitivity = 0.6; // smoother, mobile-friendly
+let gyroActive = false;
 
-/* ---------- Setup after layout ---------- */
+/* ---------- Setup ---------- */
 function setup() {
   arenaRect = arena.getBoundingClientRect();
   dot.x = arenaRect.width / 2;
@@ -101,7 +101,6 @@ function updatePositions() {
   targetEl.style.left = (target.x - target.r) + 'px';
   targetEl.style.top = (target.y - target.r) + 'px';
 
-  // collision
   const dx = dot.x - target.x;
   const dy = dot.y - target.y;
   if (Math.hypot(dx, dy) < dot.r + target.r) {
@@ -122,11 +121,12 @@ function placeTargetRandom() {
 
 /* ---------- Gyroscope ---------- */
 function handleOrientation(event) {
-  let gamma = event.gamma ?? 0; 
-  let beta  = event.beta  ?? 0; 
+  if(!gyroActive) return;
+  const gamma = event.gamma ?? 0;
+  const beta  = event.beta ?? 0;
 
   let targetVelX = (gamma / 45) * sensitivity;
-  let targetVelY = (beta / 45) * sensitivity;
+  let targetVelY = (beta  / 45) * sensitivity;
 
   vel.x += (targetVelX - vel.x) * smooth;
   vel.y += (targetVelY - vel.y) * smooth;
@@ -135,46 +135,25 @@ function handleOrientation(event) {
   dot.y += vel.y;
 }
 
-/* ---------- Touch drag fallback ---------- */
+/* ---------- Touch fallback ---------- */
 let dragging = false;
-arena.addEventListener('pointerdown', (e) => {
-  dragging = true;
-  vel.x = vel.y = 0;
-});
-window.addEventListener('pointerup', () => dragging = false);
-arena.addEventListener('pointermove', (e) => {
-  if (!dragging) return;
+function touchStartHandler(e){ dragging=true; vel.x=0; vel.y=0; }
+function touchMoveHandler(e){
+  if(!dragging) return;
   const rect = arena.getBoundingClientRect();
-  dot.x = e.clientX - rect.left;
-  dot.y = e.clientY - rect.top;
-});
+  const t = e.touches[0];
+  dot.x = t.clientX - rect.left;
+  dot.y = t.clientY - rect.top;
+}
+function touchEndHandler(){ dragging=false; }
 
-/* ---------- iOS / Safari motion permission ---------- */
-async function enableMotionIfNeeded() {
-  messages.textContent = "";
-
-  if (typeof DeviceOrientationEvent !== "undefined" &&
-      typeof DeviceOrientationEvent.requestPermission === "function") {
-    try {
-      const res = await DeviceOrientationEvent.requestPermission();
-      if (res === "granted") {
-        window.addEventListener("deviceorientation", handleOrientation);
-        messages.textContent = "Gyro enabled. Tilt your device!";
-      } else {
-        messages.textContent = "Gyro permission denied. Use touch fallback.";
-      }
-    } catch (err) {
-      messages.textContent = "Permission error: " + err;
-    }
-    return;
-  }
-
-  // Non-iOS / fallback
-  window.addEventListener("deviceorientation", handleOrientation);
-  messages.textContent = "Gyro listener attached. Use tilt or touch.";
+function enableTouchFallback(){
+  arena.addEventListener('touchstart', touchStartHandler);
+  arena.addEventListener('touchmove', touchMoveHandler);
+  arena.addEventListener('touchend', touchEndHandler);
 }
 
-/* ---------- Start on first tap ---------- */
+/* ---------- Enable gyro on tap ---------- */
 function requestStartOnTap() {
   const startBtn = document.createElement('button');
   startBtn.textContent = 'Enable Motion (tap)';
@@ -182,7 +161,7 @@ function requestStartOnTap() {
   startBtn.style.left = '50%';
   startBtn.style.top = '50%';
   startBtn.style.transform = 'translate(-50%,-50%)';
-  startBtn.style.padding = '10px 14px';
+  startBtn.style.padding = '12px 16px';
   startBtn.style.borderRadius = '10px';
   startBtn.style.background = '#111';
   startBtn.style.color = '#fff';
@@ -191,20 +170,42 @@ function requestStartOnTap() {
 
   startBtn.addEventListener('click', async () => {
     arena.removeChild(startBtn);
-    await enableMotionIfNeeded();
+    // Request permission on iOS
+    if(typeof DeviceOrientationEvent !== 'undefined' &&
+       typeof DeviceOrientationEvent.requestPermission === 'function'){
+      try {
+        const res = await DeviceOrientationEvent.requestPermission();
+        if(res==='granted'){
+          gyroActive = true;
+          window.addEventListener('deviceorientation', handleOrientation);
+          messages.textContent = 'Gyro enabled. Tilt your device!';
+        } else {
+          messages.textContent = 'Gyro denied. Using touch fallback.';
+          enableTouchFallback();
+        }
+      } catch(err){
+        messages.textContent = 'Permission error. Using touch fallback.';
+        enableTouchFallback();
+      }
+    } else {
+      // Android / desktop fallback
+      gyroActive = true;
+      window.addEventListener('deviceorientation', handleOrientation);
+      messages.textContent = 'Gyro attached. Use tilt or touch.';
+    }
   });
 }
 requestStartOnTap();
 
 /* ---------- Leaderboard ---------- */
-const LB_KEY = 'tilt_dot_leaderboard_v1';
+const LB_KEY = 'tilt_dot_leaderboard_v2';
 
 function saveScoreLocal() {
   const name = (nameInput.value || 'Player').trim();
   const entry = { name, score, date: Date.now() };
   const list = JSON.parse(localStorage.getItem(LB_KEY) || '[]');
   list.push(entry);
-  list.sort((a,b) => b.score - a.score || a.date - b.date);
+  list.sort((a,b)=>b.score - a.score || a.date - b.date);
   localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0,20)));
   loadLeaderboard();
   messages.textContent = 'Score saved locally!';
@@ -213,7 +214,7 @@ function saveScoreLocal() {
 function loadLeaderboard() {
   const list = JSON.parse(localStorage.getItem(LB_KEY) || '[]');
   lbList.innerHTML = '';
-  for (const e of list) {
+  for(const e of list){
     const li = document.createElement('li');
     li.textContent = `${e.name} — ${e.score}`;
     lbList.appendChild(li);
@@ -221,16 +222,14 @@ function loadLeaderboard() {
 }
 
 /* ---------- Reset ---------- */
-resetBtn.addEventListener('click', () => {
-  if (!confirm('Reset local leaderboard?')) return;
+resetBtn.addEventListener('click', ()=>{
+  if(!confirm('Reset local leaderboard?')) return;
   localStorage.removeItem(LB_KEY);
   loadLeaderboard();
 });
 
 saveBtn.addEventListener('click', saveScoreLocal);
-nameInput.addEventListener('keyup', (e) => {
-  if (e.key === 'Enter') saveScoreLocal();
-});
+nameInput.addEventListener('keyup',(e)=>{ if(e.key==='Enter') saveScoreLocal(); });
 </script>
 </body>
 </html>
