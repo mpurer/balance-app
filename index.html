@@ -5,14 +5,32 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Gyro Dot Target Game</title>
 <style>
-html, body { margin:0; padding:0; height:100%; width:100%; display:flex; justify-content:center; align-items:center; background:#f7f7f9; font-family:sans-serif; }
-#arena { position:relative; width:100%; height:100%; background:#eee; overflow:hidden; }
-#dot { position:absolute; width:36px; height:36px; border-radius:50%; background:#0575e6; transform:translate(-50%,-50%); }
-#btn { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); padding:12px 18px; font-size:16px; z-index:10; }
-#scoreDisplay, #timerDisplay { position:absolute; font-size:20px; font-weight:600; color:#111; background:rgba(255,255,255,0.7); padding:6px 12px; border-radius:8px; }
+html, body {
+  margin:0; padding:0; height:100%; width:100%;
+  display:flex; justify-content:center; align-items:center;
+  background:#f7f7f9; font-family:sans-serif;
+}
+#arena {
+  position:relative; width:100%; height:100%; background:#eee; overflow:hidden;
+}
+#dot {
+  position:absolute; width:36px; height:36px; border-radius:50%; background:#0575e6;
+  transform:translate(-50%,-50%);
+}
+#btn {
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  padding:12px 18px; font-size:16px; z-index:10;
+}
+#scoreDisplay, #timerDisplay {
+  position:absolute; font-size:20px; font-weight:600; color:#111;
+  background:rgba(255,255,255,0.7); padding:6px 12px; border-radius:8px;
+}
 #scoreDisplay { top:12px; left:12px; }
 #timerDisplay { top:12px; right:12px; }
-#gameOver { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:48px; font-weight:700; color:#ff5c5c; display:none; }
+#gameOver {
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  font-size:48px; font-weight:700; color:#ff5c5c; display:none; text-align:center;
+}
 canvas { position:absolute; left:0; top:0; }
 </style>
 </head>
@@ -48,16 +66,16 @@ const ringRadii = [30, 60, 90];
 const maxDistance = ringRadii[ringRadii.length-1];
 const maxPointsPerSecond = 10;
 
-// ----- Scoring -----
+// ----- Game variables -----
 let score = 0;
-let lastTime = performance.now();
+let lastTime = 0;
 let timeLeft = 30; // seconds
-let gameActive = true;
+let gameActive = false;
 
 // ----- Update loop -----
 function update() {
   const now = performance.now();
-  const deltaTime = (now - lastTime)/1000;
+  const deltaTime = (lastTime ? (now - lastTime)/1000 : 0);
   lastTime = now;
 
   if(gameActive){
@@ -75,7 +93,7 @@ function update() {
     ctx.arc(targetCenter.x, targetCenter.y, 6, 0, Math.PI*2);
     ctx.fill();
 
-    // Scoring
+    // Continuous scoring
     const dx = dotPos.x - targetCenter.x;
     const dy = dotPos.y - targetCenter.y;
     const distance = Math.hypot(dx, dy);
@@ -101,17 +119,17 @@ update();
 function handleOrientation(e){
   if(!gameActive) return;
 
-  const gamma = e.gamma || 0; // left-right
-  const beta = e.beta || 0;   // front-back
+  const gamma = e.gamma || 0;
+  const beta  = e.beta  || 0;
   const angle = screen.orientation?.angle || window.orientation || 0;
 
   let moveX = 0, moveY = 0;
 
   switch(angle){
-    case 0:   moveX = gamma; moveY = beta; break; // portrait
-    case 90:  moveX = -beta; moveY = gamma; break; // landscape right
-    case -90: moveX = beta; moveY = -gamma; break; // landscape left
-    case 180: moveX = -gamma; moveY = -beta; break; // upside down
+    case 0:   moveX = gamma;  moveY = beta; break;      // portrait
+    case 90:  moveX = beta;   moveY = -gamma; break;    // landscape right
+    case -90: moveX = -beta;  moveY = gamma; break;     // landscape left
+    case 180: moveX = -gamma; moveY = -beta; break;     // upside down
     default: moveX = gamma; moveY = beta;
   }
 
@@ -125,7 +143,7 @@ function handleOrientation(e){
   dot.style.top = dotPos.y + 'px';
 }
 
-// ----- Gyro enable -----
+// ----- Enable gyro & start game -----
 async function enableGyro(){
   if(typeof DeviceOrientationEvent !== 'undefined' &&
      typeof DeviceOrientationEvent.requestPermission === 'function'){
@@ -134,11 +152,19 @@ async function enableGyro(){
       if(res==='granted'){
         window.addEventListener('deviceorientation', handleOrientation);
         btn.style.display='none';
+        lastTime = performance.now();
+        timeLeft = 30;
+        score = 0;
+        gameActive = true;
       } else alert('Permission denied');
     }catch(err){ alert('Error requesting permission'); }
   } else {
     window.addEventListener('deviceorientation', handleOrientation);
     btn.style.display='none';
+    lastTime = performance.now();
+    timeLeft = 30;
+    score = 0;
+    gameActive = true;
   }
 }
 
