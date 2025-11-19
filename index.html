@@ -2,188 +2,122 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no" />
-<title>Gyro Dot Target Game</title>
-
-<!-- Fullscreen & safe-area meta tags for iOS & Android (Option B) -->
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<!-- iOS Fullscreen Support -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="GyroGame">
+
+<!-- Android Chrome Fullscreen -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="GyroGame">
 <meta name="theme-color" content="#000000">
 
+<!-- General Mobile Settings -->
+<meta name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+
+<title>Gyro Dot Target Game</title>
 <style>
-/* Basic page reset and safe-area handling */
+/* Keep the original layout and look you had working */
 html, body {
   margin:0; padding:0; height:100%; width:100%;
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  background:#f7f7f9;
-  -webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;
-  /* padding to respect the notch / dynamic island on modern iPhones */
-  padding-top: env(safe-area-inset-top);
-  padding-right: env(safe-area-inset-right);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
+  display:flex; justify-content:center; align-items:center;
+  background:#f7f7f9; font-family:sans-serif;
 }
-
-/* Game container */
 #arena {
-  position:relative;
-  width:100%;
-  height:100%;
-  background:#eee;
-  overflow:hidden;
+  position:relative; width:100%; height:100%; background:#eee; overflow:hidden;
 }
-
-/* The controllable dot */
 #dot {
-  position:absolute;
-  width:36px;
-  height:36px;
-  border-radius:50%;
-  background:#0575e6;
+  position:absolute; width:36px; height:36px; border-radius:50%; background:#0575e6;
   transform:translate(-50%,-50%);
-  box-shadow:0 6px 12px rgba(5,117,230,0.25);
-  z-index:5;
 }
-
-/* Canvas for drawing the target & rings - sits under UI elements */
-canvas { position:absolute; left:0; top:0; z-index:1; }
-
-/* Buttons and HUD */
 #btn {
-  position:absolute;
-  left:50%;
-  top:50%;
-  transform:translate(-50%,-50%);
-  padding:12px 18px;
-  font-size:16px;
-  z-index:20;
-  border-radius:10px;
-  border:0;
-  background:#111;
-  color:white;
-  box-shadow:0 8px 18px rgba(0,0,0,0.15);
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  padding:12px 18px; font-size:16px; z-index:10;
 }
-
-/* Score and timer moved a bit lower to avoid notch */
 #scoreDisplay, #timerDisplay {
-  position:absolute;
-  font-size:18px;
-  font-weight:700;
-  color:#111;
-  background:rgba(255,255,255,0.85);
-  padding:8px 12px;
-  border-radius:10px;
-  z-index:20;
-  box-shadow:0 6px 12px rgba(0,0,0,0.06);
+  position:absolute; font-size:20px; font-weight:600; color:#111;
+  background:rgba(255,255,255,0.7); padding:6px 12px; border-radius:8px;
 }
-#scoreDisplay {
+/* moved down a bit to avoid notch, same as you requested earlier */
+#scoreDisplay { 
   top: calc(env(safe-area-inset-top) + 24px);
   left: 16px;
 }
-#timerDisplay {
+#timerDisplay { 
   top: calc(env(safe-area-inset-top) + 24px);
   right: 16px;
 }
+#gameOver {
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  font-size:48px; font-weight:700; color:#ff5c5c; display:none; text-align:center;
+}
+canvas { position:absolute; left:0; top:0; }
 
-/* Game over overlay (white screen with centered content) */
+/* NEW: overlay styles for white final screen (keeps everything else intact) */
 #gameOverOverlay {
+  display:none; /* show only when game ends */
   position:absolute;
-  inset:0;
-  background: #ffffff; /* white background for final screen */
-  display:none;
+  inset:0;             /* full cover of arena */
+  background:#ffffff;  /* white screen as requested */
+  z-index:50;          /* above canvas/dot */
+  display:flex;
   justify-content:center;
   align-items:center;
-  z-index:50;
-  padding:24px;
+  padding:20px;
   box-sizing:border-box;
 }
-
-/* Inner card for final score and leaderboards */
 #gameOverCard {
-  max-width:720px;
   width:100%;
+  max-width:640px;
   text-align:center;
-  padding:28px;
-  border-radius:14px;
-  box-shadow:0 18px 48px rgba(0,0,0,0.08);
-  background:transparent;
 }
-
-/* Final score text */
-#finalScore {
+#finalScoreBig {
   font-size:48px;
   font-weight:800;
   color:#111;
   margin-bottom:8px;
 }
+#overlayButtons { display:flex; justify-content:center; gap:12px; margin-top:12px; }
+.btnPrimary { background:#0575e6; color:white; border:none; padding:10px 14px; border-radius:10px; font-weight:700; }
+.btnSecondary { background:#f0f0f0; color:#111; border:none; padding:10px 14px; border-radius:10px; font-weight:700; }
 
-/* Buttons on final screen */
-.kv {
-  display:flex;
-  gap:12px;
-  justify-content:center;
-  margin-top:18px;
-}
-.primaryBtn, .secondaryBtn {
-  padding:10px 16px;
-  border-radius:10px;
-  border:0;
-  font-weight:700;
-  cursor:pointer;
-}
-.primaryBtn { background:#0575e6; color:#fff; }
-.secondaryBtn { background:#f0f0f0; color:#111; }
-
-/* Save name input (hidden until Save is clicked) */
-#saveNameWrap { margin-top:14px; display:none; justify-content:center; gap:8px; align-items:center; }
+#saveNameRow { margin-top:12px; display:none; justify-content:center; gap:8px; }
 #nameInput { padding:8px 10px; border-radius:8px; border:1px solid #ddd; min-width:180px; }
-
-/* Leaderboard list */
-#leaderboard { margin-top:18px; text-align:left; max-height:280px; overflow:auto; border-radius:8px; background:rgba(0,0,0,0.02); padding:8px; }
+#leaderboard { margin-top:16px; text-align:left; max-height:260px; overflow:auto; border-radius:8px; background:rgba(0,0,0,0.02); padding:8px; }
 #leaderboard ol { margin:0; padding:0 12px; }
 #leaderboard li { padding:8px 0; border-bottom:1px solid rgba(0,0,0,0.03); display:flex; justify-content:space-between; font-weight:600; }
-
 .smallNote { font-size:13px; color:#666; margin-top:8px; }
 </style>
 </head>
 <body>
 <div id="arena">
-  <!-- Canvas for target rings -->
   <canvas id="targetCanvas"></canvas>
-
-  <!-- The controllable dot -->
   <div id="dot"></div>
-
-  <!-- HUD -->
   <div id="scoreDisplay">Score: 0</div>
   <div id="timerDisplay">30</div>
-
-  <!-- Enable button -->
+  <div id="gameOver"></div>
   <button id="btn">Enable Gyro</button>
 
-  <!-- Game over / highscore overlay (white screen) -->
+  <!-- NEW: Game over overlay (white), contains final score, retry, save & leaderboard -->
   <div id="gameOverOverlay" aria-hidden="true">
     <div id="gameOverCard">
-      <div id="finalScore">Score: 0</div>
-      <!-- Retry and Save buttons -->
-      <div class="kv">
-        <button id="retryBtn" class="primaryBtn">Retry</button>
-        <button id="saveBtn" class="secondaryBtn">Save score</button>
+      <div id="finalScoreBig">Score: 0</div>
+      <div id="overlayButtons">
+        <button id="retryBtn" class="btnPrimary">Retry</button>
+        <button id="saveBtn" class="btnSecondary">Save score</button>
       </div>
 
-      <!-- Save name UI (appears when Save score clicked) -->
-      <div id="saveNameWrap">
+      <!-- Save name input (revealed when Save clicked) -->
+      <div id="saveNameRow">
         <input id="nameInput" placeholder="Your name" />
-        <button id="confirmSave" class="primaryBtn">Save</button>
+        <button id="confirmSave" class="btnPrimary">Save</button>
       </div>
 
-      <!-- Leaderboard display -->
+      <!-- Leaderboard -->
       <div id="leaderboard" aria-live="polite">
-        <div style="font-weight:800; margin-bottom:6px;">Leaderboard</div>
+        <div style="font-weight:800; margin-bottom:8px;">Leaderboard</div>
         <ol id="lbList"></ol>
       </div>
 
@@ -193,71 +127,73 @@ canvas { position:absolute; left:0; top:0; z-index:1; }
 </div>
 
 <script>
-/* --------------------------
-   Configuration & Constants
-   -------------------------- */
-const SENSITIVITY = 0.4;     // tune this (0.3 stable - 0.6 reactive)
-const GAME_DURATION = 30;    // seconds
-const LB_KEY = 'gyrogame_local_leaderboard_v1'; // localStorage key for leaderboard
-const DOT_RADIUS = 18;       // half of dot size (36px)
+/* ===========
+   Constants / config
+   =========== */
+const LB_KEY = 'tilt_dot_leaderboard_v2'; // localStorage key
+const SENSITIVITY = 0.8; // keep your working sensitivity (you used 0.8 here)
+const DOT_RADIUS = 18; // half the dot size (36px)
+const GAME_DURATION = 30; // seconds
+const ringRadii = [30, 60, 90];
+const maxPointsPerSecond = 10;
 
-/* --------------------------
-   DOM references
-   -------------------------- */
-const arena = document.getElementById('arena');
-const canvas = document.getElementById('targetCanvas');
-const ctx = canvas.getContext('2d');
-const dotEl = document.getElementById('dot');
+/* ===========
+   DOM refs (original ones kept)
+   =========== */
+const dot = document.getElementById('dot');
 const btn = document.getElementById('btn');
+const arena = document.getElementById('arena');
 const scoreDisplay = document.getElementById('scoreDisplay');
 const timerDisplay = document.getElementById('timerDisplay');
+const gameOverEl = document.getElementById('gameOver'); // kept for compatibility
+const canvas = document.getElementById('targetCanvas');
+const ctx = canvas.getContext('2d');
+
+/* ===========
+   New overlay elements
+   =========== */
 const overlay = document.getElementById('gameOverOverlay');
-const finalScoreEl = document.getElementById('finalScore');
+const finalScoreBig = document.getElementById('finalScoreBig');
 const retryBtn = document.getElementById('retryBtn');
 const saveBtn = document.getElementById('saveBtn');
-const saveNameWrap = document.getElementById('saveNameWrap');
+const saveNameRow = document.getElementById('saveNameRow');
 const nameInput = document.getElementById('nameInput');
 const confirmSave = document.getElementById('confirmSave');
 const lbList = document.getElementById('lbList');
 
-/* --------------------------
-   Game state
-   -------------------------- */
+/* ===========
+   State
+   =========== */
 let arenaRect = arena.getBoundingClientRect();
 canvas.width = arenaRect.width;
 canvas.height = arenaRect.height;
 
 let dotPos = { x: arenaRect.width/2, y: arenaRect.height/2 };
+
+// target center stays static in this baseline (levels can move it later)
 let targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
-const ringRadii = [30, 60, 90];
-const maxDistance = ringRadii[ringRadii.length - 1];
-const maxPointsPerSecond = 10;
+const maxDistance = ringRadii[ringRadii.length-1];
 
 let score = 0;
 let lastTime = 0;
 let timeLeft = GAME_DURATION;
 let gameActive = false;
 
-/* --------------------------
-   Helper: Leaderboard storage
-   -------------------------- */
+/* ===========
+   Leaderboard helpers (localStorage)
+   =========== */
 function loadLeaderboard() {
   const list = JSON.parse(localStorage.getItem(LB_KEY) || '[]');
-  // sort descending by score, newest first for ties
-  list.sort((a,b)=> b.score - a.score || b.date - a.date);
+  list.sort((a,b)=> b.score - a.score || a.date - b.date);
   return list;
 }
-
 function saveLocalScore(name, scoreValue) {
   const list = loadLeaderboard();
-  list.push({ name: name || 'Player', score: Math.floor(scoreValue), date: Date.now() });
-  // keep top 50
+  list.push({ name: (name || 'Player'), score: Math.floor(scoreValue), date: Date.now() });
   list.sort((a,b)=> b.score - a.score || a.date - b.date);
   localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0,50)));
 }
-
-/* Refresh leaderboard UI (used on overlay) */
-function renderLeaderboard() {
+function renderLeaderboard(){
   const list = loadLeaderboard();
   lbList.innerHTML = '';
   if(list.length === 0){
@@ -267,62 +203,51 @@ function renderLeaderboard() {
     return;
   }
   let place = 1;
-  for(const entry of list.slice(0,20)){
+  for(const e of list.slice(0,20)){
     const li = document.createElement('li');
-    li.style.display = 'flex';
-    li.style.justifyContent = 'space-between';
-    li.innerHTML = `<span style="font-weight:800">#${place} — ${escapeHtml(entry.name)}</span><span>${entry.score}</span>`;
+    li.innerHTML = `<span> #${place} ${escapeHtml(e.name)} </span><span>${e.score}</span>`;
     lbList.appendChild(li);
     place++;
   }
 }
-
-/* small utility to avoid raw HTML injection */
 function escapeHtml(str){
   if(!str) return '';
   return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 }
 
-/* --------------------------
-   Drawing: target rings + center
-   -------------------------- */
-function drawTarget(currentCenter){
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = 'rgba(0,0,0,0.14)';
+/* ===========
+   Drawing & update loop (kept exactly as in working code)
+   =========== */
+function drawTargetAndRings(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
   ctx.lineWidth = 2;
   ringRadii.forEach(r => {
     ctx.beginPath();
-    ctx.arc(currentCenter.x, currentCenter.y, r, 0, Math.PI*2);
+    ctx.arc(targetCenter.x, targetCenter.y, r, 0, Math.PI*2);
     ctx.stroke();
   });
-  // center small dot
   ctx.fillStyle = '#ff5c5c';
   ctx.beginPath();
-  ctx.arc(currentCenter.x, currentCenter.y, 6, 0, Math.PI*2);
+  ctx.arc(targetCenter.x, targetCenter.y, 6, 0, Math.PI*2);
   ctx.fill();
 }
 
-/* --------------------------
-   Main update loop
-   - draws target
-   - updates score and timer while gameActive
-   -------------------------- */
-function update(){
+function update() {
   const now = performance.now();
   const deltaTime = (lastTime ? (now - lastTime)/1000 : 0);
   lastTime = now;
 
-  // draw target (only visible while gameActive)
   if(gameActive){
-    drawTarget(targetCenter);
+    // Draw target
+    drawTargetAndRings();
 
-    // scoring: continuous based on distance to center
+    // scoring
     const dx = dotPos.x - targetCenter.x;
     const dy = dotPos.y - targetCenter.y;
     const distance = Math.hypot(dx, dy);
-
     if(distance <= maxDistance){
-      score += maxPointsPerSecond * (1 - distance / maxDistance) * deltaTime;
+      score += maxPointsPerSecond * (1 - distance/maxDistance) * deltaTime;
     }
     scoreDisplay.textContent = 'Score: ' + Math.floor(score);
 
@@ -335,26 +260,23 @@ function update(){
     timerDisplay.textContent = Math.ceil(timeLeft);
   }
 
-  // Update dot element position every frame (keeps UI smooth)
-  dotEl.style.left = dotPos.x + 'px';
-  dotEl.style.top = dotPos.y + 'px';
-
   requestAnimationFrame(update);
 }
-requestAnimationFrame(update);
+update(); // start the loop
 
-/* --------------------------
-   Gyro handler (orientation-aware)
-   - maps gamma/beta to X/Y based on orientation
-   - sensitivity multiplier applied via SENSITIVITY
-   -------------------------- */
+/* ===========
+   Gyro handler (KEEP the axis mapping you said works)
+   =========== */
 function handleOrientation(e){
   if(!gameActive) return;
+
   const gamma = e.gamma || 0;
-  const beta = e.beta || 0;
+  const beta  = e.beta  || 0;
   const angle = screen.orientation?.angle || window.orientation || 0;
 
   let moveX = 0, moveY = 0;
+
+  // THIS MAPPING IS THE ONE YOU HAD IN THE 'working' CODE YOU SENT
   switch(angle){
     case 0:   moveX = gamma;  moveY = beta; break;      // portrait
     case 90:  moveX = beta;   moveY = -gamma; break;    // landscape right
@@ -363,157 +285,141 @@ function handleOrientation(e){
     default: moveX = gamma; moveY = beta;
   }
 
-  // Apply sensitivity and move the dot
+  // apply sensitivity exactly as you had (keeps feel identical)
   dotPos.x += moveX * SENSITIVITY;
   dotPos.y += moveY * SENSITIVITY;
 
-  // Clamp inside arena bounds (so dot can't leave screen)
-  dotPos.x = Math.max(DOT_RADIUS, Math.min(arenaRect.width - DOT_RADIUS, dotPos.x));
-  dotPos.y = Math.max(DOT_RADIUS, Math.min(arenaRect.height - DOT_RADIUS, dotPos.y));
+  // clamp inside arena
+  dotPos.x = Math.max(DOT_RADIUS, Math.min(arenaRect.width- DOT_RADIUS, dotPos.x));
+  dotPos.y = Math.max(DOT_RADIUS, Math.min(arenaRect.height- DOT_RADIUS, dotPos.y));
+
+  // update dot element immediately (so UI is snappy)
+  dot.style.left = dotPos.x + 'px';
+  dot.style.top = dotPos.y + 'px';
 }
 
-/* --------------------------
-   Enable gyro & start the game
-   - request permission on iOS if needed
-   - start timer & scoring after the user taps
-   -------------------------- */
-async function enableGyroAndStart(){
-  // if already active, ignore
-  if(gameActive) return;
-
-  // Request permission on iOS 13+ if function exists
+/* ===========
+   Enable gyro & start game (keeps your existing flow)
+   =========== */
+async function enableGyro(){
   if(typeof DeviceOrientationEvent !== 'undefined' &&
      typeof DeviceOrientationEvent.requestPermission === 'function'){
-    try {
+    try{
       const res = await DeviceOrientationEvent.requestPermission();
-      if(res !== 'granted'){
-        alert('Gyroscope permission denied. Game requires motion access.');
-        return;
+      if(res==='granted'){
+        window.addEventListener('deviceorientation', handleOrientation);
+        btn.style.display='none';
+        lastTime = performance.now();
+        timeLeft = GAME_DURATION;
+        score = 0;
+        gameActive = true;
+      } else {
+        alert('Permission denied');
       }
-    } catch(err){
-      alert('Error requesting gyroscope permission.');
-      return;
+    }catch(err){
+      alert('Error requesting permission');
     }
+  } else {
+    window.addEventListener('deviceorientation', handleOrientation);
+    btn.style.display='none';
+    lastTime = performance.now();
+    timeLeft = GAME_DURATION;
+    score = 0;
+    gameActive = true;
   }
-
-  // Attach listener and reset state
-  window.addEventListener('deviceorientation', handleOrientation);
-  btn.style.display = 'none'; // hide the enable button now
-  // reset & start
-  lastTime = performance.now();
-  timeLeft = GAME_DURATION;
-  score = 0;
-  gameActive = true;
-
-  // (Re-center dot and target for a fresh start)
-  arenaRect = arena.getBoundingClientRect();
-  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
-  dotPos = { x: arenaRect.width/2, y: arenaRect.height/2 };
-  overlay.style.display = 'none';
-  overlay.setAttribute('aria-hidden','true');
-  renderLeaderboard(); // pre-load leaderboard behind the scenes
 }
+btn.addEventListener('click', enableGyro);
 
-/* Click handler for enable button */
-btn.addEventListener('click', enableGyroAndStart);
-
-/* --------------------------
-   End game: display overlay, stop scoring & input
-   -------------------------- */
+/* ===========
+   End game: show overlay and hide game visuals (white screen)
+   =========== */
 function endGame(){
   gameActive = false;
-  // optionally remove the event listener to avoid further input (safe)
+  // remove orientation listener so no further movement happens
   window.removeEventListener('deviceorientation', handleOrientation);
 
-  // Show final overlay (white) and hide game visuals by clearing canvas & dot
+  // clear canvas (remove target) and hide the dot to get solid white background
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  dotEl.style.display = 'none';
+  dot.style.display = 'none';
+
+  // show overlay with leaderboard & save/retry
+  finalScoreBig.textContent = 'Score: ' + Math.floor(score);
   overlay.style.display = 'flex';
   overlay.setAttribute('aria-hidden','false');
 
-  finalScoreEl.textContent = 'Score: ' + Math.floor(score);
-  // Render leaderboard (in case someone saved before)
+  // populate leaderboard area (so player can immediately save or view)
   renderLeaderboard();
 }
 
-/* --------------------------
-   Retry button: restart game
-   - resets game state and re-show dot & enable button
-   -------------------------- */
+/* ===========
+   Retry: restore UI & reset state (keeps layout intact)
+   =========== */
 retryBtn.addEventListener('click', () => {
-  // reset and prepare to start again
-  dotEl.style.display = 'block';
-  btn.style.display = 'block';
+  // hide overlay, show dot and enable button again
   overlay.style.display = 'none';
   overlay.setAttribute('aria-hidden','true');
-  // Reset UI and internal state
+  dot.style.display = 'block';
+  btn.style.display = 'block';
+
+  // reset internal state
+  arenaRect = arena.getBoundingClientRect();
+  canvas.width = arenaRect.width;
+  canvas.height = arenaRect.height;
+
+  targetCenter.x = arenaRect.width/2;
+  targetCenter.y = arenaRect.height/2;
+
+  dotPos = { x: arenaRect.width/2, y: arenaRect.height/2 };
   score = 0;
   timeLeft = GAME_DURATION;
-  lastTime = 0;
   scoreDisplay.textContent = 'Score: 0';
   timerDisplay.textContent = String(GAME_DURATION);
-  // Re-center dot (so player starts fresh)
-  arenaRect = arena.getBoundingClientRect();
-  dotPos = { x: arenaRect.width/2, y: arenaRect.height/2 };
-  // Hide save-name UI in case shown
-  saveNameWrap.style.display = 'none';
+
+  // hide save name row if visible
+  saveNameRow.style.display = 'none';
   nameInput.value = '';
 });
 
-/* --------------------------
-   Save Score flow
-   - clicking Save score reveals input
-   - confirm saves to localStorage and updates leaderboard
-   -------------------------- */
+/* ===========
+   Save score flow: show input, save to localStorage when confirmed
+   =========== */
 saveBtn.addEventListener('click', () => {
-  saveNameWrap.style.display = 'flex';
+  saveNameRow.style.display = 'flex';
   nameInput.focus();
 });
-
 confirmSave.addEventListener('click', () => {
   const name = (nameInput.value || 'Player').trim();
-  if(name.length === 0) {
+  if(name.length === 0){
     alert('Please enter a name to save your score.');
     nameInput.focus();
     return;
   }
   saveLocalScore(name, score);
-  saveNameWrap.style.display = 'none';
+  saveNameRow.style.display = 'none';
   nameInput.value = '';
   renderLeaderboard();
   alert('Score saved!');
 });
+nameInput.addEventListener('keyup', (e)=> { if(e.key === 'Enter') confirmSave.click(); });
 
-/* Allow Enter key to confirm save in input */
-nameInput.addEventListener('keyup', (e) => {
-  if(e.key === 'Enter') confirmSave.click();
-});
-
-/* --------------------------
-   Resize handling
-   - keep canvas and positions correct on rotation / size change
-   -------------------------- */
-window.addEventListener('resize', () => {
+/* ===========
+   Resize handling (keeps your original resizing)
+   =========== */
+window.addEventListener('resize', ()=>{
   arenaRect = arena.getBoundingClientRect();
   canvas.width = arenaRect.width;
   canvas.height = arenaRect.height;
-  // recenter target to new center
-  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
-  // clamp dot inside new bounds
-  dotPos.x = Math.max(DOT_RADIUS, Math.min(arenaRect.width - DOT_RADIUS, dotPos.x));
-  dotPos.y = Math.max(DOT_RADIUS, Math.min(arenaRect.height - DOT_RADIUS, dotPos.y));
+  targetCenter.x = arenaRect.width/2;
+  targetCenter.y = arenaRect.height/2;
 });
 
-/* --------------------------
-   Initialize: render leaderboard & set initial HUD
-   -------------------------- */
+/* ===========
+   Small init: render LB & place dot
+   =========== */
 (function init(){
   renderLeaderboard();
-  scoreDisplay.textContent = 'Score: 0';
-  timerDisplay.textContent = String(GAME_DURATION);
-  // initial dot placement
-  dotEl.style.left = dotPos.x + 'px';
-  dotEl.style.top = dotPos.y + 'px';
+  dot.style.left = dotPos.x + 'px';
+  dot.style.top = dotPos.y + 'px';
 })();
 </script>
 </body>
