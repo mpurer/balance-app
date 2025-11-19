@@ -65,14 +65,15 @@ canvas { position:absolute; left:0; top:0; }
 </div>
 
 <script>
-/* Config */
-const LB_KEY = 'tilt_dot_leaderboard_v6';
+/* --- Config --- */
+const LB_KEY = 'tilt_dot_leaderboard_v7';
 const GAME_DURATION = 30;
 const DOT_RADIUS = 18;
-const MAX_TILT = 30; // degrees that maps to full arena
-const ringRadii = [30, 60, 90];
+const MAX_TILT = 30; // degrees for full arena movement
+const ringRadii = [30,60,90];
 const maxPointsPerSecond = 10;
 
+/* --- DOM elements --- */
 const dot = document.getElementById('dot');
 const btn = document.getElementById('btn');
 const calibrateBtn = document.getElementById('calibrateBtn');
@@ -90,97 +91,124 @@ const nameInput = document.getElementById('nameInput');
 const confirmSave = document.getElementById('confirmSave');
 const lbList = document.getElementById('lbList');
 
-/* State */
+/* --- State --- */
 let arenaRect = arena.getBoundingClientRect();
-canvas.width = arenaRect.width;
-canvas.height = arenaRect.height;
+canvas.width = arenaRect.width; canvas.height = arenaRect.height;
 
-let dotPos = { x: arenaRect.width/2, y: arenaRect.height/2 };
-let dotPos0 = { x: dotPos.x, y: dotPos.y };
-let targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
+let dotPos = {x:arenaRect.width/2, y:arenaRect.height/2};
+let dotPos0 = {...dotPos};
+let beta0=0, gamma0=0;
+let targetCenter={x:arenaRect.width/2, y:arenaRect.height/2};
 const maxDistance = ringRadii[ringRadii.length-1];
 
-let score = 0;
-let lastTime = 0;
-let timeLeft = GAME_DURATION;
-let gameActive = false;
-
-let beta0 = 0, gamma0 = 0;
+let score=0, lastTime=0, timeLeft=GAME_DURATION, gameActive=false;
 const isiPad = /iPad/.test(navigator.userAgent);
 
-/* Leaderboard */
+/* --- Leaderboard helpers --- */
 function loadLeaderboard(){ const list=JSON.parse(localStorage.getItem(LB_KEY)||'[]'); return list.sort((a,b)=>b.score-b.score || a.date-b.date); }
-function saveLocalScore(name, scoreValue){ const list=loadLeaderboard(); list.push({name:(name||'Player'), score:Math.floor(scoreValue), date:Date.now()}); list.sort((a,b)=>b.score-b.score || a.date-b.date); localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0,50))); }
+function saveLocalScore(name,scoreValue){ const list=loadLeaderboard(); list.push({name:(name||'Player'), score:Math.floor(scoreValue), date:Date.now()}); list.sort((a,b)=>b.score-b.score || a.date-b.date); localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0,50))); }
 function renderLeaderboard(){ const list=loadLeaderboard(); lbList.innerHTML=''; if(list.length===0){ const li=document.createElement('li'); li.textContent='No scores yet — be the first!'; lbList.appendChild(li); return; } let place=1; for(const e of list.slice(0,20)){ const li=document.createElement('li'); li.innerHTML=`<span>#${place} ${escapeHtml(e.name)}</span><span>${e.score}</span>`; lbList.appendChild(li); place++; } }
 function escapeHtml(str){ return String(str||'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
 
-/* Draw target */
+/* --- Draw target --- */
 function drawTargetAndRings(){ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.strokeStyle='rgba(0,0,0,0.2)'; ctx.lineWidth=2; ringRadii.forEach(r=>{ ctx.beginPath(); ctx.arc(targetCenter.x,targetCenter.y,r,0,Math.PI*2); ctx.stroke(); }); ctx.fillStyle='#ff5c5c'; ctx.beginPath(); ctx.arc(targetCenter.x,targetCenter.y,6,0,Math.PI*2); ctx.fill(); }
 
-/* Update loop */
+/* --- Update loop --- */
 function clamp(val,min,max){ return Math.min(Math.max(val,min),max); }
-function update(){ const now=performance.now(); const deltaTime=(lastTime?(now-lastTime)/1000:0); lastTime=now; if(gameActive){ drawTargetAndRings(); const dx=dotPos.x-targetCenter.x; const dy=dotPos.y-targetCenter.y; const distance=Math.hypot(dx,dy); if(distance<=maxDistance) score += maxPointsPerSecond*(1-distance/maxDistance)*deltaTime; scoreDisplay.textContent='Score: '+Math.floor(score); timeLeft -= deltaTime; if(timeLeft<=0){ timeLeft=0; endGame(); } timerDisplay.textContent=Math.ceil(timeLeft); } requestAnimationFrame(update); }
+function update(){ const now=performance.now(); const deltaTime=(lastTime?(now-lastTime)/1000:0); lastTime=now; 
+  if(gameActive){
+    drawTargetAndRings();
+    const dx = dotPos.x - targetCenter.x;
+    const dy = dotPos.y - targetCenter.y;
+    const distance = Math.hypot(dx,dy);
+    if(distance<=maxDistance) score += maxPointsPerSecond*(1-distance/maxDistance)*deltaTime;
+    scoreDisplay.textContent='Score: '+Math.floor(score);
+    timeLeft -= deltaTime;
+    if(timeLeft<=0){ timeLeft=0; endGame(); }
+    timerDisplay.textContent=Math.ceil(timeLeft);
+  }
+  requestAnimationFrame(update);
+}
 update();
 
-/* Gyro handler */
+/* --- Gyroscope handler --- */
 function handleOrientation(e){
   if(!gameActive) return;
   let beta = (e.beta||0) - beta0;
   let gamma = (e.gamma||0) - gamma0;
   const angle = screen.orientation?.angle || window.orientation || 0;
   let dx=0, dy=0;
-  switch(angle){ case 0: dx=gamma; dy=beta; break; case 90: dx=beta; dy=-gamma; break; case -90: dx=-beta; dy=gamma; break; case 180: dx=-gamma; dy=-beta; break; default: dx=gamma; dy=beta; }
+  switch(angle){
+    case 0: dx=gamma; dy=beta; break; 
+    case 90: dx=beta; dy=-gamma; break; 
+    case -90: dx=-beta; dy=gamma; break; 
+    case 180: dx=-gamma; dy=-beta; break; 
+    default: dx=gamma; dy=beta;
+  }
   if(isiPad && angle===0) [dx,dy]=[dy,-dx];
   dotPos.x = clamp(dotPos0.x + (dx/MAX_TILT)*arenaRect.width, DOT_RADIUS, arenaRect.width-DOT_RADIUS);
   dotPos.y = clamp(dotPos0.y + (dy/MAX_TILT)*arenaRect.height, DOT_RADIUS, arenaRect.height-DOT_RADIUS);
-  dot.style.left=dotPos.x+'px'; dot.style.top=dotPos.y+'px';
+  dot.style.left = dotPos.x+'px'; dot.style.top = dotPos.y+'px';
 }
 
-/* Enable gyro */
-async function enableGyro(){ if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){ try{ const res=await DeviceOrientationEvent.requestPermission(); if(res==='granted'){ btn.style.display='none'; calibrateBtn.style.display='block'; window.addEventListener('deviceorientation',handleOrientation); } else alert('Permission denied'); }catch(err){ alert('Error requesting permission'); } } else { btn.style.display='none'; calibrateBtn.style.display='block'; window.addEventListener('deviceorientation',handleOrientation); } }
+/* --- Enable gyro --- */
+async function enableGyro(){ 
+  if(window.innerHeight>window.innerWidth){
+    alert("Please rotate your device to landscape mode!");
+  }
+  if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+    try{
+      const res = await DeviceOrientationEvent.requestPermission();
+      if(res==='granted'){ btn.style.display='none'; calibrateBtn.style.display='block'; window.addEventListener('deviceorientation',handleOrientation); }
+      else alert('Permission denied');
+    }catch(err){ alert('Error requesting permission'); }
+  } else { btn.style.display='none'; calibrateBtn.style.display='block'; window.addEventListener('deviceorientation',handleOrientation); }
+}
 btn.addEventListener('click',enableGyro);
 
-/* Calibrate */
-calibrateBtn.addEventListener('click', e=>{
-  beta0=0; gamma0=0;
-  dotPos0={x:dotPos.x, y:dotPos.y};
+/* --- Calibrate to center --- */
+calibrateBtn.addEventListener('click',e=>{
+  beta0 = 0; gamma0 = 0;
+  dotPos0 = {x:arenaRect.width/2, y:arenaRect.height/2};
+  dotPos = {...dotPos0};
+  dot.style.left = dotPos.x+'px'; dot.style.top = dotPos.y+'px';
   calibrateBtn.style.display='none';
-  lastTime=performance.now(); timeLeft=GAME_DURATION; score=0;
-  gameActive=true;
+  lastTime = performance.now(); timeLeft = GAME_DURATION; score=0; gameActive=true;
 });
 
-/* End game */
+/* --- End game --- */
 function endGame(){ gameActive=false; finalScoreBig.textContent='Score: '+Math.floor(score); overlay.style.display='flex'; overlay.setAttribute('aria-hidden','false'); renderLeaderboard(); }
 
-/* Retry */
+/* --- Retry --- */
 retryBtn.addEventListener('click',()=>{
   overlay.style.display='none'; overlay.setAttribute('aria-hidden','true');
   dot.style.display='block'; btn.style.display='block';
   arenaRect=arena.getBoundingClientRect(); canvas.width=arenaRect.width; canvas.height=arenaRect.height;
-  targetCenter={x:arenaRect.width/2,y:arenaRect.height/2};
-  dotPos={x:arenaRect.width/2,y:arenaRect.height/2};
-  dotPos0={x:dotPos.x,y:dotPos.y};
+  targetCenter={x:arenaRect.width/2, y:arenaRect.height/2};
+  dotPos={x:arenaRect.width/2, y:arenaRect.height/2};
+  dotPos0={x:dotPos.x, y:dotPos.y};
   score=0; timeLeft=GAME_DURATION; scoreDisplay.textContent='Score:0'; timerDisplay.textContent=GAME_DURATION;
   saveNameRow.style.display='none'; nameInput.value='';
 });
 
-/* Save score */
+/* --- Save score --- */
 saveBtn.addEventListener('click',()=>{ saveNameRow.style.display='flex'; nameInput.focus(); });
 confirmSave.addEventListener('click',()=>{
   const name=(nameInput.value||'Player').trim();
   if(name.length===0){ alert('Please enter a name'); nameInput.focus(); return; }
   saveLocalScore(name,score); saveNameRow.style.display='none'; nameInput.value=''; renderLeaderboard(); alert('Score saved!');
 });
-nameInput.addEventListener('keyup', e=>{ if(e.key==='Enter') confirmSave.click(); });
+nameInput.addEventListener('keyup',e=>{ if(e.key==='Enter') confirmSave.click(); });
 
-/* Resize */
+/* --- Resize --- */
 window.addEventListener('resize', ()=>{
   arenaRect=arena.getBoundingClientRect(); canvas.width=arenaRect.width; canvas.height=arenaRect.height;
-  targetCenter={x:arenaRect.width/2,y:arenaRect.height/2};
+  targetCenter={x:arenaRect.width/2, y:arenaRect.height/2};
 });
 
-/* Init */
+/* --- Init --- */
 (function init(){ dot.style.left=dotPos.x+'px'; dot.style.top=dotPos.y+'px'; overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); calibrateBtn.style.display='none'; })();
 </script>
+
 </body>
 </html>
