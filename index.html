@@ -2,18 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<!-- iOS Fullscreen Support -->
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no, orientation=landscape" />
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="GyroGame">
-<!-- Android Chrome Fullscreen -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="GyroGame">
 <meta name="theme-color" content="#000000">
 <title>Gyro Dot Target Game</title>
 <style>
-/* -------------------- Base layout -------------------- */
 html, body {
   margin:0; padding:0; height:100%; width:100%;
   display:flex; justify-content:center; align-items:center;
@@ -26,7 +23,7 @@ html, body {
   position:absolute; width:36px; height:36px; border-radius:50%; background:#0575e6;
   transform:translate(-50%,-50%);
 }
-#btn {
+#btn, #calibrateBtn {
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   padding:12px 18px; font-size:16px; z-index:10;
 }
@@ -34,22 +31,15 @@ html, body {
   position:absolute; font-size:20px; font-weight:600; color:#111;
   background:rgba(255,255,255,0.7); padding:6px 12px; border-radius:8px;
 }
-/* moved down a bit for safe-area / notch */
-#scoreDisplay { 
-  top: calc(env(safe-area-inset-top) + 24px);
-  left: 16px;
-}
-#timerDisplay { 
-  top: calc(env(safe-area-inset-top) + 24px);
-  right: 16px;
-}
+#scoreDisplay { top: calc(env(safe-area-inset-top) + 36px); left:16px; }
+#timerDisplay { top: calc(env(safe-area-inset-top) + 36px); right:16px; }
 canvas { position:absolute; left:0; top:0; }
 
 /* -------------------- Game over overlay -------------------- */
 #gameOverOverlay {
-  display:none; /* show only when game ends */
+  display:none;
   position:absolute; inset:0;
-  background:#ffffff;  /* white screen */
+  background:#ffffff;
   z-index:50;
   display:flex;
   justify-content:center;
@@ -86,6 +76,7 @@ canvas { position:absolute; left:0; top:0; }
   <div id="scoreDisplay">Score: 0</div>
   <div id="timerDisplay">30</div>
   <button id="btn">Enable Gyro</button>
+  <button id="calibrateBtn" style="display:none;">Calibrate Neutral</button>
 
   <!-- Game over overlay -->
   <div id="gameOverOverlay" aria-hidden="true">
@@ -110,7 +101,7 @@ canvas { position:absolute; left:0; top:0; }
 
 <script>
 /* -------------------- Config / constants -------------------- */
-const LB_KEY = 'tilt_dot_leaderboard_v2';
+const LB_KEY = 'tilt_dot_leaderboard_v3';
 const SENSITIVITY = 0.8;
 const DOT_RADIUS = 18;
 const GAME_DURATION = 30;
@@ -120,6 +111,7 @@ const maxPointsPerSecond = 10;
 /* -------------------- DOM elements -------------------- */
 const dot = document.getElementById('dot');
 const btn = document.getElementById('btn');
+const calibrateBtn = document.getElementById('calibrateBtn');
 const arena = document.getElementById('arena');
 const scoreDisplay = document.getElementById('scoreDisplay');
 const timerDisplay = document.getElementById('timerDisplay');
@@ -147,6 +139,10 @@ let score = 0;
 let lastTime = 0;
 let timeLeft = GAME_DURATION;
 let gameActive = false;
+
+/* Neutral calibration values */
+let beta0 = 0;
+let gamma0 = 0;
 
 /* -------------------- Leaderboard helpers -------------------- */
 function loadLeaderboard(){
@@ -216,55 +212,51 @@ function update(){
 }
 update();
 
-/* -------------------- Gyro handler (iPhone/iPad universal) -------------------- */
-const isIPad = navigator.userAgent.includes("iPad") || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
-
+/* -------------------- Gyro handler (relative motion) -------------------- */
 function handleOrientation(e){
   if(!gameActive) return;
-  const gamma = e.gamma||0, beta=e.beta||0;
-  const angle = screen.orientation?.angle || window.orientation || 0;
-  let moveX=0, moveY=0;
+  const beta = (e.beta||0) - beta0;
+  const gamma = (e.gamma||0) - gamma0;
 
-  if(isIPad){
-    // iPad mapping based on your observations
-    switch(angle){
-      case 0:   moveX=-beta; moveY=gamma; break; // portrait
-      case 90:  moveX=gamma; moveY=-beta; break; // landscape right
-      case -90: moveX=-gamma; moveY=beta; break; // landscape left
-      case 180: moveX=beta; moveY=-gamma; break; // upside down
-      default:  moveX=gamma; moveY=beta;
-    }
-  } else {
-    // iPhone mapping (unchanged)
-    switch(angle){
-      case 0:   moveX=gamma; moveY=beta; break;
-      case 90:  moveX=beta; moveY=-gamma; break;
-      case -90: moveX=-beta; moveY=gamma; break;
-      case 180: moveX=-gamma; moveY=-beta; break;
-      default:  moveX=gamma; moveY=beta;
-    }
-  }
+  dotPos.x += gamma*SENSITIVITY;
+  dotPos.y += beta*SENSITIVITY;
 
-  // Apply sensitivity and clamp
-  dotPos.x += moveX*SENSITIVITY;
-  dotPos.y += moveY*SENSITIVITY;
-  dotPos.x=Math.max(DOT_RADIUS,Math.min(arenaRect.width-DOT_RADIUS,dotPos.x));
-  dotPos.y=Math.max(DOT_RADIUS,Math.min(arenaRect.height-DOT_RADIUS,dotPos.y));
+  dotPos.x = Math.max(DOT_RADIUS, Math.min(arenaRect.width-DOT_RADIUS, dotPos.x));
+  dotPos.y = Math.max(DOT_RADIUS, Math.min(arenaRect.height-DOT_RADIUS, dotPos.y));
+
   dot.style.left = dotPos.x + 'px';
-  dot.style.top = dotPos.y + 'px';
+  dot.style.top  = dotPos.y + 'px';
 }
 
-/* -------------------- Enable gyro & start game -------------------- */
+/* -------------------- Enable gyro & show calibration -------------------- */
 async function enableGyro(){
   if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
     try{
       const res = await DeviceOrientationEvent.requestPermission();
-      if(res==='granted'){ window.addEventListener('deviceorientation', handleOrientation); btn.style.display='none'; lastTime=performance.now(); timeLeft=GAME_DURATION; score=0; gameActive=true; }
-      else alert('Permission denied');
+      if(res==='granted'){
+        btn.style.display='none';
+        calibrateBtn.style.display='block';
+        window.addEventListener('deviceorientation', handleOrientation);
+      } else alert('Permission denied');
     } catch(err){ alert('Error requesting permission'); }
-  } else { window.addEventListener('deviceorientation', handleOrientation); btn.style.display='none'; lastTime=performance.now(); timeLeft=GAME_DURATION; score=0; gameActive=true; }
+  } else {
+    btn.style.display='none';
+    calibrateBtn.style.display='block';
+    window.addEventListener('deviceorientation', handleOrientation);
+  }
 }
 btn.addEventListener('click', enableGyro);
+
+/* -------------------- Calibrate neutral -------------------- */
+calibrateBtn.addEventListener('click', e=>{
+  beta0 = e.beta || 0;
+  gamma0 = e.gamma || 0;
+  calibrateBtn.style.display='none';
+  lastTime = performance.now();
+  timeLeft = GAME_DURATION;
+  score = 0;
+  gameActive = true;
+});
 
 /* -------------------- End game -------------------- */
 function endGame(){
@@ -317,6 +309,7 @@ window.addEventListener('resize', ()=>{
   dot.style.top=dotPos.y+'px';
   overlay.style.display='none';
   overlay.setAttribute('aria-hidden','true');
+  calibrateBtn.style.display='none';
 })();
 </script>
 </body>
