@@ -66,7 +66,7 @@ canvas { position:absolute; left:0; top:0; }
 
 <script>
 /* --- Config --- */
-const LB_KEY = 'tilt_dot_leaderboard_v7';
+const LB_KEY = 'tilt_dot_leaderboard_v8';
 const GAME_DURATION = 30;
 const DOT_RADIUS = 18;
 const MAX_TILT = 30; // degrees for full arena movement
@@ -134,21 +134,29 @@ update();
 /* --- Gyroscope handler --- */
 function handleOrientation(e){
   if(!gameActive) return;
-  let beta = (e.beta||0) - beta0;
-  let gamma = (e.gamma||0) - gamma0;
+
+  // store last readings for calibration reference
+  window.lastBeta = e.beta || 0;
+  window.lastGamma = e.gamma || 0;
+
+  let beta = (e.beta || 0) - beta0;
+  let gamma = (e.gamma || 0) - gamma0;
+
   const angle = screen.orientation?.angle || window.orientation || 0;
-  let dx=0, dy=0;
+  let dx = 0, dy = 0;
   switch(angle){
-    case 0: dx=gamma; dy=beta; break; 
-    case 90: dx=beta; dy=-gamma; break; 
-    case -90: dx=-beta; dy=gamma; break; 
-    case 180: dx=-gamma; dy=-beta; break; 
+    case 0: dx=gamma; dy=beta; break;
+    case 90: dx=beta; dy=-gamma; break;
+    case -90: dx=-beta; dy=gamma; break;
+    case 180: dx=-gamma; dy=-beta; break;
     default: dx=gamma; dy=beta;
   }
-  if(isiPad && angle===0) [dx,dy]=[dy,-dx];
-  dotPos.x = clamp(dotPos0.x + (dx/MAX_TILT)*arenaRect.width, DOT_RADIUS, arenaRect.width-DOT_RADIUS);
-  dotPos.y = clamp(dotPos0.y + (dy/MAX_TILT)*arenaRect.height, DOT_RADIUS, arenaRect.height-DOT_RADIUS);
-  dot.style.left = dotPos.x+'px'; dot.style.top = dotPos.y+'px';
+  if(isiPad && angle===0) [dx,dy] = [dy,-dx];
+
+  dotPos.x = clamp(dotPos0.x + (dx / MAX_TILT) * arenaRect.width, DOT_RADIUS, arenaRect.width - DOT_RADIUS);
+  dotPos.y = clamp(dotPos0.y + (dy / MAX_TILT) * arenaRect.height, DOT_RADIUS, arenaRect.height - DOT_RADIUS);
+  dot.style.left = dotPos.x + 'px';
+  dot.style.top = dotPos.y + 'px';
 }
 
 /* --- Enable gyro --- */
@@ -166,12 +174,17 @@ async function enableGyro(){
 }
 btn.addEventListener('click',enableGyro);
 
-/* --- Calibrate to center --- */
+/* --- Calibrate to neutral --- */
 calibrateBtn.addEventListener('click',e=>{
-  beta0 = 0; gamma0 = 0;
-  dotPos0 = {x:arenaRect.width/2, y:arenaRect.height/2};
+  beta0 = window.lastBeta || 0;
+  gamma0 = window.lastGamma || 0;
+
+  // Always reset dot visually to center
+  dotPos0 = { x: arenaRect.width/2, y: arenaRect.height/2 };
   dotPos = {...dotPos0};
-  dot.style.left = dotPos.x+'px'; dot.style.top = dotPos.y+'px';
+  dot.style.left = dotPos.x+'px';
+  dot.style.top = dotPos.y+'px';
+
   calibrateBtn.style.display='none';
   lastTime = performance.now(); timeLeft = GAME_DURATION; score=0; gameActive=true;
 });
