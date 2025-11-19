@@ -39,8 +39,16 @@ html, body {
   position:absolute; font-size:20px; font-weight:600; color:#111;
   background:rgba(255,255,255,0.7); padding:6px 12px; border-radius:8px;
 }
-#scoreDisplay { top:12px; left:12px; }
-#timerDisplay { top:12px; right:12px; }
+#scoreDisplay { 
+  top: calc(env(safe-area-inset-top) + 24px);
+  left: 16px;
+}
+
+#timerDisplay { 
+  top: calc(env(safe-area-inset-top) + 24px);
+  right: 16px;
+}
+
 #gameOver {
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   font-size:48px; font-weight:700; color:#ff5c5c; display:none; text-align:center;
@@ -147,8 +155,8 @@ function handleOrientation(e){
     default: moveX = gamma; moveY = beta;
   }
 
-  dotPos.x += moveX * 0.5;
-  dotPos.y += moveY * 0.5;
+  dotPos.x += moveX * 0.8;
+  dotPos.y += moveY * 0.8;
 
   dotPos.x = Math.max(18, Math.min(arenaRect.width-18, dotPos.x));
   dotPos.y = Math.max(18, Math.min(arenaRect.height-18, dotPos.y));
