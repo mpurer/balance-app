@@ -64,7 +64,7 @@ canvas { position:absolute; left:0; top:0; }
 
 <script>
 /* --- Config --- */
-const LB_KEY = 'tilt_dot_leaderboard_v9';
+const LB_KEY = 'tilt_dot_leaderboard_v10';
 const GAME_DURATION = 30;
 const DOT_RADIUS = 18;
 const MAX_TILT = 30;
@@ -104,7 +104,7 @@ const isiPad = /iPad/.test(navigator.userAgent);
 
 /* --- Leaderboard helpers --- */
 function loadLeaderboard(){ const list=JSON.parse(localStorage.getItem(LB_KEY)||'[]'); return list.sort((a,b)=>b.score-b.score || a.date-b.date); }
-function saveLocalScore(name,scoreValue){ const list=loadLeaderboard(); list.push({name:(name||'Player'), score:Math.floor(scoreValue), date:Date.now()}); list.sort((a,b)=>b.score-b.score || a.date-b.date); localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0,50))); }
+function saveLocalScore(name,scoreValue){ const list=loadLeaderboard(); list.push({name:(name||'Player'), score:Math.floor(scoreValue), date:Date.now()}); list.sort((a,b)=>b.score-b.score || a.date-b.date); localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0,50)); }
 function renderLeaderboard(){ const list=loadLeaderboard(); lbList.innerHTML=''; if(list.length===0){ const li=document.createElement('li'); li.textContent='No scores yet — be the first!'; lbList.appendChild(li); return; } let place=1; for(const e of list.slice(0,20)){ const li=document.createElement('li'); li.innerHTML=`<span>#${place} ${escapeHtml(e.name)}</span><span>${e.score}</span>`; lbList.appendChild(li); place++; } }
 function escapeHtml(str){ return String(str||'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
 
@@ -132,32 +132,31 @@ update();
 /* --- Gyroscope handler --- */
 function handleOrientation(e){
   if(!gameActive) return;
-  window.lastBeta = e.beta || 0;
-  window.lastGamma = e.gamma || 0;
 
-  let beta = (e.beta || 0) - beta0;
-  let gamma = (e.gamma || 0) - gamma0;
+  const beta = (e.beta || 0) - beta0;
+  const gamma = (e.gamma || 0) - gamma0;
 
   const angle = screen.orientation?.angle || window.orientation || 0;
-  let dx = 0, dy = 0;
+  let dx=0, dy=0;
   switch(angle){
     case 0: dx=gamma; dy=beta; break;
     case 90: dx=beta; dy=-gamma; break;
-    case -90: dx=-beta; dy=gamma; break;
-    case 180: dx=-gamma; dy=-beta; break;
     default: dx=gamma; dy=beta;
   }
   if(isiPad && angle===0) [dx,dy] = [dy,-dx];
 
-  dotPos.x = clamp(dotPos0.x + (dx / MAX_TILT) * arenaRect.width, DOT_RADIUS, arenaRect.width - DOT_RADIUS);
-  dotPos.y = clamp(dotPos0.y + (dy / MAX_TILT) * arenaRect.height, DOT_RADIUS, arenaRect.height - DOT_RADIUS);
+  const scaleX = arenaRect.width / MAX_TILT; 
+  const scaleY = arenaRect.height / MAX_TILT;
+
+  dotPos.x = clamp(dotPos0.x + dx*scaleX, DOT_RADIUS, arenaRect.width - DOT_RADIUS);
+  dotPos.y = clamp(dotPos0.y + dy*scaleY, DOT_RADIUS, arenaRect.height - DOT_RADIUS);
+
   dot.style.left = dotPos.x + 'px';
   dot.style.top = dotPos.y + 'px';
 }
 
 /* --- Enable gyro --- */
 async function enableGyro(){ 
-  if(window.innerHeight>window.innerWidth) alert("Please rotate device to landscape mode!");
   if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
     try{
       const res = await DeviceOrientationEvent.requestPermission();
@@ -169,19 +168,25 @@ async function enableGyro(){
 btn.addEventListener('click',enableGyro);
 
 /* --- Calibrate to neutral and center dot exactly --- */
-calibrateBtn.addEventListener('click', e => {
+calibrateBtn.addEventListener('click', e=>{
   arenaRect = arena.getBoundingClientRect();
   canvas.width = arenaRect.width; canvas.height = arenaRect.height;
   targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
+
   beta0 = window.lastBeta || 0;
   gamma0 = window.lastGamma || 0;
+
   dotPos0 = { x: targetCenter.x, y: targetCenter.y };
   dotPos = { ...dotPos0 };
   dot.style.left = dotPos.x + 'px';
   dot.style.top = dotPos.y + 'px';
+
   drawTargetAndRings();
-  calibrateBtn.style.display = 'none';
-  lastTime = performance.now(); timeLeft = GAME_DURATION; score = 0; gameActive = true;
+  calibrateBtn.style.display='none';
+  lastTime = performance.now();
+  timeLeft = GAME_DURATION;
+  score = 0;
+  gameActive = true;
 });
 
 /* --- End game --- */
