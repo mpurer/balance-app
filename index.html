@@ -5,10 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="GyroGame">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="application-name" content="GyroGame">
-<meta name="theme-color" content="#000000">
 <title>Gyro Dot Target Game</title>
 <style>
 html, body { margin:0; padding:0; height:100%; width:100%; display:flex; justify-content:center; align-items:center; background:#f7f7f9; font-family:sans-serif; }
@@ -64,48 +60,30 @@ canvas { position:absolute; left:0; top:0; }
 
 <script>
 /* --- Config --- */
-const LB_KEY = 'tilt_dot_leaderboard_v10';
-const GAME_DURATION = 30;
-const DOT_RADIUS = 18;
-const MAX_TILT = 30;
-const ringRadii = [30,60,90];
-const maxPointsPerSecond = 10;
+const LB_KEY='tilt_dot_leaderboard_v10', GAME_DURATION=30, DOT_RADIUS=18, MAX_TILT=30;
+const ringRadii=[30,60,90], maxPointsPerSecond=10;
 
 /* --- DOM elements --- */
-const dot = document.getElementById('dot');
-const btn = document.getElementById('btn');
-const calibrateBtn = document.getElementById('calibrateBtn');
-const arena = document.getElementById('arena');
-const scoreDisplay = document.getElementById('scoreDisplay');
-const timerDisplay = document.getElementById('timerDisplay');
-const canvas = document.getElementById('targetCanvas');
-const ctx = canvas.getContext('2d');
-const overlay = document.getElementById('gameOverOverlay');
-const finalScoreBig = document.getElementById('finalScoreBig');
-const retryBtn = document.getElementById('retryBtn');
-const saveBtn = document.getElementById('saveBtn');
-const saveNameRow = document.getElementById('saveNameRow');
-const nameInput = document.getElementById('nameInput');
-const confirmSave = document.getElementById('confirmSave');
-const lbList = document.getElementById('lbList');
+const dot=document.getElementById('dot'), btn=document.getElementById('btn'), calibrateBtn=document.getElementById('calibrateBtn');
+const arena=document.getElementById('arena'), scoreDisplay=document.getElementById('scoreDisplay'), timerDisplay=document.getElementById('timerDisplay');
+const canvas=document.getElementById('targetCanvas'), ctx=canvas.getContext('2d');
+const overlay=document.getElementById('gameOverOverlay'), finalScoreBig=document.getElementById('finalScoreBig');
+const retryBtn=document.getElementById('retryBtn'), saveBtn=document.getElementById('saveBtn'), saveNameRow=document.getElementById('saveNameRow');
+const nameInput=document.getElementById('nameInput'), confirmSave=document.getElementById('confirmSave'), lbList=document.getElementById('lbList');
 
 /* --- State --- */
-let arenaRect = arena.getBoundingClientRect();
-canvas.width = arenaRect.width; canvas.height = arenaRect.height;
-
-let dotPos = {x:arenaRect.width/2, y:arenaRect.height/2};
-let dotPos0 = {...dotPos};
+let arenaRect=arena.getBoundingClientRect();
+canvas.width=arenaRect.width; canvas.height=arenaRect.height;
+let dotPos={x:arenaRect.width/2,y:arenaRect.height/2}, dotPos0={...dotPos};
 let beta0=0, gamma0=0;
-let targetCenter={x:arenaRect.width/2, y:arenaRect.height/2};
-const maxDistance = ringRadii[ringRadii.length-1];
+let targetCenter={x:arenaRect.width/2,y:arenaRect.height/2};
+let score=0,lastTime=0,timeLeft=GAME_DURATION,gameActive=false;
+const isiPad=/iPad/.test(navigator.userAgent);
 
-let score=0, lastTime=0, timeLeft=GAME_DURATION, gameActive=false;
-const isiPad = /iPad/.test(navigator.userAgent);
-
-/* --- Leaderboard helpers --- */
-function loadLeaderboard(){ const list=JSON.parse(localStorage.getItem(LB_KEY)||'[]'); return list.sort((a,b)=>b.score-b.score || a.date-b.date); }
-function saveLocalScore(name,scoreValue){ const list=loadLeaderboard(); list.push({name:(name||'Player'), score:Math.floor(scoreValue), date:Date.now()}); list.sort((a,b)=>b.score-b.score || a.date-b.date); localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0,50)); }
-function renderLeaderboard(){ const list=loadLeaderboard(); lbList.innerHTML=''; if(list.length===0){ const li=document.createElement('li'); li.textContent='No scores yet — be the first!'; lbList.appendChild(li); return; } let place=1; for(const e of list.slice(0,20)){ const li=document.createElement('li'); li.innerHTML=`<span>#${place} ${escapeHtml(e.name)}</span><span>${e.score}</span>`; lbList.appendChild(li); place++; } }
+/* --- Leaderboard --- */
+function loadLeaderboard(){ return JSON.parse(localStorage.getItem(LB_KEY)||'[]').sort((a,b)=>b.score-a.score); }
+function saveLocalScore(name,scoreValue){ const list=loadLeaderboard(); list.push({name:(name||'Player'), score:Math.floor(scoreValue), date:Date.now()}); list.sort((a,b)=>b.score-b.score); localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0,50))); }
+function renderLeaderboard(){ const list=loadLeaderboard(); lbList.innerHTML=''; if(list.length===0){ const li=document.createElement('li'); li.textContent='No scores yet'; lbList.appendChild(li); return; } let place=1; for(const e of list.slice(0,20)){ const li=document.createElement('li'); li.innerHTML=`<span>#${place} ${escapeHtml(e.name)}</span><span>${e.score}</span>`; lbList.appendChild(li); place++; } }
 function escapeHtml(str){ return String(str||'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
 
 /* --- Draw target --- */
@@ -116,12 +94,11 @@ function clamp(val,min,max){ return Math.min(Math.max(val,min),max); }
 function update(){ const now=performance.now(); const deltaTime=(lastTime?(now-lastTime)/1000:0); lastTime=now; 
   if(gameActive){
     drawTargetAndRings();
-    const dx = dotPos.x - targetCenter.x;
-    const dy = dotPos.y - targetCenter.y;
-    const distance = Math.hypot(dx,dy);
-    if(distance<=maxDistance) score += maxPointsPerSecond*(1-distance/maxDistance)*deltaTime;
+    const dx=dotPos.x-targetCenter.x, dy=dotPos.y-targetCenter.y;
+    const distance=Math.hypot(dx,dy);
+    if(distance<=ringRadii[ringRadii.length-1]) score+=maxPointsPerSecond*(1-distance/ringRadii[ringRadii.length-1])*deltaTime;
     scoreDisplay.textContent='Score: '+Math.floor(score);
-    timeLeft -= deltaTime;
+    timeLeft-=deltaTime;
     if(timeLeft<=0){ timeLeft=0; endGame(); }
     timerDisplay.textContent=Math.ceil(timeLeft);
   }
@@ -129,64 +106,45 @@ function update(){ const now=performance.now(); const deltaTime=(lastTime?(now-l
 }
 update();
 
-/* --- Gyroscope handler --- */
+/* --- Gyroscope --- */
 function handleOrientation(e){
   if(!gameActive) return;
-
-  const beta = (e.beta || 0) - beta0;
-  const gamma = (e.gamma || 0) - gamma0;
-
-  const angle = screen.orientation?.angle || window.orientation || 0;
+  const beta=(e.beta||0)-beta0;
+  const gamma=(e.gamma||0)-gamma0;
+  const angle=screen.orientation?.angle||window.orientation||0;
   let dx=0, dy=0;
-  switch(angle){
-    case 0: dx=gamma; dy=beta; break;
-    case 90: dx=beta; dy=-gamma; break;
-    default: dx=gamma; dy=beta;
-  }
-  if(isiPad && angle===0) [dx,dy] = [dy,-dx];
-
-  const scaleX = arenaRect.width / MAX_TILT; 
-  const scaleY = arenaRect.height / MAX_TILT;
-
-  dotPos.x = clamp(dotPos0.x + dx*scaleX, DOT_RADIUS, arenaRect.width - DOT_RADIUS);
-  dotPos.y = clamp(dotPos0.y + dy*scaleY, DOT_RADIUS, arenaRect.height - DOT_RADIUS);
-
-  dot.style.left = dotPos.x + 'px';
-  dot.style.top = dotPos.y + 'px';
+  switch(angle){ case 0: dx=gamma; dy=beta; break; case 90: dx=beta; dy=-gamma; break; default: dx=gamma; dy=beta; }
+  if(isiPad && angle===0) [dx,dy]=[dy,-dx];
+  const scaleX=arenaRect.width/MAX_TILT, scaleY=arenaRect.height/MAX_TILT;
+  dotPos.x=clamp(dotPos0.x+dx*scaleX,DOT_RADIUS,arenaRect.width-DOT_RADIUS);
+  dotPos.y=clamp(dotPos0.y+dy*scaleY,DOT_RADIUS,arenaRect.height-DOT_RADIUS);
+  dot.style.left=dotPos.x+'px';
+  dot.style.top=dotPos.y+'px';
 }
 
 /* --- Enable gyro --- */
 async function enableGyro(){ 
   if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
-    try{
-      const res = await DeviceOrientationEvent.requestPermission();
-      if(res==='granted'){ btn.style.display='none'; calibrateBtn.style.display='block'; window.addEventListener('deviceorientation',handleOrientation); }
-      else alert('Permission denied');
-    }catch(err){ alert('Error requesting permission'); }
+    try{ const res=await DeviceOrientationEvent.requestPermission();
+      if(res==='granted'){ btn.style.display='none'; calibrateBtn.style.display='block'; window.addEventListener('deviceorientation',handleOrientation); } 
+      else alert('Permission denied'); 
+    }catch(err){ alert('Error requesting permission'); } 
   } else { btn.style.display='none'; calibrateBtn.style.display='block'; window.addEventListener('deviceorientation',handleOrientation); }
 }
 btn.addEventListener('click',enableGyro);
 
-/* --- Calibrate to neutral and center dot exactly --- */
-calibrateBtn.addEventListener('click', e=>{
-  arenaRect = arena.getBoundingClientRect();
-  canvas.width = arenaRect.width; canvas.height = arenaRect.height;
-  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
-
-  beta0 = window.lastBeta || 0;
-  gamma0 = window.lastGamma || 0;
-
-  dotPos0 = { x: targetCenter.x, y: targetCenter.y };
-  dotPos = { ...dotPos0 };
-  dot.style.left = dotPos.x + 'px';
-  dot.style.top = dotPos.y + 'px';
-
+/* --- Calibrate --- */
+calibrateBtn.addEventListener('click',e=>{
+  arenaRect=arena.getBoundingClientRect();
+  canvas.width=arenaRect.width; canvas.height=arenaRect.height;
+  targetCenter={x:arenaRect.width/2,y:arenaRect.height/2};
+  beta0=window.lastBeta||0; gamma0=window.lastGamma||0;
+  dotPos0={x:targetCenter.x,y:targetCenter.y};
+  dotPos={...dotPos0};
+  dot.style.left=dotPos.x+'px'; dot.style.top=dotPos.y+'px';
   drawTargetAndRings();
   calibrateBtn.style.display='none';
-  lastTime = performance.now();
-  timeLeft = GAME_DURATION;
-  score = 0;
-  gameActive = true;
+  lastTime=performance.now(); timeLeft=GAME_DURATION; score=0; gameActive=true;
 });
 
 /* --- End game --- */
@@ -194,13 +152,11 @@ function endGame(){ gameActive=false; finalScoreBig.textContent='Score: '+Math.f
 
 /* --- Retry --- */
 retryBtn.addEventListener('click',()=>{
-  overlay.style.display='none'; overlay.setAttribute('aria-hidden','true');
-  dot.style.display='block'; btn.style.display='block';
+  overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); dot.style.display='block'; btn.style.display='block';
   arenaRect=arena.getBoundingClientRect(); canvas.width=arenaRect.width; canvas.height=arenaRect.height;
-  targetCenter={x:arenaRect.width/2, y:arenaRect.height/2};
-  dotPos={x:arenaRect.width/2, y:arenaRect.height/2};
-  dotPos0={x:dotPos.x, y:dotPos.y};
-  score=0; timeLeft=GAME_DURATION; scoreDisplay.textContent='Score:0'; timerDisplay.textContent=GAME_DURATION;
+  targetCenter={x:arenaRect.width/2,y:arenaRect.height/2};
+  dotPos={x:arenaRect.width/2,y:arenaRect.height/2}; dotPos0={...dotPos};
+  score=0; timeLeft=GAME_DURATION; scoreDisplay.textContent='Score: 0'; timerDisplay.textContent=GAME_DURATION;
   saveNameRow.style.display='none'; nameInput.value='';
 });
 
@@ -214,14 +170,13 @@ confirmSave.addEventListener('click',()=>{
 nameInput.addEventListener('keyup',e=>{ if(e.key==='Enter') confirmSave.click(); });
 
 /* --- Resize --- */
-window.addEventListener('resize', ()=>{
+window.addEventListener('resize',()=>{
   arenaRect=arena.getBoundingClientRect(); canvas.width=arenaRect.width; canvas.height=arenaRect.height;
-  targetCenter={x:arenaRect.width/2, y:arenaRect.height/2};
+  targetCenter={x:arenaRect.width/2,y:arenaRect.height/2};
 });
 
 /* --- Init --- */
 (function init(){ dot.style.left=dotPos.x+'px'; dot.style.top=dotPos.y+'px'; overlay.style.display='none'; overlay.setAttribute('aria-hidden','true'); calibrateBtn.style.display='none'; })();
 </script>
-
 </body>
 </html>
