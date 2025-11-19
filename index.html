@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no, orientation=landscape" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="GyroGame">
@@ -10,6 +10,7 @@
 <meta name="application-name" content="GyroGame">
 <meta name="theme-color" content="#000000">
 <title>Gyro Dot Target Game</title>
+
 <style>
 html, body {
   margin:0; padding:0; height:100%; width:100%;
@@ -35,7 +36,7 @@ html, body {
 #timerDisplay { top: calc(env(safe-area-inset-top) + 36px); right:16px; }
 canvas { position:absolute; left:0; top:0; }
 
-/* -------------------- Game over overlay -------------------- */
+/* Game over overlay */
 #gameOverOverlay {
   display:none;
   position:absolute; inset:0;
@@ -70,6 +71,7 @@ canvas { position:absolute; left:0; top:0; }
 </style>
 </head>
 <body>
+
 <div id="arena">
   <canvas id="targetCanvas"></canvas>
   <div id="dot"></div>
@@ -100,15 +102,15 @@ canvas { position:absolute; left:0; top:0; }
 </div>
 
 <script>
-/* -------------------- Config / constants -------------------- */
-const LB_KEY = 'tilt_dot_leaderboard_v3';
+/* -------------------- Config -------------------- */
+const LB_KEY = 'tilt_dot_leaderboard_v4';
 const SENSITIVITY = 0.8;
 const DOT_RADIUS = 18;
 const GAME_DURATION = 30;
 const ringRadii = [30,60,90];
 const maxPointsPerSecond = 10;
 
-/* -------------------- DOM elements -------------------- */
+/* -------------------- DOM -------------------- */
 const dot = document.getElementById('dot');
 const btn = document.getElementById('btn');
 const calibrateBtn = document.getElementById('calibrateBtn');
@@ -117,7 +119,6 @@ const scoreDisplay = document.getElementById('scoreDisplay');
 const timerDisplay = document.getElementById('timerDisplay');
 const canvas = document.getElementById('targetCanvas');
 const ctx = canvas.getContext('2d');
-
 const overlay = document.getElementById('gameOverOverlay');
 const finalScoreBig = document.getElementById('finalScoreBig');
 const retryBtn = document.getElementById('retryBtn');
@@ -131,7 +132,9 @@ const lbList = document.getElementById('lbList');
 let arenaRect = arena.getBoundingClientRect();
 canvas.width = arenaRect.width;
 canvas.height = arenaRect.height;
-let dotPos = { x: arenaRect.width/2, y: arenaRect.height/2 };
+
+let dotPos = { x: arenaRect.width/2, y: arenaRect.height/2 }; // current position
+let dotPos0 = { x: dotPos.x, y: dotPos.y };                  // neutral for calibration
 let targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
 const maxDistance = ringRadii[ringRadii.length-1];
 
@@ -140,45 +143,39 @@ let lastTime = 0;
 let timeLeft = GAME_DURATION;
 let gameActive = false;
 
-/* Neutral calibration values */
-let beta0 = 0;
-let gamma0 = 0;
+/* -------------------- Calibration -------------------- */
+let beta0 = 0, gamma0 = 0;
 
-/* -------------------- Leaderboard helpers -------------------- */
+/* -------------------- Leaderboard -------------------- */
 function loadLeaderboard(){
-  const list = JSON.parse(localStorage.getItem(LB_KEY) || '[]');
-  list.sort((a,b)=> b.score - a.score || a.date - b.date);
+  const list = JSON.parse(localStorage.getItem(LB_KEY)||'[]');
+  list.sort((a,b)=>b.score - a.score || a.date - b.date);
   return list;
 }
 function saveLocalScore(name, scoreValue){
   const list = loadLeaderboard();
-  list.push({name:(name||'Player'), score: Math.floor(scoreValue), date: Date.now()});
-  list.sort((a,b)=> b.score - a.score || a.date - b.date);
+  list.push({name:(name||'Player'), score:Math.floor(scoreValue), date:Date.now()});
+  list.sort((a,b)=>b.score - a.score || a.date - b.date);
   localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0,50)));
 }
 function renderLeaderboard(){
   const list = loadLeaderboard();
-  lbList.innerHTML = '';
-  if(list.length===0){
-    const li = document.createElement('li'); li.textContent='No scores yet — be the first!'; lbList.appendChild(li);
-    return;
-  }
+  lbList.innerHTML='';
+  if(list.length===0){ const li=document.createElement('li'); li.textContent='No scores yet — be the first!'; lbList.appendChild(li); return; }
   let place=1;
   for(const e of list.slice(0,20)){
-    const li = document.createElement('li');
-    li.innerHTML = `<span> #${place} ${escapeHtml(e.name)} </span><span>${e.score}</span>`;
+    const li=document.createElement('li');
+    li.innerHTML=`<span>#${place} ${escapeHtml(e.name)}</span><span>${e.score}</span>`;
     lbList.appendChild(li); place++;
   }
 }
-function escapeHtml(str){
-  if(!str) return ''; return String(str).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
-}
+function escapeHtml(str){ return String(str||'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
 
 /* -------------------- Draw target -------------------- */
 function drawTargetAndRings(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle='rgba(0,0,0,0.2)';
+  ctx.lineWidth=2;
   ringRadii.forEach(r=>{
     ctx.beginPath(); ctx.arc(targetCenter.x,targetCenter.y,r,0,Math.PI*2); ctx.stroke();
   });
@@ -194,67 +191,64 @@ function update(){
   if(gameActive){
     drawTargetAndRings();
 
-    // Continuous scoring
+    // continuous scoring
     const dx = dotPos.x - targetCenter.x;
     const dy = dotPos.y - targetCenter.y;
     const distance = Math.hypot(dx,dy);
-    if(distance <= maxDistance){
-      score += maxPointsPerSecond*(1 - distance/maxDistance)*deltaTime;
-    }
-    scoreDisplay.textContent = 'Score: '+Math.floor(score);
+    if(distance <= maxDistance) score += maxPointsPerSecond*(1-distance/maxDistance)*deltaTime;
 
-    // Timer
+    scoreDisplay.textContent='Score: '+Math.floor(score);
+
+    // timer
     timeLeft -= deltaTime;
     if(timeLeft<=0){ timeLeft=0; endGame(); }
-    timerDisplay.textContent = Math.ceil(timeLeft);
+    timerDisplay.textContent=Math.ceil(timeLeft);
   }
   requestAnimationFrame(update);
 }
 update();
 
-/* -------------------- Gyro handler (relative motion) -------------------- */
+/* -------------------- Gyro handler -------------------- */
 function handleOrientation(e){
   if(!gameActive) return;
   const beta = (e.beta||0) - beta0;
   const gamma = (e.gamma||0) - gamma0;
 
-  dotPos.x += gamma*SENSITIVITY;
-  dotPos.y += beta*SENSITIVITY;
+  dotPos.x = dotPos0.x + gamma*SENSITIVITY;
+  dotPos.y = dotPos0.y + beta*SENSITIVITY;
 
   dotPos.x = Math.max(DOT_RADIUS, Math.min(arenaRect.width-DOT_RADIUS, dotPos.x));
   dotPos.y = Math.max(DOT_RADIUS, Math.min(arenaRect.height-DOT_RADIUS, dotPos.y));
 
-  dot.style.left = dotPos.x + 'px';
-  dot.style.top  = dotPos.y + 'px';
+  dot.style.left=dotPos.x+'px';
+  dot.style.top=dotPos.y+'px';
 }
 
-/* -------------------- Enable gyro & show calibration -------------------- */
+/* -------------------- Enable gyro -------------------- */
 async function enableGyro(){
   if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
     try{
       const res = await DeviceOrientationEvent.requestPermission();
       if(res==='granted'){
-        btn.style.display='none';
-        calibrateBtn.style.display='block';
+        btn.style.display='none'; calibrateBtn.style.display='block';
         window.addEventListener('deviceorientation', handleOrientation);
       } else alert('Permission denied');
     } catch(err){ alert('Error requesting permission'); }
   } else {
-    btn.style.display='none';
-    calibrateBtn.style.display='block';
+    btn.style.display='none'; calibrateBtn.style.display='block';
     window.addEventListener('deviceorientation', handleOrientation);
   }
 }
 btn.addEventListener('click', enableGyro);
 
-/* -------------------- Calibrate neutral -------------------- */
+/* -------------------- Calibrate -------------------- */
 calibrateBtn.addEventListener('click', e=>{
-  beta0 = e.beta || 0;
-  gamma0 = e.gamma || 0;
+  beta0 = e.beta||0;
+  gamma0 = e.gamma||0;
+  dotPos0.x = dotPos.x;
+  dotPos0.y = dotPos.y;
   calibrateBtn.style.display='none';
-  lastTime = performance.now();
-  timeLeft = GAME_DURATION;
-  score = 0;
+  lastTime = performance.now(); timeLeft = GAME_DURATION; score=0;
   gameActive = true;
 });
 
@@ -265,23 +259,19 @@ function endGame(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   dot.style.display='none';
   finalScoreBig.textContent='Score: '+Math.floor(score);
-  overlay.style.display='flex';
-  overlay.setAttribute('aria-hidden','false');
+  overlay.style.display='flex'; overlay.setAttribute('aria-hidden','false');
   renderLeaderboard();
 }
 
 /* -------------------- Retry -------------------- */
 retryBtn.addEventListener('click',()=>{
-  overlay.style.display='none';
-  overlay.setAttribute('aria-hidden','true');
-  dot.style.display='block';
-  btn.style.display='block';
-  arenaRect = arena.getBoundingClientRect();
-  canvas.width=arenaRect.width; canvas.height=arenaRect.height;
+  overlay.style.display='none'; overlay.setAttribute('aria-hidden','true');
+  dot.style.display='block'; btn.style.display='block';
+  arenaRect = arena.getBoundingClientRect(); canvas.width=arenaRect.width; canvas.height=arenaRect.height;
   targetCenter.x=arenaRect.width/2; targetCenter.y=arenaRect.height/2;
   dotPos={x:arenaRect.width/2, y:arenaRect.height/2};
-  score=0; timeLeft=GAME_DURATION;
-  scoreDisplay.textContent='Score: 0'; timerDisplay.textContent=GAME_DURATION;
+  dotPos0={x:dotPos.x, y:dotPos.y};
+  score=0; timeLeft=GAME_DURATION; scoreDisplay.textContent='Score:0'; timerDisplay.textContent=GAME_DURATION;
   saveNameRow.style.display='none'; nameInput.value='';
 });
 
@@ -290,9 +280,7 @@ saveBtn.addEventListener('click',()=>{ saveNameRow.style.display='flex'; nameInp
 confirmSave.addEventListener('click',()=>{
   const name = (nameInput.value||'Player').trim();
   if(name.length===0){ alert('Please enter a name'); nameInput.focus(); return; }
-  saveLocalScore(name, score);
-  saveNameRow.style.display='none'; nameInput.value='';
-  renderLeaderboard();
+  saveLocalScore(name,score); saveNameRow.style.display='none'; nameInput.value=''; renderLeaderboard();
   alert('Score saved!');
 });
 nameInput.addEventListener('keyup', e=>{ if(e.key==='Enter') confirmSave.click(); });
@@ -305,10 +293,8 @@ window.addEventListener('resize', ()=>{
 
 /* -------------------- Init -------------------- */
 (function init(){
-  dot.style.left=dotPos.x+'px';
-  dot.style.top=dotPos.y+'px';
-  overlay.style.display='none';
-  overlay.setAttribute('aria-hidden','true');
+  dot.style.left=dotPos.x+'px'; dot.style.top=dotPos.y+'px';
+  overlay.style.display='none'; overlay.setAttribute('aria-hidden','true');
   calibrateBtn.style.display='none';
 })();
 </script>
