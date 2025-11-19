@@ -19,7 +19,6 @@ html, body { margin:0; padding:0; height:100%; width:100%; display:flex; justify
 #scoreDisplay { top: calc(env(safe-area-inset-top) + 36px); left:16px; }
 #timerDisplay { top: calc(env(safe-area-inset-top) + 36px); right:16px; }
 canvas { position:absolute; left:0; top:0; }
-/* Game over overlay */
 #gameOverOverlay { display:none; position:absolute; inset:0; background:#ffffff; z-index:50; display:flex; justify-content:center; align-items:center; padding:20px; box-sizing:border-box; }
 #gameOverCard { width:100%; max-width:640px; text-align:center; }
 #finalScoreBig { font-size:48px; font-weight:800; color:#111; margin-bottom:8px; }
@@ -35,7 +34,6 @@ canvas { position:absolute; left:0; top:0; }
 </style>
 </head>
 <body>
-
 <div id="arena">
   <canvas id="targetCanvas"></canvas>
   <div id="dot"></div>
@@ -66,10 +64,10 @@ canvas { position:absolute; left:0; top:0; }
 
 <script>
 /* --- Config --- */
-const LB_KEY = 'tilt_dot_leaderboard_v8';
+const LB_KEY = 'tilt_dot_leaderboard_v9';
 const GAME_DURATION = 30;
 const DOT_RADIUS = 18;
-const MAX_TILT = 30; // degrees for full arena movement
+const MAX_TILT = 30;
 const ringRadii = [30,60,90];
 const maxPointsPerSecond = 10;
 
@@ -134,8 +132,6 @@ update();
 /* --- Gyroscope handler --- */
 function handleOrientation(e){
   if(!gameActive) return;
-
-  // store last readings for calibration reference
   window.lastBeta = e.beta || 0;
   window.lastGamma = e.gamma || 0;
 
@@ -161,9 +157,7 @@ function handleOrientation(e){
 
 /* --- Enable gyro --- */
 async function enableGyro(){ 
-  if(window.innerHeight>window.innerWidth){
-    alert("Please rotate your device to landscape mode!");
-  }
+  if(window.innerHeight>window.innerWidth) alert("Please rotate device to landscape mode!");
   if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
     try{
       const res = await DeviceOrientationEvent.requestPermission();
@@ -174,19 +168,20 @@ async function enableGyro(){
 }
 btn.addEventListener('click',enableGyro);
 
-/* --- Calibrate to neutral --- */
-calibrateBtn.addEventListener('click',e=>{
+/* --- Calibrate to neutral and center dot exactly --- */
+calibrateBtn.addEventListener('click', e => {
+  arenaRect = arena.getBoundingClientRect();
+  canvas.width = arenaRect.width; canvas.height = arenaRect.height;
+  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
   beta0 = window.lastBeta || 0;
   gamma0 = window.lastGamma || 0;
-
-  // Always reset dot visually to center
-  dotPos0 = { x: arenaRect.width/2, y: arenaRect.height/2 };
-  dotPos = {...dotPos0};
-  dot.style.left = dotPos.x+'px';
-  dot.style.top = dotPos.y+'px';
-
-  calibrateBtn.style.display='none';
-  lastTime = performance.now(); timeLeft = GAME_DURATION; score=0; gameActive=true;
+  dotPos0 = { x: targetCenter.x, y: targetCenter.y };
+  dotPos = { ...dotPos0 };
+  dot.style.left = dotPos.x + 'px';
+  dot.style.top = dotPos.y + 'px';
+  drawTargetAndRings();
+  calibrateBtn.style.display = 'none';
+  lastTime = performance.now(); timeLeft = GAME_DURATION; score = 0; gameActive = true;
 });
 
 /* --- End game --- */
