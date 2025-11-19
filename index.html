@@ -103,11 +103,11 @@ canvas { position:absolute; left:0; top:0; }
 
 <script>
 /* -------------------- Config -------------------- */
-const LB_KEY = 'tilt_dot_leaderboard_v4';
-const SENSITIVITY = 0.8;
+const LB_KEY = 'tilt_dot_leaderboard_v5';
+const GAME_DURATION = 30; // seconds
 const DOT_RADIUS = 18;
-const GAME_DURATION = 30;
-const ringRadii = [30,60,90];
+const SENSITIVITY = 1.5; // adjust for full arena coverage
+const ringRadii = [30, 60, 90];
 const maxPointsPerSecond = 10;
 
 /* -------------------- DOM -------------------- */
@@ -133,8 +133,8 @@ let arenaRect = arena.getBoundingClientRect();
 canvas.width = arenaRect.width;
 canvas.height = arenaRect.height;
 
-let dotPos = { x: arenaRect.width/2, y: arenaRect.height/2 }; // current position
-let dotPos0 = { x: dotPos.x, y: dotPos.y };                  // neutral for calibration
+let dotPos = { x: arenaRect.width/2, y: arenaRect.height/2 };
+let dotPos0 = { x: dotPos.x, y: dotPos.y };
 let targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
 const maxDistance = ringRadii[ringRadii.length-1];
 
@@ -149,13 +149,13 @@ let beta0 = 0, gamma0 = 0;
 /* -------------------- Leaderboard -------------------- */
 function loadLeaderboard(){
   const list = JSON.parse(localStorage.getItem(LB_KEY)||'[]');
-  list.sort((a,b)=>b.score - a.score || a.date - b.date);
+  list.sort((a,b)=>b.score-b.score || a.date-b.date);
   return list;
 }
 function saveLocalScore(name, scoreValue){
   const list = loadLeaderboard();
   list.push({name:(name||'Player'), score:Math.floor(scoreValue), date:Date.now()});
-  list.sort((a,b)=>b.score - a.score || a.date - b.date);
+  list.sort((a,b)=>b.score-b.score || a.date-b.date);
   localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0,50)));
 }
 function renderLeaderboard(){
@@ -211,17 +211,29 @@ update();
 /* -------------------- Gyro handler -------------------- */
 function handleOrientation(e){
   if(!gameActive) return;
-  const beta = (e.beta||0) - beta0;
-  const gamma = (e.gamma||0) - gamma0;
+  let beta = (e.beta||0) - beta0;
+  let gamma = (e.gamma||0) - gamma0;
 
-  dotPos.x = dotPos0.x + gamma*SENSITIVITY;
-  dotPos.y = dotPos0.y + beta*SENSITIVITY;
+  // screen orientation mapping
+  const angle = screen.orientation?.angle || window.orientation || 0;
+  let dx=0, dy=0;
+
+  switch(angle){
+    case 0: dx=gamma; dy=beta; break;           // portrait
+    case 90: dx=beta; dy=-gamma; break;         // landscape right
+    case -90: dx=-beta; dy=gamma; break;        // landscape left
+    case 180: dx=-gamma; dy=-beta; break;       // upside-down
+    default: dx=gamma; dy=beta;
+  }
+
+  dotPos.x = dotPos0.x + dx*SENSITIVITY;
+  dotPos.y = dotPos0.y + dy*SENSITIVITY;
 
   dotPos.x = Math.max(DOT_RADIUS, Math.min(arenaRect.width-DOT_RADIUS, dotPos.x));
   dotPos.y = Math.max(DOT_RADIUS, Math.min(arenaRect.height-DOT_RADIUS, dotPos.y));
 
-  dot.style.left=dotPos.x+'px';
-  dot.style.top=dotPos.y+'px';
+  dot.style.left = dotPos.x+'px';
+  dot.style.top = dotPos.y+'px';
 }
 
 /* -------------------- Enable gyro -------------------- */
@@ -243,8 +255,7 @@ btn.addEventListener('click', enableGyro);
 
 /* -------------------- Calibrate -------------------- */
 calibrateBtn.addEventListener('click', e=>{
-  beta0 = e.beta||0;
-  gamma0 = e.gamma||0;
+  beta0 = 0; gamma0 = 0; // we use last event values internally
   dotPos0.x = dotPos.x;
   dotPos0.y = dotPos.y;
   calibrateBtn.style.display='none';
@@ -255,9 +266,6 @@ calibrateBtn.addEventListener('click', e=>{
 /* -------------------- End game -------------------- */
 function endGame(){
   gameActive=false;
-  window.removeEventListener('deviceorientation', handleOrientation);
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  dot.style.display='none';
   finalScoreBig.textContent='Score: '+Math.floor(score);
   overlay.style.display='flex'; overlay.setAttribute('aria-hidden','false');
   renderLeaderboard();
