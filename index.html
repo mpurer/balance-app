@@ -3,318 +3,364 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no, viewport-fit=cover" />
-<title>Gyro Dot Target Game</title>
+<title>Gyro Dot Target Game (PWA-ready)</title>
 
-<!-- Force PWA landscape mode -->
-<link rel="manifest" href="manifest.json">
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black" />
-<meta name="apple-mobile-web-app-orientation" content="landscape" />
+<!-- PWA manifest (create manifest.json next to this file) -->
+<link rel="manifest" href="/manifest.json">
+
+<!-- iOS meta (helps PWA fullscreen behavior) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
 <style>
-html, body {
-  margin:0; padding:0; height:100%; width:100%; overflow:hidden;
-  font-family:system-ui, sans-serif;
-  background:#f7f7f9;
-  display:flex; justify-content:center; align-items:center;
-}
-#arena {
-  position:relative; width:100%; height:100%; overflow:hidden;
-  background:#eee;
-}
-#dot {
-  position:absolute; width:36px; height:36px; border-radius:50%;
-  background:#0575e6; transform:translate(-50%, -50%);
-}
-#btn, #calibrateBtn {
-  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-  padding:12px 18px; font-size:18px; z-index:10;
-  background:#0575e6; color:#fff; border:none; border-radius:12px;
-  font-weight:600;
-}
-#calibrateBtn { display:none; }
+  :root{
+    --ui-pad: 20px;
+    --corner-pad: 16px;
+    --bg: #f7f7f9;
+    --dot-size: 36px;
+  }
 
-#scoreDisplay, #timerDisplay {
-  position:absolute; font-size:20px; font-weight:600;
-  background:rgba(255,255,255,0.7);
-  padding:6px 12px; border-radius:8px;
-}
-#scoreDisplay { left:16px; top:16px; }
-#timerDisplay { right:16px; top:16px; }
+  html,body{
+    height:100%; width:100%; margin:0; padding:0;
+    background:var(--bg); font-family:system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    -webkit-font-smoothing:antialiased;
+  }
 
-#gameOverOverlay {
-  display:none; position:absolute; inset:0;
-  background:white; z-index:50;
-  display:flex; justify-content:center; align-items:center;
-}
-#gameOverCard { width:90%; max-width:640px; text-align:center; }
-#finalScoreBig { font-size:48px; font-weight:800; margin-bottom:16px; }
+  /* full-screen arena */
+  #arena{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:var(--bg); overflow:hidden;
+  }
 
-/* Buttons */
-.btnPrimary {
-  background:#0575e6; color:white; border:none;
-  padding:10px 14px; border-radius:10px; font-weight:700;
-}
-.btnSecondary {
-  background:#f0f0f0; color:#111; border:none;
-  padding:10px 14px; border-radius:10px; font-weight:700;
-}
-#overlayButtons { display:flex; gap:12px; justify-content:center; margin-bottom:16px; }
+  /* Canvas behind everything */
+  canvas#targetCanvas{
+    position:absolute; left:0; top:0; width:100%; height:100%;
+    touch-action:none;
+  }
 
-#saveNameRow { display:none; gap:8px; justify-content:center; margin-bottom:20px; }
-#nameInput {
-  padding:8px 10px; border-radius:8px;
-  border:1px solid #ddd; min-width:180px;
-}
-.smallNote { color:#666; font-size:13px; margin-top:12px; }
+  /* Controllable dot */
+  #dot{
+    position:absolute;
+    width:var(--dot-size); height:var(--dot-size);
+    border-radius:50%;
+    background:#0575e6;
+    transform:translate(-50%,-50%);
+    box-shadow: 0 6px 12px rgba(5,117,230,0.18);
+    z-index:25;
+    pointer-events:none;
+  }
 
-/* Modern Table Leaderboard */
-#leaderboardContainer {
-  margin-top:20px; width:100%; overflow:hidden;
-  background:#fafafa; border-radius:12px;
-  border:1px solid #e5e5e5;
-}
-#leaderboardTable { width:100%; border-collapse:collapse; }
-#leaderboardTable thead tr {
-  background:#0575e6; color:white; text-align:left;
-}
-#leaderboardTable th, #leaderboardTable td {
-  padding:12px 14px; font-size:16px;
-}
-#leaderboardTable tbody tr:nth-child(even) {
-  background:#f0f6ff;
-}
-#leaderboardTable tbody tr:nth-child(odd) {
-  background:white;
-}
-#leaderboardTable td:last-child,
-#leaderboardTable th:last-child {
-  text-align:right;
-}
+  /* Top UI (score + timer) — spaced from safe area */
+  .ui-pill{
+    position:fixed;
+    top: calc(env(safe-area-inset-top, 0px) + var(--corner-pad));
+    background: rgba(255,255,255,0.85);
+    padding:8px 12px; border-radius:10px; font-weight:700; font-size:16px;
+    z-index:30; box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    backdrop-filter: blur(4px);
+  }
+  #scoreDisplay{ left: calc(env(safe-area-inset-left, 0px) + var(--corner-pad)); }
+  #timerDisplay{ right: calc(env(safe-area-inset-right, 0px) + var(--corner-pad)); }
+
+  /* Central buttons before start */
+  .center-btn{
+    position:fixed; z-index:40;
+    left:50%; top:50%; transform:translate(-50%,-50%);
+    padding:12px 18px; font-size:18px; font-weight:700; border-radius:12px; border:0;
+    color:white; background:#0575e6; box-shadow:0 8px 24px rgba(5,117,230,0.18);
+  }
+  #calibrateBtn{ background:#111; display:none; }
+
+  /* Game-over overlay (white card in center) */
+  #rotateOverlay, #gameOverOverlay{
+    position:fixed; inset:0; display:none; z-index:60;
+    background: rgba(255,255,255,0.98);
+    align-items:center; justify-content:center; padding:20px;
+  }
+  #rotateOverlay .msg, #gameOverCard .msg { color:#333; font-size:18px; margin-bottom:12px; text-align:center; }
+
+  #gameOverCard{
+    width: min(720px, 92%); background:white; border-radius:14px;
+    padding:20px; box-shadow:0 12px 36px rgba(0,0,0,0.08); text-align:center;
+  }
+  #finalScoreBig{ font-size:44px; font-weight:800; color:#111; margin-bottom:8px; }
+
+  .btnPrimary{ background:#0575e6; color:white; border:0; padding:10px 14px; border-radius:10px; font-weight:700; }
+  .btnSecondary{ background:#f0f0f0; color:#111; border:0; padding:10px 14px; border-radius:10px; font-weight:700; }
+
+  #overlayButtons{ display:flex; gap:12px; justify-content:center; margin-top:8px; }
+
+  /* Save name row */
+  #saveNameRow{ display:none; margin-top:12px; gap:8px; justify-content:center; align-items:center; }
+
+  #nameInput{ padding:8px 10px; border-radius:8px; border:1px solid #e6e6e6; min-width:180px; }
+
+  /* Leaderboard table styling */
+  #leaderboardContainer{ margin-top:18px; border-radius:10px; overflow:hidden; border:1px solid #eee; }
+  table#leaderboardTable{ width:100%; border-collapse:collapse; font-size:15px; }
+  thead th{ background:#0575e6; color:white; text-align:left; padding:12px 14px; font-weight:700; }
+  tbody td{ padding:12px 14px; border-bottom:1px solid #f0f0f5; color:#111; }
+  tbody tr:nth-child(even){ background:#fafcff; }
+  td.rank{ width:72px; } /* keep rank compact */
+  td.score{ text-align:right; width:110px; }
+
+  /* small note */
+  .smallNote{ color:#666; margin-top:10px; font-size:13px; }
+
+  /* Make sure overlay content centers for narrow heights */
+  @media (max-height:420px){
+    #gameOverCard{ padding:12px; }
+    #finalScoreBig{ font-size:36px; }
+  }
 </style>
 </head>
 <body>
-<div id="arena">
-  <canvas id="targetCanvas"></canvas>
-  <div id="dot"></div>
+  <div id="arena">
+    <canvas id="targetCanvas"></canvas>
+    <div id="dot" aria-hidden="true"></div>
 
-  <div id="scoreDisplay">Score: 0</div>
-  <div id="timerDisplay">30</div>
+    <div id="scoreDisplay" class="ui-pill">Score: 0</div>
+    <div id="timerDisplay" class="ui-pill">30</div>
 
-  <button id="btn">Enable Gyro</button>
-  <button id="calibrateBtn">Calibrate Neutral</button>
+    <button id="btn" class="center-btn">Enable Gyro</button>
+    <button id="calibrateBtn" class="center-btn">Calibrate</button>
 
-  <!-- Game Over Screen -->
-  <div id="gameOverOverlay" aria-hidden="true">
-    <div id="gameOverCard">
-      <div id="finalScoreBig">Score: 0</div>
-
-      <div id="overlayButtons">
-        <button id="retryBtn" class="btnPrimary">Retry</button>
-        <button id="saveBtn" class="btnSecondary">Save Score</button>
+    <!-- Rotate overlay (shown when not in landscape or manifest ignored) -->
+    <div id="rotateOverlay" style="display:none; align-items:center; justify-content:center;">
+      <div style="text-align:center;">
+        <div class="msg" style="font-size:18px; color:#222;">Please rotate your device to <strong>landscape (home button / speaker to the right)</strong>.</div>
+        <div class="msg" style="font-size:14px; color:#666;">For best experience add to Home Screen (PWA) and open from there.</div>
       </div>
+    </div>
 
-      <div id="saveNameRow">
-        <input id="nameInput" placeholder="Your name" />
-        <button id="confirmSave" class="btnPrimary">Save</button>
+    <!-- Game Over overlay (hidden until end) -->
+    <div id="gameOverOverlay" aria-hidden="true" style="display:none; align-items:center; justify-content:center;">
+      <div id="gameOverCard">
+        <div id="finalScoreBig">Score: 0</div>
+        <div id="overlayButtons">
+          <button id="retryBtn" class="btnPrimary">Retry</button>
+          <button id="saveBtn" class="btnSecondary">Save score</button>
+        </div>
+
+        <div id="saveNameRow">
+          <input id="nameInput" placeholder="Your name" />
+          <button id="confirmSave" class="btnPrimary">Save</button>
+        </div>
+
+        <div id="leaderboardContainer">
+          <table id="leaderboardTable" aria-label="Local leaderboard">
+            <thead>
+              <tr><th>Rank</th><th>Name</th><th style="text-align:right">Score</th></tr>
+            </thead>
+            <tbody id="leaderboardBody">
+              <!-- filled dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="smallNote">Scores are stored locally on this device.</div>
       </div>
-
-      <!-- Leaderboard -->
-      <div id="leaderboardContainer">
-        <table id="leaderboardTable">
-          <thead>
-            <tr>
-              <th>Ranking</th>
-              <th>Name</th>
-              <th>Score</th>
-            </tr>
-          </thead>
-          <tbody id="leaderboardBody"></tbody>
-        </table>
-      </div>
-
-      <div class="smallNote">Scores stored locally in your browser</div>
     </div>
   </div>
-</div>
 
 <script>
-/* — CONFIG — */
-const LB_KEY = 'tilt_dot_leaderboard_v11';
-const GAME_DURATION = 30;
+/* ---------------- CONFIG ---------------- */
+const LB_KEY = 'tilt_dot_leaderboard_pwa_v1';
+const GAME_DURATION = 30; // seconds
 const DOT_RADIUS = 18;
-const MAX_TILT = 30;
-const ringRadii = [30, 60, 90];
+const MAX_TILT = 30; // degrees mapped to full screen
+const ringRadii = [30,60,90];
 const maxPointsPerSecond = 10;
 
-/* — ELEMENTS — */
+/* ---------------- ELEMENTS ---------------- */
 const arena = document.getElementById('arena');
-const dot = document.getElementById('dot');
-const scoreDisplay = document.getElementById('scoreDisplay');
-const timerDisplay = document.getElementById('timerDisplay');
 const canvas = document.getElementById('targetCanvas');
 const ctx = canvas.getContext('2d');
-const btn = document.getElementById('btn');
+const dotEl = document.getElementById('dot');
+const scoreDisplay = document.getElementById('scoreDisplay');
+const timerDisplay = document.getElementById('timerDisplay');
+const enableBtn = document.getElementById('btn');
 const calibrateBtn = document.getElementById('calibrateBtn');
-const overlay = document.getElementById('gameOverOverlay');
+const rotateOverlay = document.getElementById('rotateOverlay');
+const gameOverOverlay = document.getElementById('gameOverOverlay');
 const finalScoreBig = document.getElementById('finalScoreBig');
 const retryBtn = document.getElementById('retryBtn');
 const saveBtn = document.getElementById('saveBtn');
 const saveNameRow = document.getElementById('saveNameRow');
-const confirmSave = document.getElementById('confirmSave');
 const nameInput = document.getElementById('nameInput');
+const confirmSave = document.getElementById('confirmSave');
 const leaderboardBody = document.getElementById('leaderboardBody');
 
-/* — STATE — */
+/* ---------------- STATE ---------------- */
 let arenaRect = arena.getBoundingClientRect();
-canvas.width = arenaRect.width;
-canvas.height = arenaRect.height;
+function sizeCanvas(){
+  arenaRect = arena.getBoundingClientRect();
+  canvas.width = Math.round(arenaRect.width);
+  canvas.height = Math.round(arenaRect.height);
+}
+sizeCanvas();
 
 let targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
 let dotPos = { x: targetCenter.x, y: targetCenter.y };
-let dotPos0 = { ...dotPos };
-
+let dotPos0 = {...dotPos}; // neutral visual center
 let beta0 = 0, gamma0 = 0;
-let score = 0;
-let lastTime = 0;
-let timeLeft = GAME_DURATION;
+let score = 0, lastTime = 0, timeLeft = GAME_DURATION;
 let gameActive = false;
+let lastBeta = 0, lastGamma = 0;
 
-/* — LEADERBOARD — */
-function loadLeaderboard() {
-  return JSON.parse(localStorage.getItem(LB_KEY) || '[]')
-    .sort((a,b)=>b.score-a.score).
-    slice(0,50);
+/* small helper */
+function clamp(v,a,b){ return Math.min(Math.max(v,a),b); }
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+
+/* ---------------- Leaderboard ---------------- */
+function loadLeaderboard(){
+  try{
+    return JSON.parse(localStorage.getItem(LB_KEY) || '[]').sort((a,b)=>b.score - a.score);
+  }catch(e){ return []; }
 }
-function saveLocalScore(name, score) {
+function saveLocalScore(name, sc){
   const list = loadLeaderboard();
-  list.push({ name, score: Math.floor(score), date: Date.now() });
-  list.sort((a,b)=>b.score-a.score);
+  list.push({ name: String(name||'Player'), score: Math.floor(sc), date: Date.now()});
+  list.sort((a,b)=>b.score - a.score);
   localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0,50)));
 }
-function renderLeaderboard() {
-  const list = loadLeaderboard();
+function renderLeaderboard(){
+  const list = loadLeaderboard().slice(0,50);
   leaderboardBody.innerHTML = '';
-
-  if(list.length === 0) {
-    leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px;">No scores yet</td></tr>`;
+  if(list.length === 0){
+    leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">No scores yet</td></tr>`;
     return;
   }
-
-  list.forEach((entry, i) => {
+  list.forEach((row, i) => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>#${i+1}</td>
-      <td>${escapeHtml(entry.name)}</td>
-      <td>${entry.score}</td>
-    `;
+    tr.innerHTML = `<td class="rank">${i+1}</td><td>${escapeHtml(row.name)}</td><td class="score">${row.score}</td>`;
     leaderboardBody.appendChild(tr);
   });
 }
-function escapeHtml(txt) {
-  return String(txt).replace(/[&<>"']/g, s => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[s]));
-}
 
-/* — DRAW TARGET — */
-function drawTarget() {
+/* ---------------- Draw target ---------------- */
+function drawTargetAndRings(){
+  // draw centered target
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+  ctx.strokeStyle = 'rgba(0,0,0,0.16)';
   ctx.lineWidth = 2;
-  ringRadii.forEach(r => {
+  ringRadii.forEach(r=>{
     ctx.beginPath();
-    ctx.arc(targetCenter.x,targetCenter.y,r,0,Math.PI*2);
+    ctx.arc(targetCenter.x, targetCenter.y, r, 0, Math.PI*2);
     ctx.stroke();
   });
   ctx.fillStyle = '#ff5c5c';
   ctx.beginPath();
-  ctx.arc(targetCenter.x,targetCenter.y,6,0,Math.PI*2);
+  ctx.arc(targetCenter.x, targetCenter.y, 6, 0, Math.PI*2);
   ctx.fill();
 }
 
-drawTarget();
-
-targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
-function update() {
+/* ---------------- Update loop (score timer) ---------------- */
+function updateLoop(){
   const now = performance.now();
-  const dt = lastTime ? (now-lastTime)/1000 : 0;
+  const dt = lastTime ? (now - lastTime)/1000 : 0;
   lastTime = now;
-
-  if(gameActive) {
-    drawTarget();
-
+  if(gameActive){
+    drawTargetAndRings();
     const dx = dotPos.x - targetCenter.x;
     const dy = dotPos.y - targetCenter.y;
     const dist = Math.hypot(dx,dy);
-
-    if(dist <= ringRadii[ringRadii.length-1]) {
-      score += maxPointsPerSecond * (1 - dist/ringRadii[ringRadii.length-1]) * dt;
+    if(dist <= ringRadii[ringRadii.length-1]){
+      score += maxPointsPerSecond * (1 - dist / ringRadii[ringRadii.length-1]) * dt;
     }
-    scoreDisplay.textContent = "Score: " + Math.floor(score);
-
+    scoreDisplay.textContent = 'Score: ' + Math.floor(score);
     timeLeft -= dt;
-    if(timeLeft <= 0) {
+    if(timeLeft <= 0){
       timeLeft = 0;
       endGame();
     }
     timerDisplay.textContent = Math.ceil(timeLeft);
   }
-
-  requestAnimationFrame(update);
+  requestAnimationFrame(updateLoop);
 }
-update();
+updateLoop();
 
-/* — GYRO — */
-function handleOrientation(e) {
+/* ---------------- Orientation + mapping ---------------- */
+function mapOrientationToXY(beta, gamma){
+  // map raw deltas to dx/dy according to screen rotation
+  const angle = screen.orientation?.angle ?? window.orientation ?? 0;
+  let dx=0, dy=0;
+  switch(angle){
+    case 90: dx = beta; dy = -gamma; break; // landscape-right
+    case -90:
+    case 270: dx = -beta; dy = gamma; break; // landscape-left
+    case 180: dx = -gamma; dy = -beta; break; // upside-down
+    default: dx = gamma; dy = beta; // portrait
+  }
+  return { dx, dy };
+}
+
+/* ---------------- Gyro handler (relative calibration) ---------------- */
+function handleOrientationEvent(e){
+  // update lastBeta/lastGamma for calibration even when not active
+  lastBeta = e.beta ?? lastBeta;
+  lastGamma = e.gamma ?? lastGamma;
+
   if(!gameActive) return;
 
-  const beta = (e.beta||0) - beta0;
-  const gamma = (e.gamma||0) - gamma0;
+  // relative to neutral
+  const beta = (e.beta ?? 0) - beta0;
+  const gamma = (e.gamma ?? 0) - gamma0;
+  const { dx, dy } = mapOrientationToXY(beta, gamma);
 
-  let angle = screen.orientation?.angle || window.orientation || 0;
-
-  let dx = 0, dy = 0;
-  switch(angle) {
-    case 90: dx = beta; dy = -gamma; break;
-    case -90: case 270: dx = -beta; dy = gamma; break;
-    default: dx = gamma; dy = beta;
-  }
-
+  // scale: MAX_TILT degrees -> full arena width/height
   const scaleX = arenaRect.width / MAX_TILT;
   const scaleY = arenaRect.height / MAX_TILT;
 
-  dotPos.x = Math.max(DOT_RADIUS, Math.min(arenaRect.width-DOT_RADIUS, dotPos0.x + dx * scaleX));
-  dotPos.y = Math.max(DOT_RADIUS, Math.min(arenaRect.height-DOT_RADIUS, dotPos0.y + dy * scaleY));
+  dotPos.x = clamp(dotPos0.x + dx * scaleX, DOT_RADIUS, arenaRect.width - DOT_RADIUS);
+  dotPos.y = clamp(dotPos0.y + dy * scaleY, DOT_RADIUS, arenaRect.height - DOT_RADIUS);
 
-  dot.style.left = dotPos.x + 'px';
-  dot.style.top = dotPos.y + 'px';
+  dotEl.style.left = Math.round(dotPos.x) + 'px';
+  dotEl.style.top = Math.round(dotPos.y) + 'px';
 }
 
-window.addEventListener('deviceorientation', e => {
-  window.lastBeta = e.beta;
-  window.lastGamma = e.gamma;
+/* attach global listener to capture latest beta/gamma for calibration */
+window.addEventListener('deviceorientation', (e)=>{
+  lastBeta = e.beta ?? lastBeta;
+  lastGamma = e.gamma ?? lastGamma;
 });
 
-/* — ENABLE GYRO — */
-btn.addEventListener('click', async () => {
-  if(typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) {
-    const res = await DeviceOrientationEvent.requestPermission();
-    if(res !== 'granted') { alert("Permission required"); return; }
+/* ---------------- Enable gyro (permission) ---------------- */
+enableBtn.addEventListener('click', async ()=>{
+  // If not landscape in browser, show rotate overlay (we block gameplay until orientation is landscape)
+  evaluateOrientation();
+
+  if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+    try{
+      const res = await DeviceOrientationEvent.requestPermission();
+      if(res !== 'granted'){ alert('Motion permission is required.'); return; }
+    }catch(err){
+      // permission API failed — continue (some browsers)
+    }
   }
-  window.addEventListener('deviceorientation', handleOrientation);
-  btn.style.display = 'none';
+  // start listening for movement (actual movement uses handleOrientationEvent)
+  window.addEventListener('deviceorientation', handleOrientationEvent);
+  enableBtn.style.display = 'none';
   calibrateBtn.style.display = 'block';
 });
 
-/* — CALIBRATE — */
-calibrateBtn.addEventListener('click', () => {
-  beta0 = window.lastBeta || 0;
-  gamma0 = window.lastGamma || 0;
+/* ---------------- Calibrate (sets neutral tilt and centers visual dot) ---------------- */
+calibrateBtn.addEventListener('click', ()=>{
+  // recalc sizes to be safe, and center target exactly
+  sizeCanvas();
+  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
 
+  // take the last global readings as neutral
+  beta0 = lastBeta ?? 0;
+  gamma0 = lastGamma ?? 0;
+
+  // Visual center = target center (exact alignment)
   dotPos0 = { x: targetCenter.x, y: targetCenter.y };
   dotPos = { ...dotPos0 };
-  dot.style.left = dotPos.x + 'px';
-  dot.style.top = dotPos.y + 'px';
+  dotEl.style.left = dotPos.x + 'px';
+  dotEl.style.top = dotPos.y + 'px';
 
+  // hide calibrate, start game timer
   calibrateBtn.style.display = 'none';
   score = 0;
   timeLeft = GAME_DURATION;
@@ -322,36 +368,150 @@ calibrateBtn.addEventListener('click', () => {
   gameActive = true;
 });
 
-/* — END GAME — */
-function endGame() {
+/* ---------------- End game (overlay with leaderboard) ---------------- */
+function endGame(){
   gameActive = false;
-  finalScoreBig.textContent = "Score: " + Math.floor(score);
-  overlay.style.display = 'flex';
+  finalScoreBig.textContent = 'Score: ' + Math.floor(score);
   renderLeaderboard();
+  gameOverOverlay.style.display = 'flex';
+  gameOverOverlay.setAttribute('aria-hidden','false');
 }
 
-/* — RETRY — */
-retryBtn.addEventListener('click', () => {
-  overlay.style.display = 'none';
-  btn.style.display = 'block';
+/* ---------------- Retry (hide overlay, reset to initial state) ---------------- */
+retryBtn.addEventListener('click', ()=>{
+  // hide overlay & reset session
+  gameOverOverlay.style.display = 'none';
+  gameOverOverlay.setAttribute('aria-hidden','true');
   saveNameRow.style.display = 'none';
   nameInput.value = '';
+
+  enableBtn.style.display = 'block';
+  calibrateBtn.style.display = 'none';
+
+  // reset positions and UI
+  sizeCanvas();
+  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
+  dotPos = { x: targetCenter.x, y: targetCenter.y };
+  dotPos0 = { ...dotPos };
+  dotEl.style.left = dotPos.x + 'px';
+  dotEl.style.top = dotPos.y + 'px';
+
+  score = 0;
+  timeLeft = GAME_DURATION;
+  lastTime = 0;
+  scoreDisplay.textContent = 'Score: 0';
+  timerDisplay.textContent = GAME_DURATION;
 });
 
-/* — SAVE SCORE — */
-saveBtn.addEventListener('click', () => {
+/* ---------------- Save name / confirm ---------------- */
+saveBtn.addEventListener('click', ()=>{
   saveNameRow.style.display = 'flex';
   nameInput.focus();
 });
 
-confirmSave.addEventListener('click', () => {
-  const name = nameInput.value.trim() || 'Player';
+confirmSave.addEventListener('click', ()=>{
+  const name = (nameInput.value || 'Player').trim();
+  if(!name){ alert('Please enter a name'); nameInput.focus(); return; }
   saveLocalScore(name, score);
   saveNameRow.style.display = 'none';
   nameInput.value = '';
   renderLeaderboard();
 });
-</script>
 
+/* Enter key on input */
+nameInput.addEventListener('keyup', (e)=>{
+  if(e.key === 'Enter') confirmSave.click();
+});
+
+/* ---------------- Render leaderboard (table) ---------------- */
+function renderLeaderboard(){
+  const list = loadLeaderboard();
+  leaderboardBody.innerHTML = '';
+  if(list.length === 0){
+    leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">No scores yet</td></tr>`;
+    return;
+  }
+  list.slice(0,50).forEach((row, i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="rank">${i+1}</td><td>${escapeHtml(row.name)}</td><td class="score">${row.score}</td>`;
+    leaderboardBody.appendChild(tr);
+  });
+}
+
+/* ---------------- Orientation helpers & UI adjustments ---------------- */
+function evaluateOrientation(){
+  // If the app is running as PWA standalone, prefer that orientation but still check.
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const isLandscape = width >= height;
+
+  // If not landscape, show rotate overlay and block calibrate/start
+  if(!isLandscape){
+    rotateOverlay.style.display = 'flex';
+    calibrateBtn.style.display = 'none';
+    // Keep enable button visible so user can still allow permission if needed, but block gameplay
+    return false;
+  } else {
+    rotateOverlay.style.display = 'none';
+    // allow calibrate (if gyro enabled)
+    // calibrate shown only when enable step done — caller controls that
+    return true;
+  }
+}
+
+window.addEventListener('orientationchange', ()=>{
+  // Recompute sizes and reposition UI elements (score/timer)
+  setTimeout(()=>{
+    sizeCanvas();
+    targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
+    // update dot positions so target/dot remain consistent with calibration
+    if(!gameActive){
+      dotPos = { x: targetCenter.x, y: targetCenter.y };
+      dotPos0 = { ...dotPos };
+      dotEl.style.left = dotPos.x + 'px';
+      dotEl.style.top = dotPos.y + 'px';
+      drawTargetAndRings();
+    } else {
+      // if game active keep dot where it is but ensure clamp
+      dotPos.x = clamp(dotPos.x, DOT_RADIUS, arenaRect.width - DOT_RADIUS);
+      dotPos.y = clamp(dotPos.y, DOT_RADIUS, arenaRect.height - DOT_RADIUS);
+      dotEl.style.left = dotPos.x + 'px';
+      dotEl.style.top = dotPos.y + 'px';
+      drawTargetAndRings();
+    }
+    evaluateOrientation();
+  }, 120); // slight delay to allow browser to settle
+});
+
+window.addEventListener('resize', ()=>{
+  sizeCanvas();
+  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
+  drawTargetAndRings();
+});
+
+/* ---------------- Init ---------------- */
+(function init(){
+  // initial exact centering
+  sizeCanvas();
+  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
+  dotPos = { x: targetCenter.x, y: targetCenter.y };
+  dotPos0 = { ...dotPos };
+  dotEl.style.left = dotPos.x + 'px';
+  dotEl.style.top = dotPos.y + 'px';
+  drawTargetAndRings();
+
+  // overlay hidden
+  rotateOverlay.style.display = 'none';
+  gameOverOverlay.style.display = 'none';
+  saveNameRow.style.display = 'none';
+
+  // hide calibrate until permission granted
+  calibrateBtn.style.display = 'none';
+
+  // detect orientation now
+  evaluateOrientation();
+})();
+</script>
 </body>
 </html>
