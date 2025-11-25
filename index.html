@@ -10,6 +10,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
+<!-- ★ NEW: Confetti library -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
 <style>
   :root{
     --bg:#f7f7f9;
@@ -149,7 +152,7 @@
 const LB_KEY = 'tilt_dot_leaderboard_final_v1';
 const GAME_DURATION = 30;
 const DOT_RADIUS = 18;
-const MAX_TILT = 30; // degrees mapping to full width/height
+const MAX_TILT = 30; 
 const ringRadii = [30, 60, 90];
 const maxPointsPerSecond = 10;
 
@@ -304,7 +307,6 @@ function startCountdown(callback){
   function tick(){
     countdownNumber.textContent = count;
 
-    // animate circle
     countdownFill.style.transform = "rotate(360deg)";
     countdownFill.style.transition = "transform 1s linear";
 
@@ -351,7 +353,6 @@ calibrateBtn.addEventListener('click', () => {
   drawTargetAndRings();
   calibrateBtn.style.display = 'none';
 
-  // NEW: Start countdown before game
   startCountdown(() => {
     score = 0;
     timeLeft = GAME_DURATION;
@@ -360,9 +361,34 @@ calibrateBtn.addEventListener('click', () => {
   });
 });
 
+/* ---------- ★ NEW: Confetti burst function ---------- */
+function fireConfetti(){
+  const duration = 2200; // 2.2 seconds
+  const end = Date.now() + duration;
+
+  (function frame(){
+    // top center burst, falling downward
+    confetti({
+      particleCount: 6,
+      startVelocity: 45,
+      spread: 80,
+      origin: { x: 0.5, y: 0 }, // <-- top center
+      angle: 90
+    });
+
+    if(Date.now() < end){
+      requestAnimationFrame(frame);
+    }
+  })();
+}
+
 /* ---------- End game ---------- */
 function endGame(){
   gameActive = false;
+
+  // ★ Trigger confetti immediately when time ends
+  fireConfetti();
+
   finalScoreBig.textContent = 'Score: ' + Math.floor(score);
   renderLeaderboard();
   gameOverOverlay.style.display = 'flex';
