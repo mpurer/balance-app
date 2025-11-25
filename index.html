@@ -25,8 +25,48 @@
   #timerDisplay{right:calc(env(safe-area-inset-right,0px) + var(--corner-pad))}
   .center-btn{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;padding:12px 18px;border-radius:12px;border:0;background:#0575e6;color:#fff;font-weight:800;box-shadow:0 10px 28px rgba(5,117,230,0.12)}
   #calibrateBtn{background:#111}
+
   /* overlays */
-  #rotateOverlay,#gameOverOverlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:60;background:rgba(255,255,255,0.98)}
+  #rotateOverlay,#gameOverOverlay,#countdownOverlay{
+    position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:60;background:rgba(255,255,255,0.98)
+  }
+
+  /* countdown circle container */
+  #countdownContainer{
+    text-align:center;
+    position:relative;
+  }
+
+  #countdownNumber{
+    font-size:80px;
+    font-weight:800;
+    color:#111;
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+  }
+
+  /* circular ring animation */
+  .countdown-ring{
+    width:160px;
+    height:160px;
+    border-radius:50%;
+    border:10px solid #e6e6e6;
+    position:relative;
+    overflow:hidden;
+  }
+
+  .countdown-fill{
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    border:10px solid #0575e6;
+    transform-origin:center;
+    transform:rotate(0deg);
+    transition:transform 1s linear;
+  }
+
   #gameOverCard{width:min(720px,92%);background:#fff;border-radius:12px;padding:20px;box-shadow:0 12px 36px rgba(0,0,0,0.08);text-align:center}
   #finalScoreBig{font-size:40px;font-weight:800;margin-bottom:8px}
   .btnPrimary{background:#0575e6;color:#fff;border:0;padding:10px 14px;border-radius:10px;font-weight:700}
@@ -34,6 +74,7 @@
   #overlayButtons{display:flex;gap:12px;justify-content:center;margin-bottom:8px}
   #saveNameRow{display:none;margin-top:10px;gap:8px;justify-content:center;align-items:center}
   #nameInput{padding:8px 10px;border-radius:8px;border:1px solid #e6e6e6;min-width:170px}
+
   /* leaderboard */
   #leaderboardContainer{margin-top:12px;border-radius:8px;overflow:hidden;border:1px solid #eee;background:#fff}
   table#leaderboardTable{width:100%;border-collapse:collapse;font-size:15px}
@@ -61,6 +102,16 @@
       <div>
         <div style="font-size:18px;color:#222;text-align:center;margin-bottom:8px">Please rotate your device to <strong>landscape (home button / speaker to the right)</strong>.</div>
         <div style="text-align:center;color:#666">For best results install as PWA (Add to Home Screen) and open from Home Screen.</div>
+      </div>
+    </div>
+
+    <!-- countdown overlay -->
+    <div id="countdownOverlay">
+      <div id="countdownContainer">
+        <div class="countdown-ring">
+          <div class="countdown-fill" id="countdownFill"></div>
+        </div>
+        <div id="countdownNumber">3</div>
       </div>
     </div>
 
@@ -112,6 +163,9 @@ const timerDisplay = document.getElementById('timerDisplay');
 const enableBtn = document.getElementById('btn');
 const calibrateBtn = document.getElementById('calibrateBtn');
 const rotateOverlay = document.getElementById('rotateOverlay');
+const countdownOverlay = document.getElementById('countdownOverlay');
+const countdownNumber = document.getElementById('countdownNumber');
+const countdownFill = document.getElementById('countdownFill');
 const gameOverOverlay = document.getElementById('gameOverOverlay');
 const finalScoreBig = document.getElementById('finalScoreBig');
 const retryBtn = document.getElementById('retryBtn');
@@ -137,7 +191,7 @@ let lastTime = 0;
 let timeLeft = GAME_DURATION;
 let gameActive = false;
 
-/* Detect iPad (covers iPadOS desktop UA too) */
+/* detect iPad */
 const isIpad = (navigator.userAgent.includes('iPad') || (navigator.userAgent.includes('Macintosh') && navigator.maxTouchPoints > 1));
 
 /* ---------- Helpers ---------- */
@@ -147,16 +201,17 @@ function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, ch => ({'&':'&a
 /* ---------- Leaderboard ---------- */
 function loadLeaderboard(){ try{ return JSON.parse(localStorage.getItem(LB_KEY) || '[]').sort((a,b)=>b.score - a.score); }catch(e){ return []; } }
 function saveLocalScore(name, sc){ const list = loadLeaderboard(); list.push({ name: String(name||'Player'), score: Math.floor(sc), date: Date.now() }); list.sort((a,b)=>b.score - a.score); localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0,50))); }
-function renderLeaderboard(){ const list = loadLeaderboard().slice(0,50); leaderboardBody.innerHTML = ''; if(list.length === 0){ leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">No scores yet</td></tr>`; return; } list.forEach((r,i)=>{ const tr = document.createElement('tr'); tr.innerHTML = `<td class="rank">${i+1}</td><td>${escapeHtml(r.name)}</td><td class="score">${r.score}</td>`; leaderboardBody.appendChild(tr); }); }
+function renderLeaderboard(){ const list = loadLeaderboard().slice(0,50); leaderboardBody.innerHTML = ''; if(list.length === 0){ leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">No scores yet</td></tr>`; return; } list.forEach((r,i)=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td class="rank">${i+1}</td><td>${escapeHtml(r.name)}</td><td class="score">${r.score}</td>`; leaderboardBody.appendChild(tr); }); }
 
-/* ---------- Draw target ---------- */
+/* ---------- Canvas drawing ---------- */
 function drawTargetAndRings(){ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.strokeStyle='rgba(0,0,0,0.16)'; ctx.lineWidth=2; ringRadii.forEach(r=>{ ctx.beginPath(); ctx.arc(targetCenter.x,targetCenter.y,r,0,Math.PI*2); ctx.stroke(); }); ctx.fillStyle='#ff5c5c'; ctx.beginPath(); ctx.arc(targetCenter.x,targetCenter.y,6,0,Math.PI*2); ctx.fill(); }
 
-/* ---------- Update Loop ---------- */
+/* ---------- Game update loop ---------- */
 function updateLoop(){
   const now = performance.now();
-  const dt = lastTime ? (now - lastTime)/1000 : 0;
+  const dt = lastTime ? (now-lastTime)/1000 : 0;
   lastTime = now;
+
   if(gameActive){
     drawTargetAndRings();
     const dx = dotPos.x - targetCenter.x;
@@ -170,114 +225,118 @@ function updateLoop(){
     if(timeLeft <= 0){ timeLeft = 0; endGame(); }
     timerDisplay.textContent = Math.ceil(timeLeft);
   }
+
   requestAnimationFrame(updateLoop);
 }
 updateLoop();
 
 /* ---------- Orientation mapping ---------- */
-/**
- * Map beta/gamma (relative) to dx/dy depending on device and screen orientation.
- * dx -> positive = right, dy -> positive = down
- */
-function mapOrientationToXY(beta, gamma){
+function mapOrientationToXY(beta,gamma){
   const angle = screen.orientation?.angle ?? window.orientation ?? 0;
-  let dx = 0, dy = 0;
+  let dx=0, dy=0;
 
   if(isIpad){
-    // iPad Type B mapping (user reported behavior); produce intended controls:
-    // forward tilt -> up, right tilt -> right in landscape-right.
     switch(angle){
-      case 90:   // landscape-right (home button/speaker to the right)
-        dx = gamma;      // right tilt -> right
-        dy = -beta;      // forward tilt -> up
-        break;
-      case -90:
-      case 270:  // landscape-left
-        dx = -gamma;
-        dy = beta;
-        break;
-      case 180:
-        dx = -beta;
-        dy = gamma;
-        break;
-      default:   // portrait
-        dx = beta;
-        dy = -gamma;
+      case 90: dx = gamma; dy = -beta; break;
+      case -90: case 270: dx = -gamma; dy = beta; break;
+      case 180: dx = -beta; dy = gamma; break;
+      default: dx = beta; dy = -gamma;
     }
   } else {
-    // iPhone mapping (previous working mapping)
     switch(angle){
-      case 90:   // landscape-right
-        dx = beta;
-        dy = -gamma;
-        break;
-      case -90:
-      case 270:
-        dx = -beta;
-        dy = gamma;
-        break;
-      case 180:
-        dx = -gamma;
-        dy = -beta;
-        break;
-      default:
-        dx = gamma;
-        dy = beta;
+      case 90: dx = beta; dy = -gamma; break;
+      case -90: case 270: dx = -beta; dy = gamma; break;
+      case 180: dx = -gamma; dy = -beta; break;
+      default: dx = gamma; dy = beta;
     }
   }
 
-  return { dx, dy };
+  return {dx,dy};
 }
 
-/* ---------- Gyro handler (relative to calibration) ---------- */
+/* ---------- Orientation handler ---------- */
 function handleOrientation(e){
-  // always capture latest for calibration even if not running
   lastBeta = (typeof e.beta === 'number') ? e.beta : lastBeta;
   lastGamma = (typeof e.gamma === 'number') ? e.gamma : lastGamma;
-
   if(!gameActive) return;
 
   const relBeta = (typeof e.beta === 'number' ? e.beta : 0) - beta0;
   const relGamma = (typeof e.gamma === 'number' ? e.gamma : 0) - gamma0;
-  const { dx, dy } = mapOrientationToXY(relBeta, relGamma);
+  const {dx,dy} = mapOrientationToXY(relBeta,relGamma);
 
   const scaleX = arenaRect.width / MAX_TILT;
   const scaleY = arenaRect.height / MAX_TILT;
 
-  dotPos.x = clamp(dotPos0.x + dx * scaleX, DOT_RADIUS, arenaRect.width - DOT_RADIUS);
-  dotPos.y = clamp(dotPos0.y + dy * scaleY, DOT_RADIUS, arenaRect.height - DOT_RADIUS);
+  dotPos.x = clamp(dotPos0.x + dx*scaleX, DOT_RADIUS, arenaRect.width-DOT_RADIUS);
+  dotPos.y = clamp(dotPos0.y + dy*scaleY, DOT_RADIUS, arenaRect.height-DOT_RADIUS);
 
-  dotEl.style.left = Math.round(dotPos.x) + 'px';
-  dotEl.style.top = Math.round(dotPos.y) + 'px';
+  dotEl.style.left = Math.round(dotPos.x)+'px';
+  dotEl.style.top = Math.round(dotPos.y)+'px';
 }
 
-/* capture latest even when game not active */
-window.addEventListener('deviceorientation', (e) => {
+window.addEventListener('deviceorientation', e => {
   lastBeta = (typeof e.beta === 'number') ? e.beta : lastBeta;
   lastGamma = (typeof e.gamma === 'number') ? e.gamma : lastGamma;
 });
 
-/* ---------- Enable gyro (permission flow) ---------- */
+/* ---------- Enable gyro ---------- */
 enableBtn.addEventListener('click', async () => {
-  // check orientation
   evaluateOrientation();
 
   if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
     try{
       const res = await DeviceOrientationEvent.requestPermission();
       if(res !== 'granted'){ alert('Motion permission required'); return; }
-    }catch(err){
-      // ignore
-    }
+    }catch(err){}
   }
+
   window.addEventListener('deviceorientation', handleOrientation);
   enableBtn.style.display = 'none';
   calibrateBtn.style.display = 'block';
 });
 
-/* ---------- Calibrate (center dot visually & set neutral tilt) ---------- */
+/* ---------- Countdown function ---------- */
+function startCountdown(callback){
+  countdownOverlay.style.display = "flex";
+
+  let count = 3;
+
+  function tick(){
+    countdownNumber.textContent = count;
+
+    // animate circle
+    countdownFill.style.transform = "rotate(360deg)";
+    countdownFill.style.transition = "transform 1s linear";
+
+    setTimeout(()=>{
+      countdownFill.style.transition = "none";
+      countdownFill.style.transform = "rotate(0deg)";
+    },1000);
+
+    if(count === 0){
+      countdownNumber.textContent = "GO!";
+      countdownFill.style.display = "none";
+
+      setTimeout(()=>{
+        countdownOverlay.style.display = "none";
+        countdownFill.style.display = "block";
+        countdownFill.style.transform = "rotate(0deg)";
+        countdownFill.style.transition = "none";
+        callback();
+      },700);
+
+      return;
+    }
+
+    count--;
+    setTimeout(tick,1000);
+  }
+
+  tick();
+}
+
+/* ---------- Calibrate ---------- */
 calibrateBtn.addEventListener('click', () => {
-  // ensure final sizes
   sizeCanvas();
   targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
 
@@ -285,16 +344,20 @@ calibrateBtn.addEventListener('click', () => {
   gamma0 = lastGamma ?? 0;
 
   dotPos0 = { x: targetCenter.x, y: targetCenter.y };
-  dotPos = { ...dotPos0 };
-  dotEl.style.left = dotPos.x + 'px';
-  dotEl.style.top = dotPos.y + 'px';
+  dotPos = {...dotPos0};
+  dotEl.style.left = dotPos.x+'px';
+  dotEl.style.top = dotPos.y+'px';
 
   drawTargetAndRings();
   calibrateBtn.style.display = 'none';
-  score = 0;
-  timeLeft = GAME_DURATION;
-  lastTime = performance.now();
-  gameActive = true;
+
+  // NEW: Start countdown before game
+  startCountdown(() => {
+    score = 0;
+    timeLeft = GAME_DURATION;
+    lastTime = performance.now();
+    gameActive = true;
+  });
 });
 
 /* ---------- End game ---------- */
@@ -312,17 +375,22 @@ retryBtn.addEventListener('click', () => {
   gameOverOverlay.setAttribute('aria-hidden','true');
   saveNameRow.style.display = 'none';
   nameInput.value = '';
+
   enableBtn.style.display = 'block';
   calibrateBtn.style.display = 'none';
+
   sizeCanvas();
   targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
   dotPos = { x: targetCenter.x, y: targetCenter.y };
-  dotPos0 = { ...dotPos };
-  dotEl.style.left = dotPos.x + 'px';
-  dotEl.style.top = dotPos.y + 'px';
+  dotPos0 = {...dotPos};
+
+  dotEl.style.left = dotPos.x+'px';
+  dotEl.style.top = dotPos.y+'px';
+
   score = 0;
   timeLeft = GAME_DURATION;
   lastTime = 0;
+
   scoreDisplay.textContent = 'Score: 0';
   timerDisplay.textContent = GAME_DURATION;
 });
@@ -330,87 +398,38 @@ retryBtn.addEventListener('click', () => {
 /* ---------- Save score ---------- */
 saveBtn.addEventListener('click', ()=>{ saveNameRow.style.display = 'flex'; nameInput.focus(); });
 confirmSave.addEventListener('click', ()=> {
-  const name = (nameInput.value || 'Player').trim();
+  const name=(nameInput.value||'Player').trim();
   if(!name){ alert('Please enter a name'); nameInput.focus(); return; }
   saveLocalScore(name, score);
   saveNameRow.style.display = 'none';
-  nameInput.value = '';
+  nameInput.value='';
   renderLeaderboard();
 });
 
-/* ---------- Leaderboard render helper ---------- */
-function renderLeaderboard(){ // already defined above; call to update DOM
-  const list = loadLeaderboard().slice(0,50);
-  leaderboardBody.innerHTML = '';
-  if(list.length === 0){
-    leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">No scores yet</td></tr>`;
-    return;
-  }
-  list.forEach((r,i)=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="rank">${i+1}</td><td>${escapeHtml(r.name)}</td><td class="score">${r.score}</td>`;
-    leaderboardBody.appendChild(tr);
-  });
-}
-
-/* ---------- Orientation UI & resize handling ---------- */
+/* ---------- Orientation UI ---------- */
 function evaluateOrientation(){
-  const w = window.innerWidth, h = window.innerHeight;
-  const isLandscape = w >= h;
-  if(!isLandscape){
-    rotateOverlay.style.display = 'flex';
-    // block calibrate/start until landscape
-    // enableBtn may remain visible (permission can still be granted), but gameplay blocked
-    return false;
-  } else {
-    rotateOverlay.style.display = 'none';
-    return true;
-  }
+  const w=window.innerWidth, h=window.innerHeight;
+  const isLandscape = w>=h;
+  rotateOverlay.style.display = isLandscape ? 'none' : 'flex';
+  return isLandscape;
 }
-
-window.addEventListener('orientationchange', ()=> {
-  setTimeout(()=> {
-    sizeCanvas();
-    targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
-    // if game not active, center dot exactly
-    if(!gameActive){
-      dotPos = { x: targetCenter.x, y: targetCenter.y };
-      dotPos0 = { ...dotPos };
-      dotEl.style.left = dotPos.x + 'px';
-      dotEl.style.top = dotPos.y + 'px';
-      drawTargetAndRings();
-    } else { // clamp if active
-      dotPos.x = clamp(dotPos.x, DOT_RADIUS, arenaRect.width - DOT_RADIUS);
-      dotPos.y = clamp(dotPos.y, DOT_RADIUS, arenaRect.height - DOT_RADIUS);
-      dotEl.style.left = dotPos.x + 'px';
-      dotEl.style.top = dotPos.y + 'px';
-      drawTargetAndRings();
-    }
-    evaluateOrientation();
-  }, 120);
-});
-
-window.addEventListener('resize', ()=> {
-  sizeCanvas();
-  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
-  drawTargetAndRings();
-});
+window.addEventListener('orientationchange', ()=>setTimeout(()=>{sizeCanvas(); targetCenter={x:arenaRect.width/2,y:arenaRect.height/2};evaluateOrientation();},120));
+window.addEventListener('resize', ()=>{sizeCanvas(); targetCenter={x:arenaRect.width/2,y:arenaRect.height/2}; drawTargetAndRings();});
 
 /* ---------- Init ---------- */
 (function init(){
   sizeCanvas();
   targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
   dotPos = { x: targetCenter.x, y: targetCenter.y };
-  dotPos0 = { ...dotPos };
-  dotEl.style.left = dotPos.x + 'px';
-  dotEl.style.top = dotPos.y + 'px';
+  dotPos0 = {...dotPos};
+  dotEl.style.left = dotPos.x+'px';
+  dotEl.style.top = dotPos.y+'px';
   drawTargetAndRings();
-  renderLeaderboard(); // not shown until gameOver overlay visible
+  renderLeaderboard();
   evaluateOrientation();
   calibrateBtn.style.display = 'none';
   gameOverOverlay.style.display = 'none';
 })();
-
 </script>
 </body>
 </html>
