@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-<!-- Confetti -->
+<!-- ★ NEW: Confetti library -->
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
 <style>
@@ -21,52 +21,55 @@
   }
   html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
   #arena{position:fixed;inset:0;overflow:hidden;background:var(--bg);display:flex;align-items:center;justify-content:center}
-  canvas#targetCanvas{position:absolute;left:0;top:0;width:100%;height:100%;display:none;} /* hidden until gyro enabled */
-  #dot{position:absolute;width:var(--dot-size);height:var(--dot-size);border-radius:50%;background:#0575e6;transform:translate(-50%,-50%);box-shadow:0 6px 12px rgba(5,117,230,0.18);z-index:25;pointer-events:none;display:none;} /* hidden until gyro enabled */
-
-  /* larger UI pills */
-  .ui-pill{
-    position:fixed;
-    top:calc(env(safe-area-inset-top,0px) + var(--corner-pad));
-    background:rgba(255,255,255,0.9);
-    padding:12px 20px;     /* bigger */
-    font-size:22px;        /* bigger */
-    border-radius:14px;
-    font-weight:800;
-    z-index:30;
-    box-shadow:0 8px 24px rgba(0,0,0,0.04);
-    display:none;          /* hidden until gyro enabled */
-  }
-
+  canvas#targetCanvas{position:absolute;left:0;top:0;width:100%;height:100%;display:none}
+  #dot{position:absolute;width:var(--dot-size);height:var(--dot-size);border-radius:50%;background:#0575e6;transform:translate(-50%,-50%);box-shadow:0 6px 12px rgba(5,117,230,0.18);z-index:25;pointer-events:none;display:none}
+  .ui-pill{position:fixed;top:calc(env(safe-area-inset-top,0px) + var(--corner-pad));background:rgba(255,255,255,0.9);padding:16px 24px;border-radius:10px;font-weight:700;font-size:24px;z-index:30;box-shadow:0 8px 24px rgba(0,0,0,0.04);display:none}
   #scoreDisplay{left:calc(env(safe-area-inset-left,0px) + var(--corner-pad))}
   #timerDisplay{right:calc(env(safe-area-inset-right,0px) + var(--corner-pad))}
-
-  .center-btn{
-    position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
-    z-index:40;
-    padding:14px 22px;
-    border-radius:14px;
-    border:0;
-    background:#0575e6;
-    color:#fff;
-    font-weight:900;
-    font-size:20px;
-    box-shadow:0 10px 28px rgba(5,117,230,0.12)
-  }
-  #calibrateBtn{background:#111;display:none;}
+  .center-btn{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;padding:12px 18px;border-radius:12px;border:0;background:#0575e6;color:#fff;font-weight:800;box-shadow:0 10px 28px rgba(5,117,230,0.12)}
+  #calibrateBtn{background:#111}
 
   /* overlays */
   #rotateOverlay,#gameOverOverlay,#countdownOverlay{
     position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:60;background:rgba(255,255,255,0.98)
   }
 
-  /* countdown */
-  #countdownContainer{text-align:center;position:relative;}
-  #countdownNumber{font-size:80px;font-weight:800;color:#111;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
-  .countdown-ring{width:160px;height:160px;border-radius:50%;border:10px solid #e6e6e6;position:relative;overflow:hidden;}
-  .countdown-fill{position:absolute;inset:0;border-radius:50%;border:10px solid #0575e6;transform-origin:center;transform:rotate(0deg);transition:transform 1s linear;}
+  /* countdown circle container */
+  #countdownContainer{
+    text-align:center;
+    position:relative;
+  }
 
-  /* game over card */
+  #countdownNumber{
+    font-size:80px;
+    font-weight:800;
+    color:#111;
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+  }
+
+  /* circular ring animation */
+  .countdown-ring{
+    width:160px;
+    height:160px;
+    border-radius:50%;
+    border:10px solid #e6e6e6;
+    position:relative;
+    overflow:hidden;
+  }
+
+  .countdown-fill{
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    border:10px solid #0575e6;
+    transform-origin:center;
+    transform:rotate(0deg);
+    transition:transform 1s linear;
+  }
+
   #gameOverCard{width:min(720px,92%);background:#fff;border-radius:12px;padding:20px;box-shadow:0 12px 36px rgba(0,0,0,0.08);text-align:center}
   #finalScoreBig{font-size:40px;font-weight:800;margin-bottom:8px}
   .btnPrimary{background:#0575e6;color:#fff;border:0;padding:10px 14px;border-radius:10px;font-weight:700}
@@ -86,35 +89,37 @@
   .smallNote{color:#666;margin-top:10px;font-size:13px}
 </style>
 </head>
-
 <body>
   <div id="arena">
     <canvas id="targetCanvas"></canvas>
-    <div id="dot"></div>
+    <div id="dot" aria-hidden="true"></div>
 
     <div id="scoreDisplay" class="ui-pill">Score: 0</div>
     <div id="timerDisplay" class="ui-pill">30</div>
 
     <button id="btn" class="center-btn">Enable Gyro</button>
-    <button id="calibrateBtn" class="center-btn">Calibrate</button>
+    <button id="calibrateBtn" class="center-btn" style="display:none">Calibrate</button>
 
     <!-- rotate overlay -->
     <div id="rotateOverlay">
       <div>
-        <div style="font-size:18px;color:#222;text-align:center;margin-bottom:8px">Please rotate your device to <strong>landscape (right side)</strong>.</div>
+        <div style="font-size:18px;color:#222;text-align:center;margin-bottom:8px">Please rotate your device to <strong>landscape (home button / speaker to the right)</strong>.</div>
+        <div style="text-align:center;color:#666">For best results install as PWA (Add to Home Screen) and open from Home Screen.</div>
       </div>
     </div>
 
-    <!-- countdown -->
+    <!-- countdown overlay -->
     <div id="countdownOverlay">
       <div id="countdownContainer">
-        <div class="countdown-ring"><div class="countdown-fill" id="countdownFill"></div></div>
+        <div class="countdown-ring">
+          <div class="countdown-fill" id="countdownFill"></div>
+        </div>
         <div id="countdownNumber">3</div>
       </div>
     </div>
 
-    <!-- game over -->
-    <div id="gameOverOverlay">
+    <!-- game over overlay -->
+    <div id="gameOverOverlay" aria-hidden="true">
       <div id="gameOverCard">
         <div id="finalScoreBig">Score: 0</div>
 
@@ -129,27 +134,29 @@
         </div>
 
         <div id="leaderboardContainer">
-          <table id="leaderboardTable">
-            <thead><tr><th>Rank</th><th>Name</th><th>Score</th></tr></thead>
+          <table id="leaderboardTable" aria-label="Leaderboard">
+            <thead>
+              <tr><th>Rank</th><th>Name</th><th>Score</th></tr>
+            </thead>
             <tbody id="leaderboardBody"></tbody>
           </table>
         </div>
 
-        <div class="smallNote">Scores stored locally on this device.</div>
+        <div class="smallNote">Scores are stored locally on this device.</div>
       </div>
     </div>
   </div>
 
 <script>
-/* ---------------- Config ---------------- */
+/* ---------- Config ---------- */
 const LB_KEY = 'tilt_dot_leaderboard_final_v1';
 const GAME_DURATION = 30;
 const DOT_RADIUS = 18;
-const MAX_TILT = 30;
-const ringRadii = [45, 90, 135];
+const MAX_TILT = 30; 
+const ringRadii = [50, 100, 150];
 const maxPointsPerSecond = 10;
 
-/* ---------------- Elements ---------------- */
+/* ---------- Elements ---------- */
 const arena = document.getElementById('arena');
 const canvas = document.getElementById('targetCanvas');
 const ctx = canvas.getContext('2d');
@@ -171,125 +178,93 @@ const nameInput = document.getElementById('nameInput');
 const confirmSave = document.getElementById('confirmSave');
 const leaderboardBody = document.getElementById('leaderboardBody');
 
-/* ---------------- State ---------------- */
+/* ---------- State ---------- */
 let arenaRect = arena.getBoundingClientRect();
-function sizeCanvas(){ arenaRect = arena.getBoundingClientRect(); canvas.width = arenaRect.width; canvas.height = arenaRect.height; }
+function sizeCanvas(){ arenaRect = arena.getBoundingClientRect(); canvas.width = Math.round(arenaRect.width); canvas.height = Math.round(arenaRect.height); }
 sizeCanvas();
 
-let targetCenter = {x:arenaRect.width/2, y:arenaRect.height/2};
-let dotPos = {...targetCenter};
-let dotPos0 = {...targetCenter};
-let beta0=0, gamma0=0;
-let lastBeta=0, lastGamma=0;
+let targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
+let dotPos = { x: targetCenter.x, y: targetCenter.y };
+let dotPos0 = {...dotPos};
+let beta0 = 0, gamma0 = 0;
+let lastBeta = 0, lastGamma = 0;
 
 let score = 0;
 let lastTime = 0;
 let timeLeft = GAME_DURATION;
 let gameActive = false;
 
-/* iPad detection */
-const isIpad = (navigator.userAgent.includes("iPad") || (navigator.userAgent.includes("Macintosh") && navigator.maxTouchPoints>1));
+/* detect iPad */
+const isIpad = (navigator.userAgent.includes('iPad') || (navigator.userAgent.includes('Macintosh') && navigator.maxTouchPoints > 1));
 
-/* ---------------- Helpers ---------------- */
-const clamp = (v,a,b)=>Math.min(Math.max(v,a),b);
-function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+/* ---------- Helpers ---------- */
+function clamp(v,a,b){ return Math.min(Math.max(v,a),b); }
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
 
-/* ---------------- Leaderboard ---------------- */
-function loadLeaderboard(){ try{return JSON.parse(localStorage.getItem(LB_KEY)||'[]').sort((a,b)=>b.score-a.score);}catch(e){return[];} }
-function saveLocalScore(name,sc){
-  const list=loadLeaderboard();
-  list.push({name:String(name||'Player'),score:Math.floor(sc),date:Date.now()});
-  list.sort((a,b)=>b.score-a.score);
-  localStorage.setItem(LB_KEY,JSON.stringify(list.slice(0,50)));
-}
-function renderLeaderboard(){
-  const list=loadLeaderboard();
-  leaderboardBody.innerHTML='';
-  if(list.length===0){
-    leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">No scores yet</td></tr>`;
-    return;
-  }
-  list.forEach((r,i)=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td class="rank">${i+1}</td><td>${escapeHtml(r.name)}</td><td class="score">${r.score}</td>`;
-    leaderboardBody.appendChild(tr);
-  });
-}
+/* ---------- Leaderboard ---------- */
+function loadLeaderboard(){ try{ return JSON.parse(localStorage.getItem(LB_KEY) || '[]').sort((a,b)=>b.score - a.score); }catch(e){ return []; } }
+function saveLocalScore(name, sc){ const list = loadLeaderboard(); list.push({ name: String(name||'Player'), score: Math.floor(sc), date: Date.now() }); list.sort((a,b)=>b.score - a.score); localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0,50))); }
+function renderLeaderboard(){ const list = loadLeaderboard().slice(0,50); leaderboardBody.innerHTML = ''; if(list.length === 0){ leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">No scores yet</td></tr>`; return; } list.forEach((r,i)=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td class="rank">${i+1}</td><td>${escapeHtml(r.name)}</td><td class="score">${r.score}</td>`; leaderboardBody.appendChild(tr); }); }
 
-/* ---------------- Draw target ---------------- */
-function drawTargetAndRings(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.strokeStyle='rgba(0,0,0,0.16)';
-  ctx.lineWidth=2;
-  ringRadii.forEach(r=>{
-    ctx.beginPath();
-    ctx.arc(targetCenter.x,targetCenter.y,r,0,Math.PI*2);
-    ctx.stroke();
-  });
-  ctx.fillStyle='#ff5c5c';
-  ctx.beginPath();
-  ctx.arc(targetCenter.x,targetCenter.y,6,0,Math.PI*2);
-  ctx.fill();
-}
+/* ---------- Canvas drawing ---------- */
+function drawTargetAndRings(){ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.strokeStyle='rgba(0,0,0,0.16)'; ctx.lineWidth=2; ringRadii.forEach(r=>{ ctx.beginPath(); ctx.arc(targetCenter.x,targetCenter.y,r,0,Math.PI*2); ctx.stroke(); }); ctx.fillStyle='#ff5c5c'; ctx.beginPath(); ctx.arc(targetCenter.x,targetCenter.y,6,0,Math.PI*2); ctx.fill(); }
 
-/* ---------------- Game loop ---------------- */
+/* ---------- Game update loop ---------- */
 function updateLoop(){
-  const now=performance.now();
-  const dt = lastTime?(now-lastTime)/1000:0;
-  lastTime=now;
+  const now = performance.now();
+  const dt = lastTime ? (now-lastTime)/1000 : 0;
+  lastTime = now;
 
   if(gameActive){
     drawTargetAndRings();
     const dx = dotPos.x - targetCenter.x;
     const dy = dotPos.y - targetCenter.y;
     const dist = Math.hypot(dx,dy);
-    if(dist<=ringRadii[2]){
-      score += maxPointsPerSecond*(1 - dist/ringRadii[2])*dt;
+    if(dist <= ringRadii[ringRadii.length-1]){
+      score += maxPointsPerSecond * (1 - dist / ringRadii[ringRadii.length-1]) * dt;
     }
-    scoreDisplay.textContent='Score: '+Math.floor(score);
-
-    timeLeft-=dt;
-    if(timeLeft<=0){ timeLeft=0; endGame(); }
-    timerDisplay.textContent=Math.ceil(timeLeft);
+    scoreDisplay.textContent = 'Score: ' + Math.floor(score);
+    timeLeft -= dt;
+    if(timeLeft <= 0){ timeLeft = 0; endGame(); }
+    timerDisplay.textContent = Math.ceil(timeLeft);
   }
+
   requestAnimationFrame(updateLoop);
 }
 updateLoop();
 
-/* ---------------- Orientation mapping ---------------- */
+/* ---------- Orientation mapping ---------- */
 function mapOrientationToXY(beta,gamma){
   const angle = screen.orientation?.angle ?? window.orientation ?? 0;
   let dx=0, dy=0;
 
   if(isIpad){
     switch(angle){
-      case 90: dx=gamma; dy=-beta; break;
-      case -90:
-      case 270: dx=-gamma; dy=beta; break;
-      case 180: dx=-beta; dy=gamma; break;
-      default: dx=beta; dy=-gamma;
+      case 90: dx = gamma; dy = -beta; break;
+      case -90: case 270: dx = -gamma; dy = beta; break;
+      case 180: dx = -beta; dy = gamma; break;
+      default: dx = beta; dy = -gamma;
     }
   } else {
     switch(angle){
-      case 90: dx=beta; dy=-gamma; break;
-      case -90:
-      case 270: dx=-beta; dy=gamma; break;
-      case 180: dx=-gamma; dy=-beta; break;
-      default: dx=gamma; dy=beta;
+      case 90: dx = beta; dy = -gamma; break;
+      case -90: case 270: dx = -beta; dy = gamma; break;
+      case 180: dx = -gamma; dy = -beta; break;
+      default: dx = gamma; dy = beta;
     }
   }
+
   return {dx,dy};
 }
 
-/* ---------------- Orientation handler ---------------- */
+/* ---------- Orientation handler ---------- */
 function handleOrientation(e){
-  lastBeta = (typeof e.beta==='number')?e.beta:lastBeta;
-  lastGamma = (typeof e.gamma==='number')?e.gamma:lastGamma;
+  lastBeta = (typeof e.beta === 'number') ? e.beta : lastBeta;
+  lastGamma = (typeof e.gamma === 'number') ? e.gamma : lastGamma;
   if(!gameActive) return;
 
-  const relBeta = (typeof e.beta==='number'?e.beta:0) - beta0;
-  const relGamma = (typeof e.gamma==='number'?e.gamma:0) - gamma0;
-
+  const relBeta = (typeof e.beta === 'number' ? e.beta : 0) - beta0;
+  const relGamma = (typeof e.gamma === 'number' ? e.gamma : 0) - gamma0;
   const {dx,dy} = mapOrientationToXY(relBeta,relGamma);
 
   const scaleX = arenaRect.width / MAX_TILT;
@@ -298,181 +273,211 @@ function handleOrientation(e){
   dotPos.x = clamp(dotPos0.x + dx*scaleX, DOT_RADIUS, arenaRect.width-DOT_RADIUS);
   dotPos.y = clamp(dotPos0.y + dy*scaleY, DOT_RADIUS, arenaRect.height-DOT_RADIUS);
 
-  dotEl.style.left = dotPos.x+'px';
-  dotEl.style.top = dotPos.y+'px';
+  dotEl.style.left = Math.round(dotPos.x)+'px';
+  dotEl.style.top = Math.round(dotPos.y)+'px';
 }
 
-/* cache orientation */
-window.addEventListener('deviceorientation', e=>{
-  lastBeta = (typeof e.beta==='number')?e.beta:lastBeta;
-  lastGamma = (typeof e.gamma==='number')?e.gamma:lastGamma;
+window.addEventListener('deviceorientation', e => {
+  lastBeta = (typeof e.beta === 'number') ? e.beta : lastBeta;
+  lastGamma = (typeof e.gamma === 'number') ? e.gamma : lastGamma;
 });
 
-/* ---------------- Enable Gyro ---------------- */
-enableBtn.addEventListener('click', async ()=>{
+/* ---------- Enable gyro ---------- */
+enableBtn.addEventListener('click', async () => {
   evaluateOrientation();
 
-  if(typeof DeviceOrientationEvent!=='undefined' &&
-     typeof DeviceOrientationEvent.requestPermission==='function'){
+  if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
     try{
       const res = await DeviceOrientationEvent.requestPermission();
-      if(res!=='granted'){ alert('Motion access required.'); return; }
+      if(res !== 'granted'){ alert('Motion permission required'); return; }
     }catch(err){}
   }
 
   window.addEventListener('deviceorientation', handleOrientation);
-
-  /* Show UI now */
-  canvas.style.display = 'block';
-  dotEl.style.display = 'block';
-  scoreDisplay.style.display = 'block';
-  timerDisplay.style.display = 'block';
-
-  enableBtn.style.display='none';
-  calibrateBtn.style.display='block';
+  enableBtn.style.display = 'none';
+  calibrateBtn.style.display = 'block';
 });
 
-/* ---------------- Countdown ---------------- */
+/* ---------- Countdown function ---------- */
 function startCountdown(callback){
-  countdownOverlay.style.display="flex";
-  let count=3;
+  countdownOverlay.style.display = "flex";
+
+  let count = 3;
+
   function tick(){
-    countdownNumber.textContent=count;
-    countdownFill.style.transform="rotate(360deg)";
-    countdownFill.style.transition="transform 1s linear";
+    countdownNumber.textContent = count;
+
+    countdownFill.style.transform = "rotate(360deg)";
+    countdownFill.style.transition = "transform 1s linear";
 
     setTimeout(()=>{
-      countdownFill.style.transition="none";
-      countdownFill.style.transform="rotate(0deg)";
+      countdownFill.style.transition = "none";
+      countdownFill.style.transform = "rotate(0deg)";
     },1000);
 
-    if(count===0){
-      countdownNumber.textContent="GO!";
-      countdownFill.style.display="none";
+    if(count === 0){
+      countdownNumber.textContent = "GO!";
+      countdownFill.style.display = "none";
+
       setTimeout(()=>{
-        countdownOverlay.style.display="none";
-        countdownFill.style.display="block";
+        countdownOverlay.style.display = "none";
+        countdownFill.style.display = "block";
+        countdownFill.style.transform = "rotate(0deg)";
+        countdownFill.style.transition = "none";
+        // Show game elements when countdown ends
+        canvas.style.display = "block";
+        dotEl.style.display = "block";
+        scoreDisplay.style.display = "block";
+        timerDisplay.style.display = "block";
         callback();
       },700);
+
       return;
     }
+
     count--;
     setTimeout(tick,1000);
   }
+
   tick();
 }
 
-/* ---------------- Calibrate ---------------- */
-calibrateBtn.addEventListener('click', ()=>{
+/* ---------- Calibrate ---------- */
+calibrateBtn.addEventListener('click', () => {
   sizeCanvas();
-  targetCenter={x:arenaRect.width/2,y:arenaRect.height/2};
+  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
 
-  beta0=lastBeta||0;
-  gamma0=lastGamma||0;
+  beta0 = lastBeta ?? 0;
+  gamma0 = lastGamma ?? 0;
 
-  dotPos0={...targetCenter};
-  dotPos={...targetCenter};
-  dotEl.style.left=dotPos.x+'px';
-  dotEl.style.top=dotPos.y+'px';
+  dotPos0 = { x: targetCenter.x, y: targetCenter.y };
+  dotPos = {...dotPos0};
+  dotEl.style.left = dotPos.x+'px';
+  dotEl.style.top = dotPos.y+'px';
 
   drawTargetAndRings();
-  calibrateBtn.style.display='none';
+  calibrateBtn.style.display = 'none';
+  
+  // Hide game elements during countdown
+  canvas.style.display = "none";
+  dotEl.style.display = "none";
+  scoreDisplay.style.display = "none";
+  timerDisplay.style.display = "none";
 
-  startCountdown(()=>{
-    score=0;
-    timeLeft=GAME_DURATION;
-    lastTime=performance.now();
-    gameActive=true;
+  startCountdown(() => {
+    score = 0;
+    timeLeft = GAME_DURATION;
+    lastTime = performance.now();
+    gameActive = true;
   });
 });
 
-/* ---------------- Confetti ---------------- */
+/* ---------- ★ NEW: Confetti burst function ---------- */
 function fireConfetti(){
-  const duration=2200;
-  const end=Date.now()+duration;
+  const duration = 2200; // 2.2 seconds
+  const end = Date.now() + duration;
+
   (function frame(){
+    // top center burst, falling downward
     confetti({
-      particleCount:6,
-      startVelocity:45,
-      spread:80,
-      origin:{x:0.5,y:0},
-      angle:90
+      particleCount: 6,
+      startVelocity: 45,
+      spread: 80,
+      origin: { x: 0.5, y: 0 }, // <-- top center
+      angle: 90
     });
-    if(Date.now()<end){ requestAnimationFrame(frame); }
+
+    if(Date.now() < end){
+      requestAnimationFrame(frame);
+    }
   })();
 }
 
-/* ---------------- End Game ---------------- */
+/* ---------- End game ---------- */
 function endGame(){
-  gameActive=false;
+  gameActive = false;
+
+  // ★ Trigger confetti immediately when time ends
   fireConfetti();
-  finalScoreBig.textContent='Score: '+Math.floor(score);
+
+  finalScoreBig.textContent = 'Score: ' + Math.floor(score);
   renderLeaderboard();
-  gameOverOverlay.style.display='flex';
+  gameOverOverlay.style.display = 'flex';
+  gameOverOverlay.setAttribute('aria-hidden','false');
 }
 
-/* ---------------- Retry ---------------- */
-retryBtn.addEventListener('click', ()=>{
-  gameOverOverlay.style.display='none';
-  saveNameRow.style.display='none';
-  nameInput.value='';
+/* ---------- Retry ---------- */
+retryBtn.addEventListener('click', () => {
+  gameOverOverlay.style.display = 'none';
+  gameOverOverlay.setAttribute('aria-hidden','true');
+  saveNameRow.style.display = 'none';
+  nameInput.value = '';
 
-  enableBtn.style.display='block';
-  calibrateBtn.style.display='none';
-
-  canvas.style.display='none';
-  dotEl.style.display='none';
-  scoreDisplay.style.display='none';
-  timerDisplay.style.display='none';
+  enableBtn.style.display = 'block';
+  calibrateBtn.style.display = 'none';
 
   sizeCanvas();
-  targetCenter={x:arenaRect.width/2,y:arenaRect.height/2};
-  dotPos={...targetCenter};
-  dotPos0={...targetCenter};
+  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
+  dotPos = { x: targetCenter.x, y: targetCenter.y };
+  dotPos0 = {...dotPos};
 
-  dotEl.style.left=dotPos.x+'px';
-  dotEl.style.top=dotPos.y+'px';
+  dotEl.style.left = dotPos.x+'px';
+  dotEl.style.top = dotPos.y+'px';
 
-  score=0;
-  timeLeft=GAME_DURATION;
-  lastTime=0;
+  // Hide game elements when retrying
+  canvas.style.display = "none";
+  dotEl.style.display = "none";
+  scoreDisplay.style.display = "none";
+  timerDisplay.style.display = "none";
 
-  scoreDisplay.textContent='Score: 0';
-  timerDisplay.textContent=GAME_DURATION;
+  score = 0;
+  timeLeft = GAME_DURATION;
+  lastTime = 0;
+
+  scoreDisplay.textContent = 'Score: 0';
+  timerDisplay.textContent = GAME_DURATION;
 });
 
-/* ---------------- Save score ---------------- */
-saveBtn.addEventListener('click', ()=>{ saveNameRow.style.display='flex'; nameInput.focus(); });
-confirmSave.addEventListener('click', ()=>{
+/* ---------- Save score ---------- */
+saveBtn.addEventListener('click', ()=>{ saveNameRow.style.display = 'flex'; nameInput.focus(); });
+confirmSave.addEventListener('click', ()=> {
   const name=(nameInput.value||'Player').trim();
-  if(!name){ alert('Enter a name'); return; }
-  saveLocalScore(name,score);
-  saveNameRow.style.display='none';
+  if(!name){ alert('Please enter a name'); nameInput.focus(); return; }
+  saveLocalScore(name, score);
+  saveNameRow.style.display = 'none';
   nameInput.value='';
   renderLeaderboard();
 });
 
-/* ---------------- Orientation UI ---------------- */
+/* ---------- Orientation UI ---------- */
 function evaluateOrientation(){
-  const w=innerWidth,h=innerHeight;
-  const landscape = w>=h;
-  rotateOverlay.style.display = landscape?'none':'flex';
-  return landscape;
+  const w=window.innerWidth, h=window.innerHeight;
+  const isLandscape = w>=h;
+  rotateOverlay.style.display = isLandscape ? 'none' : 'flex';
+  return isLandscape;
 }
-window.addEventListener('orientationchange',()=>setTimeout(()=>{sizeCanvas();targetCenter={x:arenaRect.width/2,y:arenaRect.height/2};evaluateOrientation();},120));
-window.addEventListener('resize',()=>{sizeCanvas();targetCenter={x:arenaRect.width/2,y:arenaRect.height/2};drawTargetAndRings();});
+window.addEventListener('orientationchange', ()=>setTimeout(()=>{sizeCanvas(); targetCenter={x:arenaRect.width/2,y:arenaRect.height/2};evaluateOrientation();},120));
+window.addEventListener('resize', ()=>{sizeCanvas(); targetCenter={x:arenaRect.width/2,y:arenaRect.height/2}; drawTargetAndRings();});
 
-/* ---------------- Init ---------------- */
+/* ---------- Init ---------- */
 (function init(){
   sizeCanvas();
-  targetCenter={x:arenaRect.width/2,y:arenaRect.height/2};
-  dotPos={...targetCenter};
-  dotPos0={...targetCenter};
-  dotEl.style.left=dotPos.x+'px';
-  dotEl.style.top=dotPos.y+'px';
+  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
+  dotPos = { x: targetCenter.x, y: targetCenter.y };
+  dotPos0 = {...dotPos};
+  dotEl.style.left = dotPos.x+'px';
+  dotEl.style.top = dotPos.y+'px';
   drawTargetAndRings();
   renderLeaderboard();
   evaluateOrientation();
+  calibrateBtn.style.display = 'none';
+  gameOverOverlay.style.display = 'none';
+  
+  // Hide game elements initially
+  canvas.style.display = "none";
+  dotEl.style.display = "none";
+  scoreDisplay.style.display = "none";
+  timerDisplay.style.display = "none";
 })();
 </script>
 </body>
