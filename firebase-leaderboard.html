@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no, viewport-fit=cover" />
+<title>Firebase Live Leaderboard</title>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script>
+  // Your Firebase project configuration for "gibbon-balance-game"
+  const firebaseConfig = {
+    apiKey: "AIzaSyA7BZvLHuIXiYdukRpV7bM52pBBuWzv3rU", // <--- PASTE YOUR API KEY HERE
+    authDomain: "gibbon-balance-game.firebaseapp.com",
+    projectId: "gibbon-balance-game",
+    storageBucket: "gibbon-balance-game.firebasestorage.app",
+    messagingSenderId: "435375118778",
+    appId: "1:435375118778:web:5513fc213d8d7fef816583" // <--- PASTE YOUR APP ID HERE
+  };
+
+  // Initialize Firebase and get Firestore instance
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+</script>
+
+<style>
+  html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+    background: #f7f7f9;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    color: #111;
+  }
+  #header {
+    width: 100%;
+    text-align: center;
+    padding: 20px;
+    background: #0575e6;
+    color: #fff;
+    font-size: 28px;
+    font-weight: 800;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  #leaderboardModeSelection {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+  }
+  .btnPrimary, .btnSecondary {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: 0;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .btnPrimary {
+    background: #0575e6;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(5,117,230,0.2);
+  }
+  .btnSecondary {
+    background: #f0f0f0;
+    color: #111;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .btnPrimary:hover {
+    background: #0468d4;
+  }
+  .btnSecondary:hover {
+    background: #e0e0e0;
+  }
+  #leaderboardContainer {
+    width: min(720px, 95%);
+    margin-top: 12px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #eee;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  }
+  table#leaderboardTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 18px;
+  }
+  thead th {
+    background: #0575e6;
+    color: #fff;
+    padding: 15px 18px;
+    font-weight: 700;
+    text-align: center;
+  }
+  tbody td {
+    padding: 15px 18px;
+    border-bottom: 1px solid #f2f5ff;
+    color: #111;
+  }
+  td.rank { width: 80px; text-align: center; font-weight: bold; }
+  td.name { text-align: left; }
+  td.score { text-align: right; width: 120px; font-weight: bold; }
+  tbody tr:nth-child(even) { background: #fbfdff; }
+  tbody tr:last-child td { border-bottom: none; }
+</style>
+</head>
+<body>
+  <div id="header">Gibbon Balance Game Live Leaderboard</div>
+
+  <div id="leaderboardModeSelection">
+    <button id="showLevel1LB" class="btnPrimary">Static Mode Leaderboard</button>
+    <button id="showLevel2LB" class="btnSecondary">Moving Target Leaderboard</button>
+  </div>
+
+  <div id="leaderboardContainer">
+    <table id="leaderboardTable" aria-label="Live Leaderboard">
+      <thead>
+        <tr><th>Rank</th><th class="name">Name</th><th class="score">Score</th></tr>
+      </thead>
+      <tbody id="leaderboardBody">
+        <tr><td colspan="3" style="text-align:center;padding:20px;color:#666">Loading leaderboard...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+<script>
+  // Elements
+  const leaderboardBody = document.getElementById('leaderboardBody');
+  const showLevel1LB = document.getElementById('showLevel1LB');
+  const showLevel2LB = document.getElementById('showLevel2LB');
+
+  // State
+  let currentLeaderboardView = 1; // Default to Level 1
+  let unsubscribeLeaderboard = null; // Stores the Firestore real-time listener unsubscribe function
+
+  // Helper for escaping HTML (for player names)
+  function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+
+  // Function to render the Firebase leaderboard
+  function renderFirebaseLeaderboard(level) {
+    // Unsubscribe from any previously active real-time listener
+    if (unsubscribeLeaderboard) {
+      unsubscribeLeaderboard();
+      unsubscribeLeaderboard = null;
+    }
+
+    const collectionRef = level === 1 ? db.collection('leaderboardLevel1') : db.collection('leaderboardLevel2');
+
+    leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#666">Loading leaderboard...</td></tr>`;
+
+    // Set up the new real-time listener
+    unsubscribeLeaderboard = collectionRef
+      .orderBy('score', 'desc')     // Order by score descending
+      .orderBy('timestamp', 'desc') // Then by timestamp descending for ties
+      .limit(500)                   // Fetch top 500 scores
+      .onSnapshot(snapshot => {
+        leaderboardBody.innerHTML = ''; // Clear previous entries
+        if (snapshot.empty) {
+          leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#666">No scores yet for this level. Play the game to add some!</td></tr>`;
+          return;
+        }
+
+        snapshot.forEach((doc, i) => {
+          const data = doc.data();
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td class="rank">${i + 1}</td><td class="name">${escapeHtml(data.playerName)}</td><td class="score">${data.score}</td>`;
+          leaderboardBody.appendChild(tr);
+        });
+      }, error => {
+        console.error("Error fetching leaderboard: ", error);
+        leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#e60000">Error loading leaderboard.</td></tr>`;
+      });
+  }
+
+  // Event Listeners for leaderboard mode selection buttons
+  showLevel1LB.addEventListener('click', () => {
+    if (currentLeaderboardView === 1) return;
+    currentLeaderboardView = 1;
+    renderFirebaseLeaderboard(1);
+    showLevel1LB.classList.add('btnPrimary');
+    showLevel1LB.classList.remove('btnSecondary');
+    showLevel2LB.classList.add('btnSecondary');
+    showLevel2LB.classList.remove('btnPrimary');
+  });
+
+  showLevel2LB.addEventListener('click', () => {
+    if (currentLeaderboardView === 2) return;
+    currentLeaderboardView = 2;
+    renderFirebaseLeaderboard(2);
+    showLevel2LB.classList.add('btnPrimary');
+    showLevel2LB.classList.remove('btnSecondary');
+    showLevel1LB.classList.add('btnSecondary');
+    showLevel1LB.classList.remove('btnPrimary');
+  });
+
+  // Initial load: render the default leaderboard (Level 1)
+  document.addEventListener('DOMContentLoaded', () => {
+    renderFirebaseLeaderboard(currentLeaderboardView);
+  });
+</script>
+</body>
+</html>
