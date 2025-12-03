@@ -100,6 +100,40 @@
   .level-btn:last-child{margin-bottom:0}
   .level-description{font-size:14px;color:#666;margin-top:6px;font-weight:400}
 </style>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script>
+  // Your Firebase project configuration for "gibbon-balance-game"
+  const firebaseConfig = {
+    apiKey: "AIzaSyA7BZvLHuIXiYdukRpV7bM52pBBuWzv3rU", // <--- PASTE YOUR API KEY HERE
+    authDomain: "gibbon-balance-game.firebaseapp.com",
+    projectId: "gibbon-balance-game",
+    storageBucket: "gibbon-balance-game.appspot.com",
+    messagingSenderId: "435375118778",
+    appId: "1:435375118778:web:5513fc213d8d7fef816583" // <--- PASTE YOUR APP ID HERE
+  };
+
+  // Initialize Firebase and get Firestore instance
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  // Function to save score to Firebase
+  async function saveFirebaseScore(name, sc, level) {
+    const collectionRef = level === 1 ? db.collection('leaderboardLevel1') : db.collection('leaderboardLevel2');
+    try {
+      await collectionRef.add({
+        playerName: String(name || 'Player').trim(),
+        score: Math.floor(sc),
+        timestamp: firebase.firestore.FieldValue.serverTimestamp() // Server timestamp for consistent ordering
+      });
+      console.log(`Score ${Math.floor(sc)} by ${name} saved to Firebase for Level ${level}.`);
+    } catch (error) {
+      console.error("Error saving score to Firebase: ", error);
+      // For MVP, just log the error. In production, you might show a message.
+    }
+  }
+</script>
 </head>
 <body>
   <div id="arena">
@@ -530,13 +564,14 @@ retryBtn.addEventListener('click', () => {
 
 /* ---------- Save score ---------- */
 saveBtn.addEventListener('click', ()=>{ saveNameRow.style.display = 'flex'; nameInput.focus(); });
-confirmSave.addEventListener('click', ()=> {
+confirmSave.addEventListener('click', async ()=> { // Make function async
   const name=(nameInput.value||'Player').trim();
   if(!name){ alert('Please enter a name'); nameInput.focus(); return; }
-  saveLocalScore(name, score, currentLevel);
+  saveLocalScore(name, score, currentLevel); // Keep saving to local storage
+  await saveFirebaseScore(name, score, currentLevel); // <--- NOW ALSO SAVE TO FIREBASE
   saveNameRow.style.display = 'none';
   nameInput.value='';
-  renderLeaderboard(currentLevel);
+  renderLeaderboard(currentLevel); // Re-render local leaderboard as before
 });
 
 /* ---------- Orientation UI ---------- */
