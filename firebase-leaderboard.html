@@ -168,11 +168,15 @@
           return;
         }
 
-        snapshot.forEach((doc, i) => {
+        // Firestore's forEach does not provide an index parameter reliably,
+        // so we compute the rank manually.
+        let rank = 1;
+        snapshot.forEach((doc) => {
           const data = doc.data();
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td class="rank">${i + 1}</td><td class="name">${escapeHtml(data.playerName)}</td><td class="score">${data.score}</td>`;
+          tr.innerHTML = `<td class="rank">${rank}</td><td class="name">${escapeHtml(data.playerName)}</td><td class="score">${data.score}</td>`;
           leaderboardBody.appendChild(tr);
+          rank++;
         });
       }, error => {
         console.error("Error fetching leaderboard: ", error);
