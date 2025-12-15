@@ -110,21 +110,30 @@
   td.score { text-align: right; width: 120px; font-weight: bold; }
   tbody tr:nth-child(even) { background: #fbfdff; }
   tbody tr:last-child td { border-bottom: none; }
+  .contentRow {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 0 12px;
+    box-sizing: border-box;
+  }
   .qrCallout {
-    width: min(640px, 92%);
-    margin-top: 14px;
+    width: 220px;
+    margin-top: 12px;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
+    gap: 10px;
+    padding: 10px 12px;
     border-radius: 12px;
     border: 1px solid #eee;
     background: #fff;
     box-shadow: 0 8px 24px rgba(0,0,0,0.08);
   }
   .qrCallout img {
-    width: 88px;
-    height: 88px;
+    width: 68px;
+    height: 68px;
     border-radius: 10px;
     object-fit: cover;
     border: 1px solid #f0f0f0;
@@ -133,17 +142,23 @@
   .qrCopy {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
   }
   .qrCopy .headline {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 800;
     color: #0d1b2a;
   }
-  .qrCopy .subhead {
-    font-size: 14px;
-    font-weight: 600;
-    color: #3d4c5c;
+  @media (max-width: 760px) {
+    .contentRow {
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .qrCallout {
+      width: min(360px, 92%);
+      order: -1;
+    }
   }
 </style>
 </head>
@@ -155,23 +170,24 @@
     <button id="showLevel2LB" class="btnSecondary">Moving Target Leaderboard</button>
   </div>
 
-  <div class="qrCallout" aria-label="Scan the QR code to open the game">
-    <img src="QR_balance_app.png" alt="QR code to open the game" />
-    <div class="qrCopy">
-      <div class="headline">Scan &amp; open to play</div>
-      <div class="subhead">Point your camera to jump into the Gibbon Balance Game.</div>
+  <div class="contentRow">
+    <div class="qrCallout" aria-label="Scan the QR code to open the game">
+      <img src="QR_balance_app.png" alt="QR code to open the game" />
+      <div class="qrCopy">
+        <div class="headline">Scan &amp; open to play</div>
+      </div>
     </div>
-  </div>
 
-  <div id="leaderboardContainer">
-    <table id="leaderboardTable" aria-label="Live Leaderboard">
-      <thead>
-        <tr><th>Rank</th><th class="name">Name</th><th class="score">Score</th></tr>
-      </thead>
-      <tbody id="leaderboardBody">
-        <tr><td colspan="3" style="text-align:center;padding:20px;color:#666">Loading leaderboard...</td></tr>
-      </tbody>
-    </table>
+    <div id="leaderboardContainer">
+      <table id="leaderboardTable" aria-label="Live Leaderboard">
+        <thead>
+          <tr><th>Rank</th><th class="name">Name</th><th class="score">Score</th></tr>
+        </thead>
+        <tbody id="leaderboardBody">
+          <tr><td colspan="3" style="text-align:center;padding:20px;color:#666">Loading leaderboard...</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
 <script>
