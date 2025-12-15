@@ -120,7 +120,9 @@
 
   // Function to save score to Firebase
   async function saveFirebaseScore(name, sc, level) {
-    const collectionRef = level === 1 ? db.collection('leaderboardLevel1') : db.collection('leaderboardLevel2');
+    let collectionRef = db.collection('leaderboardLevel1');
+    if(level === 2){ collectionRef = db.collection('leaderboardLevel2'); }
+    if(level === 3){ collectionRef = db.collection('leaderboardSurvival'); }
     try {
       await collectionRef.add({
         playerName: String(name || 'Player').trim(),
@@ -156,6 +158,10 @@
       <button class="level-btn" data-level="2">
         Level 2 - Moving Target
         <div class="level-description">Target moves across screen</div>
+      </button>
+      <button class="level-btn" data-level="3">
+        Survival Arena
+        <div class="level-description">Dodge obstacles as long as you can</div>
       </button>
     </div>
 
@@ -210,12 +216,22 @@
 /* ---------- Config ---------- */
 const LB_KEY_LEVEL1 = 'tilt_dot_leaderboard_level1_v1';
 const LB_KEY_LEVEL2 = 'tilt_dot_leaderboard_level2_v1';
+const LB_KEY_LEVEL3 = 'tilt_dot_leaderboard_level3_v1'; // Survival
 const GAME_DURATION = 30;
 const DOT_RADIUS = 18;
 const MAX_TILT = 30; 
 const ringRadii = [50, 100, 150];
 const maxPointsPerSecond = 30;
 const TARGET_MOVE_SPEED = 80; // pixels per second for Level 2
+const SURVIVAL_SEED = 123456;
+const SURVIVAL_SCORE_MULT = 10;
+const SURVIVAL_MAX_OBS = 14;
+const SURVIVAL_MAX_SPEED = 240;
+const SURVIVAL_MIN_SPEED = 80;
+const SURVIVAL_MAX_ROT = 1.8; // rad/s
+const SURVIVAL_MIN_ROT = 0.45;
+const SURVIVAL_MAX_LEN = 240;
+const SURVIVAL_MIN_LEN = 140;
 
 /* ---------- Elements ---------- */
 const arena = document.getElementById('arena');
@@ -256,8 +272,16 @@ let score = 0;
 let lastTime = 0;
 let timeLeft = GAME_DURATION;
 let gameActive = false;
-let currentLevel = 1; // 1 = static, 2 = moving target
+let currentLevel = 1; // 1 = static, 2 = moving target, 3 = survival
 let targetVelocity = { x: 0, y: 0 }; // For Level 2 moving target
+let survival = {
+  rng: null,
+  time: 0,
+  circles: [],
+  lines: [],
+  circleSpawn: 0,
+  lineSpawn: 0
+};
 
 /* detect iPad */
 const isIpad = (navigator.userAgent.includes('iPad') || (navigator.userAgent.includes('Macintosh') && navigator.maxTouchPoints > 1));
@@ -265,9 +289,15 @@ const isIpad = (navigator.userAgent.includes('iPad') || (navigator.userAgent.inc
 /* ---------- Helpers ---------- */
 function clamp(v,a,b){ return Math.min(Math.max(v,a),b); }
 function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function mulberry32(a){ return function(){ let t = a += 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function lerp(a,b,t){ return a + (b-a)*t; }
 
 /* ---------- Leaderboard ---------- */
-function getLeaderboardKey(level){ return level === 1 ? LB_KEY_LEVEL1 : LB_KEY_LEVEL2; }
+function getLeaderboardKey(level){
+  if(level === 1) return LB_KEY_LEVEL1;
+  if(level === 2) return LB_KEY_LEVEL2;
+  return LB_KEY_LEVEL3;
+}
 function loadLeaderboard(level){ const key = getLeaderboardKey(level); try{ return JSON.parse(localStorage.getItem(key) || '[]').sort((a,b)=>b.score - a.score); }catch(e){ return []; } }
 function saveLocalScore(name, sc, level){ const key = getLeaderboardKey(level); const list = loadLeaderboard(level); list.push({ name: String(name||'Player'), score: Math.floor(sc), date: Date.now() }); list.sort((a,b)=>b.score - a.score); localStorage.setItem(key, JSON.stringify(list.slice(0,50))); }
 function renderLeaderboard(level){ const list = loadLeaderboard(level).slice(0,50); leaderboardBody.innerHTML = ''; if(list.length === 0){ leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">No scores yet</td></tr>`; return; } list.forEach((r,i)=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td class="rank">${i+1}</td><td>${escapeHtml(r.name)}</td><td class="score">${r.score}</td>`; leaderboardBody.appendChild(tr); }); }
@@ -306,6 +336,145 @@ function updateMovingTarget(dt){
   }
 }
 
+/* ---------- Survival mode (Level 3) ---------- */
+function resetSurvival(){
+  survival.rng = mulberry32(SURVIVAL_SEED);
+  survival.time = 0;
+  survival.circles = [];
+  survival.lines = [];
+  survival.circleSpawn = 0;
+  survival.lineSpawn = 6; // delay lines
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+function spawnCircle(){
+  if(!survival.rng) return;
+  const edge = Math.floor(survival.rng()*4);
+  const size = lerp(14, 26, survival.rng());
+  let x=0,y=0;
+  if(edge === 0){ x = 0 - size; y = survival.rng()*canvas.height; }
+  else if(edge === 1){ x = canvas.width + size; y = survival.rng()*canvas.height; }
+  else if(edge === 2){ x = survival.rng()*canvas.width; y = 0 - size; }
+  else { x = survival.rng()*canvas.width; y = canvas.height + size; }
+
+  // Aim roughly toward center with small offset
+  const angleToCenter = Math.atan2(canvas.height/2 - y, canvas.width/2 - x);
+  const spread = (survival.rng()-0.5) * 0.7;
+  const difficulty = clamp(survival.time / 180, 0, 1);
+  const speed = lerp(SURVIVAL_MIN_SPEED, SURVIVAL_MAX_SPEED, difficulty);
+  const vx = Math.cos(angleToCenter + spread) * speed;
+  const vy = Math.sin(angleToCenter + spread) * speed;
+
+  survival.circles.push({ x, y, r: size, vx, vy });
+}
+
+function spawnLine(){
+  if(!survival.rng) return;
+  const cx = lerp(canvas.width*0.2, canvas.width*0.8, survival.rng());
+  const cy = lerp(canvas.height*0.2, canvas.height*0.8, survival.rng());
+  const length = lerp(SURVIVAL_MIN_LEN, SURVIVAL_MAX_LEN, survival.rng());
+  const angle = survival.rng() * Math.PI * 2;
+  const difficulty = clamp(survival.time / 180, 0, 1);
+  const angVel = lerp(SURVIVAL_MIN_ROT, SURVIVAL_MAX_ROT, difficulty) * (survival.rng() > 0.5 ? 1 : -1);
+  survival.lines.push({ cx, cy, length, angle, angVel });
+}
+
+function pointToSegmentDist(px, py, x1, y1, x2, y2){
+  const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+  const dot = A*C + B*D;
+  const lenSq = C*C + D*D;
+  const t = lenSq ? clamp(dot / lenSq, 0, 1) : 0;
+  const nx = x1 + C * t;
+  const ny = y1 + D * t;
+  const dx = px - nx;
+  const dy = py - ny;
+  return Math.hypot(dx, dy);
+}
+
+function updateSurvival(dt){
+  survival.time += dt;
+  const difficulty = clamp(survival.time / 180, 0, 1);
+
+  // spawn circles
+  survival.circleSpawn -= dt;
+  const circleInterval = lerp(2.4, 0.75, difficulty);
+  if(survival.circleSpawn <= 0 && survival.circles.length + survival.lines.length < SURVIVAL_MAX_OBS){
+    spawnCircle();
+    survival.circleSpawn = circleInterval;
+  }
+
+  // spawn lines after short delay
+  survival.lineSpawn -= dt;
+  const lineInterval = lerp(5.0, 2.2, difficulty);
+  if(survival.lineSpawn <= 0 && survival.circles.length + survival.lines.length < SURVIVAL_MAX_OBS){
+    spawnLine();
+    survival.lineSpawn = lineInterval;
+  }
+
+  // update circles
+  survival.circles.forEach(c=>{
+    c.x += c.vx * dt;
+    c.y += c.vy * dt;
+  });
+  // prune circles far outside
+  survival.circles = survival.circles.filter(c => c.x > -c.r*2 && c.x < canvas.width + c.r*2 && c.y > -c.r*2 && c.y < canvas.height + c.r*2);
+
+  // update lines
+  survival.lines.forEach(l=>{
+    l.angle += l.angVel * dt;
+  });
+
+  // collision
+  const dotR = DOT_RADIUS;
+  const px = dotPos.x, py = dotPos.y;
+
+  for(const c of survival.circles){
+    if(Math.hypot(px - c.x, py - c.y) <= c.r + dotR){ endGame(); return; }
+  }
+  for(const l of survival.lines){
+    const half = l.length / 2;
+    const x1 = l.cx + Math.cos(l.angle) * (-half);
+    const y1 = l.cy + Math.sin(l.angle) * (-half);
+    const x2 = l.cx + Math.cos(l.angle) * half;
+    const y2 = l.cy + Math.sin(l.angle) * half;
+    if(pointToSegmentDist(px, py, x1, y1, x2, y2) <= dotR + 6){ endGame(); return; }
+  }
+
+  // scoring (survival time)
+  score = survival.time * SURVIVAL_SCORE_MULT;
+  scoreDisplay.textContent = 'Survival: ' + Math.floor(score);
+  timerDisplay.textContent = Math.floor(survival.time) + 's';
+}
+
+function drawSurvival(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#eef2f7';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // obstacles
+  survival.circles.forEach(c=>{
+    ctx.fillStyle = '#ff7a7a';
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, c.r, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  survival.lines.forEach(l=>{
+    const half = l.length / 2;
+    const x1 = l.cx + Math.cos(l.angle) * (-half);
+    const y1 = l.cy + Math.sin(l.angle) * (-half);
+    const x2 = l.cx + Math.cos(l.angle) * half;
+    const y2 = l.cy + Math.sin(l.angle) * half;
+    ctx.strokeStyle = '#1b3a57';
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  });
+}
+
 /* ---------- Game update loop ---------- */
 function updateLoop(){
   const now = performance.now();
@@ -313,22 +482,27 @@ function updateLoop(){
   lastTime = now;
 
   if(gameActive){
-    // Update moving target for Level 2
-    if(currentLevel === 2){
-      updateMovingTarget(dt);
+    if(currentLevel === 3){
+      drawSurvival();
+      updateSurvival(dt);
+    } else {
+      // Update moving target for Level 2
+      if(currentLevel === 2){
+        updateMovingTarget(dt);
+      }
+      
+      drawTargetAndRings();
+      const dx = dotPos.x - targetCenter.x;
+      const dy = dotPos.y - targetCenter.y;
+      const dist = Math.hypot(dx,dy);
+      if(dist <= ringRadii[ringRadii.length-1]){
+        score += maxPointsPerSecond * (1 - dist / ringRadii[ringRadii.length-1]) * dt;
+      }
+      scoreDisplay.textContent = 'Score: ' + Math.floor(score);
+      timeLeft -= dt;
+      if(timeLeft <= 0){ timeLeft = 0; endGame(); }
+      timerDisplay.textContent = Math.ceil(timeLeft);
     }
-    
-    drawTargetAndRings();
-    const dx = dotPos.x - targetCenter.x;
-    const dy = dotPos.y - targetCenter.y;
-    const dist = Math.hypot(dx,dy);
-    if(dist <= ringRadii[ringRadii.length-1]){
-      score += maxPointsPerSecond * (1 - dist / ringRadii[ringRadii.length-1]) * dt;
-    }
-    scoreDisplay.textContent = 'Score: ' + Math.floor(score);
-    timeLeft -= dt;
-    if(timeLeft <= 0){ timeLeft = 0; endGame(); }
-    timerDisplay.textContent = Math.ceil(timeLeft);
   }
 
   requestAnimationFrame(updateLoop);
@@ -460,8 +634,10 @@ calibrateBtn.addEventListener('click', () => {
   // Initialize target based on level
   if(currentLevel === 1){
     targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
-  } else {
+  } else if(currentLevel === 2){
     initMovingTarget();
+  } else {
+    resetSurvival();
   }
 
   beta0 = lastBeta ?? 0;
@@ -472,7 +648,11 @@ calibrateBtn.addEventListener('click', () => {
   dotEl.style.left = dotPos.x+'px';
   dotEl.style.top = dotPos.y+'px';
 
-  drawTargetAndRings();
+  if(currentLevel === 3){
+    drawSurvival();
+  } else {
+    drawTargetAndRings();
+  }
   calibrateBtn.style.display = 'none';
   
   // Hide game elements during countdown
@@ -490,6 +670,11 @@ calibrateBtn.addEventListener('click', () => {
     // Reinitialize moving target when game starts
     if(currentLevel === 2){
       initMovingTarget();
+    }
+    if(currentLevel === 3){
+      resetSurvival();
+      scoreDisplay.textContent = 'Survival: 0';
+      timerDisplay.textContent = '0s';
     }
   });
 });
@@ -522,7 +707,8 @@ function endGame(){
   // ★ Trigger confetti immediately when time ends
   fireConfetti();
 
-  finalScoreBig.textContent = 'Score: ' + Math.floor(score);
+  const label = currentLevel === 3 ? 'Survival Score' : 'Score';
+  finalScoreBig.textContent = `${label}: ` + Math.floor(score);
   renderLeaderboard(currentLevel);
   gameOverOverlay.style.display = 'flex';
   gameOverOverlay.setAttribute('aria-hidden','false');
