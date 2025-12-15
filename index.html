@@ -225,13 +225,16 @@ const maxPointsPerSecond = 30;
 const TARGET_MOVE_SPEED = 80; // pixels per second for Level 2
 const SURVIVAL_SEED = 123456;
 const SURVIVAL_SCORE_MULT = 10;
-const SURVIVAL_MAX_OBS = 14;
+const SURVIVAL_MAX_OBS = 16;
 const SURVIVAL_MAX_SPEED = 240;
 const SURVIVAL_MIN_SPEED = 80;
 const SURVIVAL_MAX_ROT = 1.8; // rad/s
 const SURVIVAL_MIN_ROT = 0.45;
 const SURVIVAL_MAX_LEN = 240;
 const SURVIVAL_MIN_LEN = 140;
+const SURVIVAL_BG = '#eef2f7';
+const SURVIVAL_COLORS = ['#ff7a7a', '#7ad1ff', '#7affc5', '#ffd36e'];
+const SURVIVAL_LINE_COLOR = '#1b3a57';
 
 /* ---------- Elements ---------- */
 const arena = document.getElementById('arena');
@@ -277,7 +280,7 @@ let targetVelocity = { x: 0, y: 0 }; // For Level 2 moving target
 let survival = {
   rng: null,
   time: 0,
-  circles: [],
+  shapes: [],
   lines: [],
   circleSpawn: 0,
   lineSpawn: 0
@@ -340,14 +343,14 @@ function updateMovingTarget(dt){
 function resetSurvival(){
   survival.rng = mulberry32(SURVIVAL_SEED);
   survival.time = 0;
-  survival.circles = [];
+  survival.shapes = [];
   survival.lines = [];
   survival.circleSpawn = 0;
   survival.lineSpawn = 6; // delay lines
   ctx.clearRect(0,0,canvas.width,canvas.height);
 }
 
-function spawnCircle(){
+function spawnShape(){
   if(!survival.rng) return;
   const edge = Math.floor(survival.rng()*4);
   const size = lerp(14, 26, survival.rng());
@@ -365,15 +368,37 @@ function spawnCircle(){
   const vx = Math.cos(angleToCenter + spread) * speed;
   const vy = Math.sin(angleToCenter + spread) * speed;
 
-  survival.circles.push({ x, y, r: size, vx, vy });
+  const shapeTypeRoll = survival.rng();
+  const type = shapeTypeRoll < 0.33 ? 'circle' : shapeTypeRoll < 0.66 ? 'square' : 'triangle';
+  const color = SURVIVAL_COLORS[Math.floor(survival.rng()*SURVIVAL_COLORS.length)];
+  const rot = survival.rng() * Math.PI * 2;
+  const rotVel = (survival.rng()*1.2 - 0.6) * lerp(0.4, 1.2, difficulty); // playful spin
+  survival.shapes.push({ x, y, r: size, vx, vy, type, color, rot, rotVel });
 }
 
 function spawnLine(){
   if(!survival.rng) return;
-  const cx = lerp(canvas.width*0.2, canvas.width*0.8, survival.rng());
-  const cy = lerp(canvas.height*0.2, canvas.height*0.8, survival.rng());
+  const side = Math.floor(survival.rng()*4); // 0 left, 1 right, 2 top, 3 bottom
+  const margin = 60;
   const length = lerp(SURVIVAL_MIN_LEN, SURVIVAL_MAX_LEN, survival.rng());
-  const angle = survival.rng() * Math.PI * 2;
+  let cx=0, cy=0;
+  if(side === 0){ cx = margin; cy = lerp(margin, canvas.height - margin, survival.rng()); }
+  else if(side === 1){ cx = canvas.width - margin; cy = lerp(margin, canvas.height - margin, survival.rng()); }
+  else if(side === 2){ cx = lerp(margin, canvas.width - margin, survival.rng()); cy = margin; }
+  else { cx = lerp(margin, canvas.width - margin, survival.rng()); cy = canvas.height - margin; }
+
+  // ensure not spawning on top of player start
+  const centerDist = Math.hypot(cx - arenaRect.width/2, cy - arenaRect.height/2);
+  if(centerDist < length/2 + DOT_RADIUS + 40){
+    // push further toward edge
+    if(side === 0) cx = margin * 0.6;
+    if(side === 1) cx = canvas.width - margin * 0.6;
+    if(side === 2) cy = margin * 0.6;
+    if(side === 3) cy = canvas.height - margin * 0.6;
+  }
+
+  const angleBase = side === 0 ? 0 : side === 1 ? Math.PI : side === 2 ? Math.PI/2 : -Math.PI/2;
+  const angle = angleBase + (survival.rng()-0.5) * 0.6;
   const difficulty = clamp(survival.time / 180, 0, 1);
   const angVel = lerp(SURVIVAL_MIN_ROT, SURVIVAL_MAX_ROT, difficulty) * (survival.rng() > 0.5 ? 1 : -1);
   survival.lines.push({ cx, cy, length, angle, angVel });
@@ -398,26 +423,27 @@ function updateSurvival(dt){
   // spawn circles
   survival.circleSpawn -= dt;
   const circleInterval = lerp(2.4, 0.75, difficulty);
-  if(survival.circleSpawn <= 0 && survival.circles.length + survival.lines.length < SURVIVAL_MAX_OBS){
-    spawnCircle();
+  if(survival.circleSpawn <= 0 && survival.shapes.length + survival.lines.length < SURVIVAL_MAX_OBS){
+    spawnShape();
     survival.circleSpawn = circleInterval;
   }
 
   // spawn lines after short delay
   survival.lineSpawn -= dt;
   const lineInterval = lerp(5.0, 2.2, difficulty);
-  if(survival.lineSpawn <= 0 && survival.circles.length + survival.lines.length < SURVIVAL_MAX_OBS){
+  if(survival.lineSpawn <= 0 && survival.shapes.length + survival.lines.length < SURVIVAL_MAX_OBS){
     spawnLine();
     survival.lineSpawn = lineInterval;
   }
 
-  // update circles
-  survival.circles.forEach(c=>{
+  // update moving shapes
+  survival.shapes.forEach(c=>{
     c.x += c.vx * dt;
     c.y += c.vy * dt;
+    c.rot += c.rotVel * dt;
   });
-  // prune circles far outside
-  survival.circles = survival.circles.filter(c => c.x > -c.r*2 && c.x < canvas.width + c.r*2 && c.y > -c.r*2 && c.y < canvas.height + c.r*2);
+  // prune shapes far outside
+  survival.shapes = survival.shapes.filter(c => c.x > -c.r*2 && c.x < canvas.width + c.r*2 && c.y > -c.r*2 && c.y < canvas.height + c.r*2);
 
   // update lines
   survival.lines.forEach(l=>{
@@ -428,8 +454,9 @@ function updateSurvival(dt){
   const dotR = DOT_RADIUS;
   const px = dotPos.x, py = dotPos.y;
 
-  for(const c of survival.circles){
-    if(Math.hypot(px - c.x, py - c.y) <= c.r + dotR){ endGame(); return; }
+  for(const c of survival.shapes){
+    const hitRadius = c.type === 'circle' ? c.r : c.r * 1.1;
+    if(Math.hypot(px - c.x, py - c.y) <= hitRadius + dotR){ endGame(); return; }
   }
   for(const l of survival.lines){
     const half = l.length / 2;
@@ -448,15 +475,32 @@ function updateSurvival(dt){
 
 function drawSurvival(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle = '#eef2f7';
+  ctx.fillStyle = SURVIVAL_BG;
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
   // obstacles
-  survival.circles.forEach(c=>{
-    ctx.fillStyle = '#ff7a7a';
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, c.r, 0, Math.PI*2);
-    ctx.fill();
+  survival.shapes.forEach(c=>{
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.rot);
+    ctx.fillStyle = c.color;
+    if(c.type === 'circle'){
+      ctx.beginPath();
+      ctx.arc(0, 0, c.r, 0, Math.PI*2);
+      ctx.fill();
+    } else if(c.type === 'square'){
+      const s = c.r * 1.6;
+      ctx.fillRect(-s/2, -s/2, s, s);
+    } else { // triangle
+      const s = c.r * 1.9;
+      ctx.beginPath();
+      ctx.moveTo(0, -s/2);
+      ctx.lineTo(-s/2, s/2);
+      ctx.lineTo(s/2, s/2);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
   });
 
   survival.lines.forEach(l=>{
@@ -465,7 +509,7 @@ function drawSurvival(){
     const y1 = l.cy + Math.sin(l.angle) * (-half);
     const x2 = l.cx + Math.cos(l.angle) * half;
     const y2 = l.cy + Math.sin(l.angle) * half;
-    ctx.strokeStyle = '#1b3a57';
+    ctx.strokeStyle = SURVIVAL_LINE_COLOR;
     ctx.lineWidth = 8;
     ctx.lineCap = 'round';
     ctx.beginPath();
