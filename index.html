@@ -226,9 +226,9 @@ const TARGET_MOVE_SPEED = 80; // pixels per second for Level 2
 const SURVIVAL_SEED = 123456;
 const SURVIVAL_SCORE_MULT = 10;
 const SURVIVAL_MAX_OBS = 40;
-const SURVIVAL_BASE_SPEED = 90;
-const SURVIVAL_SPEED_GAIN = 110;
-const SURVIVAL_ROT_GAIN = 0.6; // base rad/s
+const SURVIVAL_BASE_SPEED = 88;
+const SURVIVAL_SPEED_GAIN = 85;
+const SURVIVAL_ROT_GAIN = 0.52; // base rad/s
 const SURVIVAL_LEN_MIN = 90;
 const SURVIVAL_LEN_MAX = 160;
 const SURVIVAL_BG = '#0d1024';
@@ -356,7 +356,8 @@ function updateMovingTarget(dt){
 
 /* ---------- Survival mode (Level 3) ---------- */
 function resetSurvival(){
-  survival.rng = mulberry32(SURVIVAL_SEED);
+  const runSeed = (SURVIVAL_SEED + Math.floor(Math.random()*1_000_000_000)) >>> 0;
+  survival.rng = mulberry32(runSeed);
   survival.time = 0;
   survival.shapes = [];
   survival.lines = [];
@@ -433,11 +434,11 @@ function pointToSegmentDist(px, py, x1, y1, x2, y2){
 
 function updateSurvival(dt){
   survival.time += dt;
-  const difficulty = 1 + survival.time / 180; // slightly steeper ramp
+  const difficulty = 1 + survival.time / 210; // smoother ramp
 
   // spawn circles
   survival.circleSpawn -= dt;
-  const circleInterval = 2.3 / Math.pow(difficulty, 0.6);
+  const circleInterval = 2.9 / Math.pow(difficulty, 0.58);
   if(survival.circleSpawn <= 0 && survival.shapes.length + survival.lines.length < SURVIVAL_MAX_OBS){
     spawnShape();
     survival.circleSpawn = circleInterval;
@@ -445,7 +446,7 @@ function updateSurvival(dt){
 
   // spawn lines after short delay
   survival.lineSpawn -= dt;
-  const lineInterval = 4.6 / Math.pow(difficulty, 0.55);
+  const lineInterval = 5.6 / Math.pow(difficulty, 0.54);
   if(survival.lineSpawn <= 0 && survival.shapes.length + survival.lines.length < SURVIVAL_MAX_OBS){
     spawnLine();
     survival.lineSpawn = lineInterval;
