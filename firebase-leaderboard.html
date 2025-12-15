@@ -110,6 +110,41 @@
   td.score { text-align: right; width: 120px; font-weight: bold; }
   tbody tr:nth-child(even) { background: #fbfdff; }
   tbody tr:last-child td { border-bottom: none; }
+  .qrCallout {
+    width: min(720px, 95%);
+    margin-top: 18px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 18px;
+    border-radius: 12px;
+    border: 1px solid #eee;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  }
+  .qrCallout img {
+    width: 108px;
+    height: 108px;
+    border-radius: 12px;
+    object-fit: cover;
+    border: 1px solid #f0f0f0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .qrCopy {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .qrCopy .headline {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0d1b2a;
+  }
+  .qrCopy .subhead {
+    font-size: 16px;
+    font-weight: 600;
+    color: #3d4c5c;
+  }
 </style>
 </head>
 <body>
@@ -118,6 +153,14 @@
   <div id="leaderboardModeSelection">
     <button id="showLevel1LB" class="btnPrimary">Static Mode Leaderboard</button>
     <button id="showLevel2LB" class="btnSecondary">Moving Target Leaderboard</button>
+  </div>
+
+  <div class="qrCallout" aria-label="Scan the QR code to open the game">
+    <img src="qr-code.png" alt="QR code to open the game" />
+    <div class="qrCopy">
+      <div class="headline">Scan &amp; open to play</div>
+      <div class="subhead">Point your camera to jump into the Gibbon Balance Game.</div>
+    </div>
   </div>
 
   <div id="leaderboardContainer">
