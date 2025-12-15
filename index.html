@@ -14,15 +14,15 @@
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
 <style>
-  :root{
-    --bg:#f7f7f9;
-    --dot-size:36px;
-    --corner-pad:16px;
-  }
-  html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
-  #arena{position:fixed;inset:0;overflow:hidden;background:var(--bg);display:flex;align-items:center;justify-content:center}
+#:root{
+  --bg:#0b1226;
+  --dot-size:38px;
+  --corner-pad:16px;
+}
+html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+#arena{position:fixed;inset:0;overflow:hidden;background:var(--bg);display:flex;align-items:center;justify-content:center}
   canvas#targetCanvas{position:absolute;left:0;top:0;width:100%;height:100%;display:none}
-  #dot{position:absolute;width:var(--dot-size);height:var(--dot-size);border-radius:50%;background:#0575e6;transform:translate(-50%,-50%);box-shadow:0 6px 12px rgba(5,117,230,0.18);z-index:25;pointer-events:none;display:none}
+#dot{position:absolute;width:var(--dot-size);height:var(--dot-size);border-radius:50%;background:#19f6ff;transform:translate(-50%,-50%);box-shadow:0 0 22px rgba(25,246,255,0.9),0 0 44px rgba(25,246,255,0.4);z-index:25;pointer-events:none;display:none}
   .ui-pill{position:fixed;top:calc(env(safe-area-inset-top,0px) + var(--corner-pad));background:rgba(255,255,255,0.95);padding:20px 32px;border-radius:16px;font-weight:800;font-size:36px;z-index:30;box-shadow:0 8px 32px rgba(0,0,0,0.08);display:none;letter-spacing:-0.5px}
   #scoreDisplay{left:calc(env(safe-area-inset-left,0px) + var(--corner-pad))}
   #timerDisplay{right:calc(env(safe-area-inset-right,0px) + var(--corner-pad))}
@@ -225,16 +225,15 @@ const maxPointsPerSecond = 30;
 const TARGET_MOVE_SPEED = 80; // pixels per second for Level 2
 const SURVIVAL_SEED = 123456;
 const SURVIVAL_SCORE_MULT = 10;
-const SURVIVAL_MAX_OBS = 16;
-const SURVIVAL_MAX_SPEED = 240;
-const SURVIVAL_MIN_SPEED = 80;
-const SURVIVAL_MAX_ROT = 1.8; // rad/s
-const SURVIVAL_MIN_ROT = 0.45;
-const SURVIVAL_MAX_LEN = 240;
-const SURVIVAL_MIN_LEN = 140;
-const SURVIVAL_BG = '#eef2f7';
-const SURVIVAL_COLORS = ['#ff7a7a', '#7ad1ff', '#7affc5', '#ffd36e'];
-const SURVIVAL_LINE_COLOR = '#1b3a57';
+const SURVIVAL_MAX_OBS = 18;
+const SURVIVAL_BASE_SPEED = 90;
+const SURVIVAL_SPEED_GAIN = 70;
+const SURVIVAL_ROT_GAIN = 0.35; // base rad/s
+const SURVIVAL_LEN_MIN = 90;
+const SURVIVAL_LEN_MAX = 160;
+const SURVIVAL_BG = '#0d1024';
+const SURVIVAL_COLORS = ['#ff5fad', '#ff9f43', '#7eff6b', '#9b7bff', '#ffde59'];
+const SURVIVAL_LINE_COLOR = '#f26bff';
 
 /* ---------- Elements ---------- */
 const arena = document.getElementById('arena');
@@ -353,18 +352,18 @@ function resetSurvival(){
 function spawnShape(){
   if(!survival.rng) return;
   const edge = Math.floor(survival.rng()*4);
-  const size = lerp(14, 26, survival.rng());
+  const size = lerp(18, 30, survival.rng());
   let x=0,y=0;
-  if(edge === 0){ x = 0 - size; y = survival.rng()*canvas.height; }
-  else if(edge === 1){ x = canvas.width + size; y = survival.rng()*canvas.height; }
-  else if(edge === 2){ x = survival.rng()*canvas.width; y = 0 - size; }
-  else { x = survival.rng()*canvas.width; y = canvas.height + size; }
+  if(edge === 0){ x = -size*2; y = survival.rng()*canvas.height; }
+  else if(edge === 1){ x = canvas.width + size*2; y = survival.rng()*canvas.height; }
+  else if(edge === 2){ x = survival.rng()*canvas.width; y = -size*2; }
+  else { x = survival.rng()*canvas.width; y = canvas.height + size*2; }
 
   // Aim roughly toward center with small offset
   const angleToCenter = Math.atan2(canvas.height/2 - y, canvas.width/2 - x);
   const spread = (survival.rng()-0.5) * 0.7;
-  const difficulty = clamp(survival.time / 180, 0, 1);
-  const speed = lerp(SURVIVAL_MIN_SPEED, SURVIVAL_MAX_SPEED, difficulty);
+  const difficulty = 1 + survival.time / 220; // unbounded ramp, slow early
+  const speed = SURVIVAL_BASE_SPEED + SURVIVAL_SPEED_GAIN * Math.log1p(difficulty);
   const vx = Math.cos(angleToCenter + spread) * speed;
   const vy = Math.sin(angleToCenter + spread) * speed;
 
@@ -372,36 +371,36 @@ function spawnShape(){
   const type = shapeTypeRoll < 0.33 ? 'circle' : shapeTypeRoll < 0.66 ? 'square' : 'triangle';
   const color = SURVIVAL_COLORS[Math.floor(survival.rng()*SURVIVAL_COLORS.length)];
   const rot = survival.rng() * Math.PI * 2;
-  const rotVel = (survival.rng()*1.2 - 0.6) * lerp(0.4, 1.2, difficulty); // playful spin
+  const rotVel = (survival.rng()*1.2 - 0.6) * SURVIVAL_ROT_GAIN * difficulty; // playful spin scales over time
   survival.shapes.push({ x, y, r: size, vx, vy, type, color, rot, rotVel });
 }
 
 function spawnLine(){
   if(!survival.rng) return;
   const side = Math.floor(survival.rng()*4); // 0 left, 1 right, 2 top, 3 bottom
-  const margin = 60;
-  const length = lerp(SURVIVAL_MIN_LEN, SURVIVAL_MAX_LEN, survival.rng());
-  let cx=0, cy=0;
-  if(side === 0){ cx = margin; cy = lerp(margin, canvas.height - margin, survival.rng()); }
-  else if(side === 1){ cx = canvas.width - margin; cy = lerp(margin, canvas.height - margin, survival.rng()); }
-  else if(side === 2){ cx = lerp(margin, canvas.width - margin, survival.rng()); cy = margin; }
-  else { cx = lerp(margin, canvas.width - margin, survival.rng()); cy = canvas.height - margin; }
-
-  // ensure not spawning on top of player start
-  const centerDist = Math.hypot(cx - arenaRect.width/2, cy - arenaRect.height/2);
-  if(centerDist < length/2 + DOT_RADIUS + 40){
-    // push further toward edge
-    if(side === 0) cx = margin * 0.6;
-    if(side === 1) cx = canvas.width - margin * 0.6;
-    if(side === 2) cy = margin * 0.6;
-    if(side === 3) cy = canvas.height - margin * 0.6;
+  const margin = 80;
+  const length = lerp(SURVIVAL_LEN_MIN, SURVIVAL_LEN_MAX, survival.rng());
+  let cx=0, cy=0, vx=0, vy=0;
+  const difficulty = 1 + survival.time / 220;
+  const driftSpeed = SURVIVAL_BASE_SPEED * 0.7 + SURVIVAL_SPEED_GAIN * 0.5 * Math.log1p(difficulty);
+  if(side === 0){
+    cx = -margin; cy = lerp(-margin, canvas.height + margin, survival.rng());
+    vx = driftSpeed; vy = (survival.rng()-0.5) * driftSpeed * 0.25;
+  } else if(side === 1){
+    cx = canvas.width + margin; cy = lerp(-margin, canvas.height + margin, survival.rng());
+    vx = -driftSpeed; vy = (survival.rng()-0.5) * driftSpeed * 0.25;
+  } else if(side === 2){
+    cx = lerp(-margin, canvas.width + margin, survival.rng()); cy = -margin;
+    vy = driftSpeed; vx = (survival.rng()-0.5) * driftSpeed * 0.25;
+  } else {
+    cx = lerp(-margin, canvas.width + margin, survival.rng()); cy = canvas.height + margin;
+    vy = -driftSpeed; vx = (survival.rng()-0.5) * driftSpeed * 0.25;
   }
 
-  const angleBase = side === 0 ? 0 : side === 1 ? Math.PI : side === 2 ? Math.PI/2 : -Math.PI/2;
-  const angle = angleBase + (survival.rng()-0.5) * 0.6;
-  const difficulty = clamp(survival.time / 180, 0, 1);
-  const angVel = lerp(SURVIVAL_MIN_ROT, SURVIVAL_MAX_ROT, difficulty) * (survival.rng() > 0.5 ? 1 : -1);
-  survival.lines.push({ cx, cy, length, angle, angVel });
+  const angleBase = Math.atan2(vy, vx);
+  const angle = angleBase + (survival.rng()-0.5) * 0.5;
+  const angVel = SURVIVAL_ROT_GAIN * difficulty * (survival.rng() > 0.5 ? 1 : -1);
+  survival.lines.push({ cx, cy, length, angle, angVel, vx, vy });
 }
 
 function pointToSegmentDist(px, py, x1, y1, x2, y2){
@@ -418,11 +417,11 @@ function pointToSegmentDist(px, py, x1, y1, x2, y2){
 
 function updateSurvival(dt){
   survival.time += dt;
-  const difficulty = clamp(survival.time / 180, 0, 1);
+  const difficulty = 1 + survival.time / 220; // unbounded, gentle start
 
   // spawn circles
   survival.circleSpawn -= dt;
-  const circleInterval = lerp(2.4, 0.75, difficulty);
+  const circleInterval = 2.6 / Math.pow(difficulty, 0.55);
   if(survival.circleSpawn <= 0 && survival.shapes.length + survival.lines.length < SURVIVAL_MAX_OBS){
     spawnShape();
     survival.circleSpawn = circleInterval;
@@ -430,7 +429,7 @@ function updateSurvival(dt){
 
   // spawn lines after short delay
   survival.lineSpawn -= dt;
-  const lineInterval = lerp(5.0, 2.2, difficulty);
+  const lineInterval = 5.2 / Math.pow(difficulty, 0.5);
   if(survival.lineSpawn <= 0 && survival.shapes.length + survival.lines.length < SURVIVAL_MAX_OBS){
     spawnLine();
     survival.lineSpawn = lineInterval;
@@ -447,8 +446,11 @@ function updateSurvival(dt){
 
   // update lines
   survival.lines.forEach(l=>{
+    l.cx += l.vx * dt;
+    l.cy += l.vy * dt;
     l.angle += l.angVel * dt;
   });
+  survival.lines = survival.lines.filter(l => l.cx > -200 && l.cx < canvas.width + 200 && l.cy > -200 && l.cy < canvas.height + 200);
 
   // collision
   const dotR = DOT_RADIUS;
@@ -484,6 +486,8 @@ function drawSurvival(){
     ctx.translate(c.x, c.y);
     ctx.rotate(c.rot);
     ctx.fillStyle = c.color;
+    ctx.shadowColor = c.color;
+    ctx.shadowBlur = 20;
     if(c.type === 'circle'){
       ctx.beginPath();
       ctx.arc(0, 0, c.r, 0, Math.PI*2);
@@ -510,7 +514,9 @@ function drawSurvival(){
     const x2 = l.cx + Math.cos(l.angle) * half;
     const y2 = l.cy + Math.sin(l.angle) * half;
     ctx.strokeStyle = SURVIVAL_LINE_COLOR;
-    ctx.lineWidth = 8;
+    ctx.lineWidth = 12;
+    ctx.shadowColor = SURVIVAL_LINE_COLOR;
+    ctx.shadowBlur = 18;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(x1, y1);
