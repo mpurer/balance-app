@@ -166,8 +166,8 @@
 
   <div class="topRow">
     <div id="leaderboardModeSelection">
-      <button id="showLevel1LB" class="btnPrimary">Static Mode Leaderboard</button>
-      <button id="showLevel2LB" class="btnSecondary">Moving Target Leaderboard</button>
+      <button id="showMovingLB" class="btnPrimary">Moving Target Leaderboard</button>
+      <button id="showSurvivalLB" class="btnSecondary">Survival Arena Leaderboard</button>
     </div>
 
     <div class="qrCallout" aria-label="Scan the QR code to open the game">
@@ -192,11 +192,11 @@
 <script>
   // Elements
   const leaderboardBody = document.getElementById('leaderboardBody');
-  const showLevel1LB = document.getElementById('showLevel1LB');
-  const showLevel2LB = document.getElementById('showLevel2LB');
+  const showMovingLB = document.getElementById('showMovingLB');
+  const showSurvivalLB = document.getElementById('showSurvivalLB');
 
   // State
-  let currentLeaderboardView = 1; // Default to Level 1
+  let currentLeaderboardView = 2; // Default to Moving Target
   let unsubscribeLeaderboard = null; // Stores the Firestore real-time listener unsubscribe function
 
   // Helper for escaping HTML (for player names)
@@ -210,7 +210,7 @@
       unsubscribeLeaderboard = null;
     }
 
-    const collectionRef = level === 1 ? db.collection('leaderboardLevel1') : db.collection('leaderboardLevel2');
+    const collectionRef = level === 2 ? db.collection('leaderboardLevel2') : db.collection('leaderboardSurvival');
 
     leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#666">Loading leaderboard...</td></tr>`;
 
@@ -243,27 +243,27 @@
   }
 
   // Event Listeners for leaderboard mode selection buttons
-  showLevel1LB.addEventListener('click', () => {
-    if (currentLeaderboardView === 1) return;
-    currentLeaderboardView = 1;
-    renderFirebaseLeaderboard(1);
-    showLevel1LB.classList.add('btnPrimary');
-    showLevel1LB.classList.remove('btnSecondary');
-    showLevel2LB.classList.add('btnSecondary');
-    showLevel2LB.classList.remove('btnPrimary');
-  });
-
-  showLevel2LB.addEventListener('click', () => {
+  showMovingLB.addEventListener('click', () => {
     if (currentLeaderboardView === 2) return;
     currentLeaderboardView = 2;
     renderFirebaseLeaderboard(2);
-    showLevel2LB.classList.add('btnPrimary');
-    showLevel2LB.classList.remove('btnSecondary');
-    showLevel1LB.classList.add('btnSecondary');
-    showLevel1LB.classList.remove('btnPrimary');
+    showMovingLB.classList.add('btnPrimary');
+    showMovingLB.classList.remove('btnSecondary');
+    showSurvivalLB.classList.add('btnSecondary');
+    showSurvivalLB.classList.remove('btnPrimary');
   });
 
-  // Initial load: render the default leaderboard (Level 1)
+  showSurvivalLB.addEventListener('click', () => {
+    if (currentLeaderboardView === 3) return;
+    currentLeaderboardView = 3;
+    renderFirebaseLeaderboard(3);
+    showSurvivalLB.classList.add('btnPrimary');
+    showSurvivalLB.classList.remove('btnSecondary');
+    showMovingLB.classList.add('btnSecondary');
+    showMovingLB.classList.remove('btnPrimary');
+  });
+
+  // Initial load: render the default leaderboard (Moving Target)
   document.addEventListener('DOMContentLoaded', () => {
     renderFirebaseLeaderboard(currentLeaderboardView);
   });
