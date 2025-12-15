@@ -29,8 +29,8 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
   .center-btn{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;padding:20px 48px;border-radius:16px;border:0;background:#0575e6;color:#fff;font-weight:800;font-size:20px;box-shadow:0 12px 40px rgba(5,117,230,0.25);cursor:pointer;transition:all 0.2s ease;letter-spacing:0.5px;min-width:240px}
   .center-btn:hover{background:#0468d4;transform:translate(-50%,-50%) scale(1.02);box-shadow:0 16px 48px rgba(5,117,230,0.35)}
   .center-btn:active{transform:translate(-50%,-50%) scale(0.98)}
-  #calibrateBtn{background:#111;box-shadow:0 12px 40px rgba(0,0,0,0.25)}
-  #calibrateBtn:hover{background:#000;box-shadow:0 16px 48px rgba(0,0,0,0.35)}
+  #calibrateBtn{background:#0575e6;box-shadow:0 12px 40px rgba(5,117,230,0.25)}
+  #calibrateBtn:hover{background:#0468d4;box-shadow:0 16px 48px rgba(5,117,230,0.35)}
 
   /* overlays */
   #rotateOverlay,#gameOverOverlay,#countdownOverlay{
@@ -225,10 +225,10 @@ const maxPointsPerSecond = 30;
 const TARGET_MOVE_SPEED = 80; // pixels per second for Level 2
 const SURVIVAL_SEED = 123456;
 const SURVIVAL_SCORE_MULT = 10;
-const SURVIVAL_MAX_OBS = 18;
+const SURVIVAL_MAX_OBS = 40;
 const SURVIVAL_BASE_SPEED = 90;
-const SURVIVAL_SPEED_GAIN = 70;
-const SURVIVAL_ROT_GAIN = 0.35; // base rad/s
+const SURVIVAL_SPEED_GAIN = 110;
+const SURVIVAL_ROT_GAIN = 0.6; // base rad/s
 const SURVIVAL_LEN_MIN = 90;
 const SURVIVAL_LEN_MAX = 160;
 const SURVIVAL_BG = '#0d1024';
@@ -305,7 +305,23 @@ function saveLocalScore(name, sc, level){ const key = getLeaderboardKey(level); 
 function renderLeaderboard(level){ const list = loadLeaderboard(level).slice(0,50); leaderboardBody.innerHTML = ''; if(list.length === 0){ leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">No scores yet</td></tr>`; return; } list.forEach((r,i)=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td class="rank">${i+1}</td><td>${escapeHtml(r.name)}</td><td class="score">${r.score}</td>`; leaderboardBody.appendChild(tr); }); }
 
 /* ---------- Canvas drawing ---------- */
-function drawTargetAndRings(){ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.strokeStyle='rgba(0,0,0,0.16)'; ctx.lineWidth=2; ringRadii.forEach(r=>{ ctx.beginPath(); ctx.arc(targetCenter.x,targetCenter.y,r,0,Math.PI*2); ctx.stroke(); }); ctx.fillStyle='#ff5c5c'; ctx.beginPath(); ctx.arc(targetCenter.x,targetCenter.y,6,0,Math.PI*2); ctx.fill(); }
+function drawTargetAndRings(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle='rgba(61,226,255,0.7)';
+  ctx.lineWidth=3;
+  ringRadii.forEach(r=>{
+    ctx.beginPath();
+    ctx.arc(targetCenter.x,targetCenter.y,r,0,Math.PI*2);
+    ctx.stroke();
+  });
+  ctx.fillStyle='#ff7a7a';
+  ctx.shadowColor = '#ff7a7a';
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.arc(targetCenter.x,targetCenter.y,6,0,Math.PI*2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+}
 
 /* ---------- Moving target logic (Level 2) ---------- */
 function initMovingTarget(){
@@ -417,11 +433,11 @@ function pointToSegmentDist(px, py, x1, y1, x2, y2){
 
 function updateSurvival(dt){
   survival.time += dt;
-  const difficulty = 1 + survival.time / 220; // unbounded, gentle start
+  const difficulty = 1 + survival.time / 180; // slightly steeper ramp
 
   // spawn circles
   survival.circleSpawn -= dt;
-  const circleInterval = 2.6 / Math.pow(difficulty, 0.55);
+  const circleInterval = 2.3 / Math.pow(difficulty, 0.6);
   if(survival.circleSpawn <= 0 && survival.shapes.length + survival.lines.length < SURVIVAL_MAX_OBS){
     spawnShape();
     survival.circleSpawn = circleInterval;
@@ -429,7 +445,7 @@ function updateSurvival(dt){
 
   // spawn lines after short delay
   survival.lineSpawn -= dt;
-  const lineInterval = 5.2 / Math.pow(difficulty, 0.5);
+  const lineInterval = 4.6 / Math.pow(difficulty, 0.55);
   if(survival.lineSpawn <= 0 && survival.shapes.length + survival.lines.length < SURVIVAL_MAX_OBS){
     spawnLine();
     survival.lineSpawn = lineInterval;
@@ -441,16 +457,27 @@ function updateSurvival(dt){
     c.y += c.vy * dt;
     c.rot += c.rotVel * dt;
   });
-  // prune shapes far outside
-  survival.shapes = survival.shapes.filter(c => c.x > -c.r*2 && c.x < canvas.width + c.r*2 && c.y > -c.r*2 && c.y < canvas.height + c.r*2);
+  // keep shapes in bounds by bouncing
+  survival.shapes.forEach(c=>{
+    const margin = c.r;
+    if(c.x < margin){ c.x = margin; c.vx = Math.abs(c.vx); }
+    if(c.x > canvas.width - margin){ c.x = canvas.width - margin; c.vx = -Math.abs(c.vx); }
+    if(c.y < margin){ c.y = margin; c.vy = Math.abs(c.vy); }
+    if(c.y > canvas.height - margin){ c.y = canvas.height - margin; c.vy = -Math.abs(c.vy); }
+  });
 
   // update lines
   survival.lines.forEach(l=>{
     l.cx += l.vx * dt;
     l.cy += l.vy * dt;
     l.angle += l.angVel * dt;
+
+    const margin = 40;
+    if(l.cx < margin){ l.cx = margin; l.vx = Math.abs(l.vx); }
+    if(l.cx > canvas.width - margin){ l.cx = canvas.width - margin; l.vx = -Math.abs(l.vx); }
+    if(l.cy < margin){ l.cy = margin; l.vy = Math.abs(l.vy); }
+    if(l.cy > canvas.height - margin){ l.cy = canvas.height - margin; l.vy = -Math.abs(l.vy); }
   });
-  survival.lines = survival.lines.filter(l => l.cx > -200 && l.cx < canvas.width + 200 && l.cy > -200 && l.cy < canvas.height + 200);
 
   // collision
   const dotR = DOT_RADIUS;
