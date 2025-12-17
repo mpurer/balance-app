@@ -230,7 +230,7 @@
 
     const collectionRef = level === 2 ? db.collection('leaderboardLevel2') : db.collection('leaderboardSurvival');
 
-    leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#666">Loading leaderboard...</td></tr>`;
+    leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#cfd2d8">Loading leaderboard...</td></tr>`;
 
     // Set up the new real-time listener
     unsubscribeLeaderboard = collectionRef
@@ -240,7 +240,7 @@
       .onSnapshot(snapshot => {
         leaderboardBody.innerHTML = ''; // Clear previous entries
         if (snapshot.empty) {
-          leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#666">No scores yet for this level. Play the game to add some!</td></tr>`;
+          leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#cfd2d8">No scores yet for this level. Play the game to add some!</td></tr>`;
           return;
         }
 
