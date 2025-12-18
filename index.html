@@ -222,7 +222,7 @@ const DOT_RADIUS = 18;
 const MAX_TILT = 30; 
 const ringRadii = [50, 100, 150];
 const maxPointsPerSecond = 30;
-const TARGET_MOVE_SPEED = 80; // pixels per second for Level 2
+const TARGET_MOVE_SPEED = 110; // pixels per second for Level 2 (slightly faster)
 const SURVIVAL_SEED = 123456;
 const SURVIVAL_SCORE_MULT = 10;
 const SURVIVAL_MAX_OBS = 40;
@@ -342,11 +342,16 @@ function updateMovingTarget(dt){
   targetCenter.x += targetVelocity.x * dt;
   targetCenter.y += targetVelocity.y * dt;
   
-  // Bounce off edges (with margin for rings)
+  // Bounce horizontally only within center band (avoid extreme left/right quarters)
   const margin = ringRadii[ringRadii.length - 1] + 10;
-  if(targetCenter.x <= margin || targetCenter.x >= arenaRect.width - margin){
+  const bandMinX = arenaRect.width * 0.25;
+  const bandMaxX = arenaRect.width * 0.75;
+  const minX = Math.max(margin, bandMinX);
+  const maxX = Math.min(arenaRect.width - margin, bandMaxX);
+
+  if(targetCenter.x <= minX || targetCenter.x >= maxX){
     targetVelocity.x *= -1;
-    targetCenter.x = clamp(targetCenter.x, margin, arenaRect.width - margin);
+    targetCenter.x = clamp(targetCenter.x, minX, maxX);
   }
   if(targetCenter.y <= margin || targetCenter.y >= arenaRect.height - margin){
     targetVelocity.y *= -1;
