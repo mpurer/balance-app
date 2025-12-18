@@ -119,7 +119,7 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
   .smallNote{color:#111;margin-top:14px;font-size:15px;font-weight:600}
 
   /* level selection menu */
-  #levelSelectionMenu{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;background:#fff;border-radius:20px;padding:32px;box-shadow:0 16px 48px rgba(0,0,0,0.15);display:none;min-width:280px;text-align:center}
+  #levelSelectionMenu{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;background:#fff;border-radius:20px;padding:32px;box-shadow:0 16px 48px rgba(0,0,0,0.15);display:none;min-width:280px;max-height:80vh;overflow-y:auto;text-align:center}
   #levelSelectionMenu h2{margin:0 0 24px 0;font-size:24px;font-weight:800;color:#111}
   .level-btn{display:block;width:100%;padding:18px 24px;margin-bottom:12px;border-radius:14px;border:0;background:#e8fc66;color:#111;font-weight:700;font-size:18px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 8px 24px rgba(0,0,0,0.25);position:relative}
   .level-btn:hover{background:#d8f540;transform:scale(1.02);box-shadow:0 12px 32px rgba(0,0,0,0.35)}
@@ -169,6 +169,7 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
     let collectionRef = db.collection('leaderboardLevel1');
     if(level === 2){ collectionRef = db.collection('leaderboardLevel2'); }
     if(level === 3){ collectionRef = db.collection('leaderboardSurvival'); }
+    if(level === 4){ collectionRef = db.collection('leaderboardReactionGates'); }
     try {
       await collectionRef.add({
         playerName: String(name || 'Player').trim(),
@@ -224,6 +225,10 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
         Survival Arena<span class="live-badge">Live</span>
         <div class="level-description">Dodge obstacles as long as you can</div>
       </button>
+      <button class="level-btn" data-level="4">
+        Reaction Gates<span class="live-badge">Live</span>
+        <div class="level-description">Cross as many gates as possible</div>
+      </button>
     </div>
 
     <!-- rotate overlay -->
@@ -278,6 +283,7 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
 const LB_KEY_LEVEL1 = 'tilt_dot_leaderboard_level1_v1';
 const LB_KEY_LEVEL2 = 'tilt_dot_leaderboard_level2_v1';
 const LB_KEY_LEVEL3 = 'tilt_dot_leaderboard_level3_v1'; // Survival
+const LB_KEY_LEVEL4 = 'tilt_dot_leaderboard_level4_v1'; // Reaction Gates
 const GAME_DURATION = 30;
 const DOT_RADIUS = 18;
 const MAX_TILT = 30; 
@@ -352,6 +358,11 @@ let survival = {
   circleSpawn: 0,
   lineSpawn: 0
 };
+let reactionGates = {
+  currentGate: null,
+  previousGatePos: null,
+  gatesCleared: 0
+};
 
 /* detect iPad */
 const isIpad = (navigator.userAgent.includes('iPad') || (navigator.userAgent.includes('Macintosh') && navigator.maxTouchPoints > 1));
@@ -366,7 +377,9 @@ function lerp(a,b,t){ return a + (b-a)*t; }
 function getLeaderboardKey(level){
   if(level === 1) return LB_KEY_LEVEL1;
   if(level === 2) return LB_KEY_LEVEL2;
-  return LB_KEY_LEVEL3;
+  if(level === 3) return LB_KEY_LEVEL3;
+  if(level === 4) return LB_KEY_LEVEL4;
+  return LB_KEY_LEVEL1;
 }
 function loadLeaderboard(level){ const key = getLeaderboardKey(level); try{ return JSON.parse(localStorage.getItem(key) || '[]').sort((a,b)=>b.score - a.score); }catch(e){ return []; } }
 function saveLocalScore(name, sc, level){ const key = getLeaderboardKey(level); const list = loadLeaderboard(level); list.push({ name: String(name||'Player'), score: Math.floor(sc), date: Date.now() }); list.sort((a,b)=>b.score - a.score); localStorage.setItem(key, JSON.stringify(list.slice(0,50))); }
@@ -665,6 +678,114 @@ function drawSurvival(){
   });
 }
 
+/* ---------- Reaction Gates mode (Level 4) ---------- */
+function resetReactionGates(){
+  reactionGates.currentGate = null;
+  reactionGates.previousGatePos = null;
+  reactionGates.gatesCleared = 0;
+  spawnGate();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+function spawnGate(){
+  const minGateSize = 80;
+  const maxGateSize = 120;
+  const minDistanceFromBall = 100;
+  const minDistanceFromPrevious = 150;
+  const margin = 40;
+
+  let attempts = 0;
+  let validPosition = false;
+  let newGate;
+
+  while(!validPosition && attempts < 50){
+    attempts++;
+
+    // Random horizontal or vertical
+    const isHorizontal = Math.random() > 0.5;
+    const gateThickness = 15;
+
+    if(isHorizontal){
+      const width = lerp(minGateSize, maxGateSize, Math.random());
+      const x = lerp(margin, canvas.width - margin - width, Math.random());
+      const y = lerp(margin, canvas.height - margin - gateThickness, Math.random());
+      newGate = { x, y, width, height: gateThickness, isHorizontal: true };
+    } else {
+      const height = lerp(minGateSize, maxGateSize, Math.random());
+      const x = lerp(margin, canvas.width - margin - gateThickness, Math.random());
+      const y = lerp(margin, canvas.height - margin - height, Math.random());
+      newGate = { x, y, width: gateThickness, height, isHorizontal: false };
+    }
+
+    // Check distance from ball
+    const gateCenterX = newGate.x + newGate.width / 2;
+    const gateCenterY = newGate.y + newGate.height / 2;
+    const distFromBall = Math.hypot(gateCenterX - dotPos.x, gateCenterY - dotPos.y);
+
+    if(distFromBall < minDistanceFromBall){
+      continue;
+    }
+
+    // Check distance from previous gate
+    if(reactionGates.previousGatePos){
+      const distFromPrevious = Math.hypot(
+        gateCenterX - reactionGates.previousGatePos.x,
+        gateCenterY - reactionGates.previousGatePos.y
+      );
+      if(distFromPrevious < minDistanceFromPrevious){
+        continue;
+      }
+    }
+
+    validPosition = true;
+  }
+
+  reactionGates.currentGate = newGate;
+  reactionGates.previousGatePos = { x: newGate.x + newGate.width/2, y: newGate.y + newGate.height/2 };
+}
+
+function updateReactionGates(dt){
+  if(!reactionGates.currentGate) return;
+
+  const gate = reactionGates.currentGate;
+  const dotR = DOT_RADIUS;
+  const px = dotPos.x;
+  const py = dotPos.y;
+
+  // Check collision with gate (AABB + circle)
+  const closestX = clamp(px, gate.x, gate.x + gate.width);
+  const closestY = clamp(py, gate.y, gate.y + gate.height);
+  const distance = Math.hypot(px - closestX, py - closestY);
+
+  if(distance <= dotR){
+    // Gate crossed!
+    reactionGates.gatesCleared++;
+    score = reactionGates.gatesCleared;
+    scoreDisplay.textContent = 'Gates: ' + score;
+    spawnGate();
+  }
+
+  // Update timer
+  timeLeft -= dt;
+  if(timeLeft <= 0){ timeLeft = 0; endGame(); }
+  timerDisplay.textContent = Math.ceil(timeLeft);
+}
+
+function drawReactionGates(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#0d1024';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  if(reactionGates.currentGate){
+    const gate = reactionGates.currentGate;
+    ctx.fillStyle = '#e8fc66';
+    ctx.shadowColor = '#e8fc66';
+    ctx.shadowBlur = 25;
+    ctx.fillRect(gate.x, gate.y, gate.width, gate.height);
+    ctx.shadowBlur = 0;
+  }
+}
+
 /* ---------- Game update loop ---------- */
 function updateLoop(){
   const now = performance.now();
@@ -675,12 +796,15 @@ function updateLoop(){
     if(currentLevel === 3){
       drawSurvival();
       updateSurvival(dt);
+    } else if(currentLevel === 4){
+      drawReactionGates();
+      updateReactionGates(dt);
     } else {
       // Update moving target for Level 2
       if(currentLevel === 2){
         updateMovingTarget(dt);
       }
-      
+
       drawTargetAndRings();
       const dx = dotPos.x - targetCenter.x;
       const dy = dotPos.y - targetCenter.y;
@@ -768,7 +892,8 @@ enableBtn.addEventListener('click', async () => {
 const levelInstructions = {
   1: "Control the blue ball and keep it steady on the orange center to show your accuracy. Play in standing or plank position and press Calibrate to start the game!",
   2: "Control the blue ball and chase the moving target as fast as you can to score big! Play in standing or plank position and press Calibrate to start the game!",
-  3: "Control the blue ball to dodge incoming obstacles—one hit and the game's over! Play in standing or plank position and press Calibrate to start the game!"
+  3: "Control the blue ball to dodge incoming obstacles—one hit and the game's over! Play in standing or plank position and press Calibrate to start the game!",
+  4: "Control the blue ball to cross as many yellow gates as possible in 30 seconds! Each gate crossed adds +1 to your score. Play in standing or plank position and press Calibrate to start the game!"
 };
 
 levelButtons.forEach(btn => {
@@ -847,8 +972,10 @@ calibrateBtn.addEventListener('click', () => {
     targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
   } else if(currentLevel === 2){
     initMovingTarget();
-  } else {
+  } else if(currentLevel === 3){
     resetSurvival();
+  } else if(currentLevel === 4){
+    resetReactionGates();
   }
 
   beta0 = lastBeta ?? 0;
@@ -861,6 +988,8 @@ calibrateBtn.addEventListener('click', () => {
 
   if(currentLevel === 3){
     drawSurvival();
+  } else if(currentLevel === 4){
+    drawReactionGates();
   } else {
     drawTargetAndRings();
   }
@@ -879,7 +1008,7 @@ calibrateBtn.addEventListener('click', () => {
     timeLeft = GAME_DURATION;
     lastTime = performance.now();
     gameActive = true;
-    
+
     // Reinitialize moving target when game starts
     if(currentLevel === 2){
       initMovingTarget();
@@ -888,6 +1017,11 @@ calibrateBtn.addEventListener('click', () => {
       resetSurvival();
       scoreDisplay.textContent = 'Survival: 0';
       timerDisplay.textContent = '0s';
+    }
+    if(currentLevel === 4){
+      resetReactionGates();
+      scoreDisplay.textContent = 'Gates: 0';
+      timerDisplay.textContent = '30';
     }
   });
 });
