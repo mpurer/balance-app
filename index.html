@@ -126,6 +126,11 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
   .level-description{font-size:14px;color:#666;margin-top:6px;font-weight:400}
   .live-badge{display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;margin-left:8px;box-shadow:0 2px 8px rgba(16,185,129,0.3);text-transform:uppercase;letter-spacing:0.5px;vertical-align:middle;animation:pulse 2s ease-in-out infinite}
   @keyframes pulse{0%,100%{box-shadow:0 2px 8px rgba(16,185,129,0.3)}50%{box-shadow:0 2px 12px rgba(16,185,129,0.6)}}
+
+  /* game instructions */
+  #gameInstructions{position:fixed;left:50%;top:60%;transform:translate(-50%,0);z-index:35;background:rgba(255,255,255,0.95);padding:24px 32px;border-radius:16px;max-width:480px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.12);display:none;backdrop-filter:blur(10px)}
+  #gameInstructions .instructions-title{font-size:18px;font-weight:800;color:#111;margin-bottom:12px}
+  #gameInstructions .instructions-text{font-size:15px;color:#333;line-height:1.6}
 </style>
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
@@ -174,6 +179,12 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
 
     <button id="btn" class="center-btn">Enable Gyro</button>
     <button id="calibrateBtn" class="center-btn" style="display:none">Calibrate</button>
+
+    <!-- game instructions -->
+    <div id="gameInstructions">
+      <div class="instructions-title">How to play?</div>
+      <div class="instructions-text" id="instructionsText"></div>
+    </div>
 
     <!-- level selection menu -->
     <div id="levelSelectionMenu">
@@ -271,6 +282,8 @@ const scoreDisplay = document.getElementById('scoreDisplay');
 const timerDisplay = document.getElementById('timerDisplay');
 const enableBtn = document.getElementById('btn');
 const calibrateBtn = document.getElementById('calibrateBtn');
+const gameInstructions = document.getElementById('gameInstructions');
+const instructionsText = document.getElementById('instructionsText');
 const levelSelectionMenu = document.getElementById('levelSelectionMenu');
 const levelButtons = document.querySelectorAll('.level-btn');
 const rotateOverlay = document.getElementById('rotateOverlay');
@@ -704,11 +717,21 @@ enableBtn.addEventListener('click', async () => {
 });
 
 /* ---------- Level selection ---------- */
+const levelInstructions = {
+  1: "Control the blue ball and keep it steady on the orange center to show your accuracy. Play in standing or plank position and press Calibrate to start the game!",
+  2: "Control the blue ball and chase the moving target as fast as you can to score big! Play in standing or plank position and press Calibrate to start the game!",
+  3: "Control the blue ball to dodge incoming obstacles—one hit and the game's over! Play in standing or plank position and press Calibrate to start the game!"
+};
+
 levelButtons.forEach(btn => {
   btn.addEventListener('click', () => {
     currentLevel = parseInt(btn.dataset.level);
     levelSelectionMenu.style.display = 'none';
     calibrateBtn.style.display = 'block';
+
+    // Show instructions for selected level
+    instructionsText.textContent = levelInstructions[currentLevel];
+    gameInstructions.style.display = 'block';
   });
 });
 
@@ -783,7 +806,8 @@ calibrateBtn.addEventListener('click', () => {
     drawTargetAndRings();
   }
   calibrateBtn.style.display = 'none';
-  
+  gameInstructions.style.display = 'none';
+
   // Hide game elements during countdown
   canvas.style.display = "none";
   dotEl.style.display = "none";
@@ -852,6 +876,7 @@ retryBtn.addEventListener('click', () => {
 
   enableBtn.style.display = 'block';
   calibrateBtn.style.display = 'none';
+  gameInstructions.style.display = 'none';
   levelSelectionMenu.style.display = 'none';
 
   sizeCanvas();
