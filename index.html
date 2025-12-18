@@ -226,8 +226,8 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
         <div class="level-description">Dodge obstacles as long as you can</div>
       </button>
       <button class="level-btn" data-level="4">
-        Reaction Gates<span class="live-badge">Live</span>
-        <div class="level-description">Cross as many gates as possible</div>
+        Reaction Gates
+        <div class="level-description">Touch as many gates as possible</div>
       </button>
     </div>
 
@@ -688,11 +688,11 @@ function resetReactionGates(){
 }
 
 function spawnGate(){
-  const minGateSize = 80;
-  const maxGateSize = 120;
-  const minDistanceFromBall = 100;
-  const minDistanceFromPrevious = 150;
-  const margin = 40;
+  const minGateRadius = 35;
+  const maxGateRadius = 50;
+  const minDistanceFromBall = 120;
+  const minDistanceFromPrevious = 180;
+  const margin = 60;
 
   let attempts = 0;
   let validPosition = false;
@@ -701,26 +701,14 @@ function spawnGate(){
   while(!validPosition && attempts < 50){
     attempts++;
 
-    // Random horizontal or vertical
-    const isHorizontal = Math.random() > 0.5;
-    const gateThickness = 15;
-
-    if(isHorizontal){
-      const width = lerp(minGateSize, maxGateSize, Math.random());
-      const x = lerp(margin, canvas.width - margin - width, Math.random());
-      const y = lerp(margin, canvas.height - margin - gateThickness, Math.random());
-      newGate = { x, y, width, height: gateThickness, isHorizontal: true };
-    } else {
-      const height = lerp(minGateSize, maxGateSize, Math.random());
-      const x = lerp(margin, canvas.width - margin - gateThickness, Math.random());
-      const y = lerp(margin, canvas.height - margin - height, Math.random());
-      newGate = { x, y, width: gateThickness, height, isHorizontal: false };
-    }
+    // Random circular gate
+    const radius = lerp(minGateRadius, maxGateRadius, Math.random());
+    const x = lerp(margin, canvas.width - margin, Math.random());
+    const y = lerp(margin, canvas.height - margin, Math.random());
+    newGate = { x, y, radius };
 
     // Check distance from ball
-    const gateCenterX = newGate.x + newGate.width / 2;
-    const gateCenterY = newGate.y + newGate.height / 2;
-    const distFromBall = Math.hypot(gateCenterX - dotPos.x, gateCenterY - dotPos.y);
+    const distFromBall = Math.hypot(x - dotPos.x, y - dotPos.y);
 
     if(distFromBall < minDistanceFromBall){
       continue;
@@ -729,8 +717,8 @@ function spawnGate(){
     // Check distance from previous gate
     if(reactionGates.previousGatePos){
       const distFromPrevious = Math.hypot(
-        gateCenterX - reactionGates.previousGatePos.x,
-        gateCenterY - reactionGates.previousGatePos.y
+        x - reactionGates.previousGatePos.x,
+        y - reactionGates.previousGatePos.y
       );
       if(distFromPrevious < minDistanceFromPrevious){
         continue;
@@ -741,7 +729,7 @@ function spawnGate(){
   }
 
   reactionGates.currentGate = newGate;
-  reactionGates.previousGatePos = { x: newGate.x + newGate.width/2, y: newGate.y + newGate.height/2 };
+  reactionGates.previousGatePos = { x: newGate.x, y: newGate.y };
 }
 
 function updateReactionGates(dt){
@@ -752,13 +740,11 @@ function updateReactionGates(dt){
   const px = dotPos.x;
   const py = dotPos.y;
 
-  // Check collision with gate (AABB + circle)
-  const closestX = clamp(px, gate.x, gate.x + gate.width);
-  const closestY = clamp(py, gate.y, gate.y + gate.height);
-  const distance = Math.hypot(px - closestX, py - closestY);
+  // Check collision with circular gate (circle to circle)
+  const distance = Math.hypot(px - gate.x, py - gate.y);
 
-  if(distance <= dotR){
-    // Gate crossed!
+  if(distance <= dotR + gate.radius){
+    // Gate touched!
     reactionGates.gatesCleared++;
     score = reactionGates.gatesCleared;
     scoreDisplay.textContent = 'Gates: ' + score;
@@ -780,8 +766,10 @@ function drawReactionGates(){
     const gate = reactionGates.currentGate;
     ctx.fillStyle = '#e8fc66';
     ctx.shadowColor = '#e8fc66';
-    ctx.shadowBlur = 25;
-    ctx.fillRect(gate.x, gate.y, gate.width, gate.height);
+    ctx.shadowBlur = 30;
+    ctx.beginPath();
+    ctx.arc(gate.x, gate.y, gate.radius, 0, Math.PI * 2);
+    ctx.fill();
     ctx.shadowBlur = 0;
   }
 }
@@ -893,7 +881,7 @@ const levelInstructions = {
   1: "Control the blue ball and keep it steady on the orange center to show your accuracy. Play in standing or plank position and press Calibrate to start the game!",
   2: "Control the blue ball and chase the moving target as fast as you can to score big! Play in standing or plank position and press Calibrate to start the game!",
   3: "Control the blue ball to dodge incoming obstacles—one hit and the game's over! Play in standing or plank position and press Calibrate to start the game!",
-  4: "Control the blue ball to cross as many yellow gates as possible in 30 seconds! Each gate crossed adds +1 to your score. Play in standing or plank position and press Calibrate to start the game!"
+  4: "Control the blue ball to touch as many yellow gates as possible in 30 seconds! Each gate touched adds +1 to your score. Play in standing or plank position and press Calibrate to start the game!"
 };
 
 levelButtons.forEach(btn => {
