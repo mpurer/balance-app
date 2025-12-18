@@ -451,17 +451,23 @@ function updateSurvival(dt){
   // spawn circles
   survival.circleSpawn -= dt;
   const circleInterval = 2.9 / Math.pow(difficulty, 0.58);
-  if(survival.circleSpawn <= 0 && totalObstacles < SURVIVAL_MAX_OBS && allowExtraSpawns){
+
+  // Limit spawning in first 20 seconds to max 5 objects total
+  const canSpawnCircle = (survival.time < 20 && totalObstacles < 5) || survival.time >= 20;
+
+  if(survival.circleSpawn <= 0 && totalObstacles < SURVIVAL_MAX_OBS && allowExtraSpawns && canSpawnCircle){
     spawnShape();
     survival.circleSpawn = circleInterval;
   }
 
-  // spawn lines after short delay
-  survival.lineSpawn -= dt;
-  const lineInterval = 5.6 / Math.pow(difficulty, 0.54);
-  if(survival.lineSpawn <= 0 && totalObstacles < SURVIVAL_MAX_OBS && allowExtraSpawns){
-    spawnLine();
-    survival.lineSpawn = lineInterval;
+  // spawn lines - NO LINES for first 30 seconds
+  if(survival.time >= 30){
+    survival.lineSpawn -= dt;
+    const lineInterval = 5.6 / Math.pow(difficulty, 0.54);
+    if(survival.lineSpawn <= 0 && totalObstacles < SURVIVAL_MAX_OBS && allowExtraSpawns){
+      spawnLine();
+      survival.lineSpawn = lineInterval;
+    }
   }
 
   // update moving shapes
