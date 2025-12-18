@@ -100,8 +100,10 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
 
   #gameOverCard{width:min(720px,92%);background:#fff;border-radius:12px;padding:20px;box-shadow:0 12px 36px rgba(0,0,0,0.08);text-align:center}
   #finalScoreBig{font-size:40px;font-weight:800;margin-bottom:8px}
-  .btnPrimary{background:#e8fc66;color:#111;border:0;padding:10px 14px;border-radius:10px;font-weight:700}
-  .btnSecondary{background:#f0f0f0;color:#111;border:0;padding:10px 14px;border-radius:10px;font-weight:700}
+  .btnPrimary{background:#e8fc66;color:#111;border:0;padding:14px 24px;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s ease}
+  .btnSecondary{background:#f0f0f0;color:#111;border:0;padding:14px 24px;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s ease}
+  .btnPrimary:hover{background:#d8f540;transform:scale(1.02)}
+  .btnSecondary:hover{background:#e0e0e0;transform:scale(1.02)}
   #overlayButtons{display:flex;gap:12px;justify-content:center;margin-bottom:8px}
   #saveNameRow{display:none;margin-top:10px;gap:8px;justify-content:center;align-items:center}
   #nameInput{padding:8px 10px;border-radius:8px;border:1px solid #e6e6e6;min-width:170px}
@@ -114,7 +116,7 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
   td.rank{width:72px}
   td.score{text-align:right;width:110px}
   tbody tr:nth-child(even){background:#fbfdff}
-  .smallNote{color:#666;margin-top:10px;font-size:13px}
+  .smallNote{color:#111;margin-top:14px;font-size:15px;font-weight:600}
 
   /* level selection menu */
   #levelSelectionMenu{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;background:#fff;border-radius:20px;padding:32px;box-shadow:0 16px 48px rgba(0,0,0,0.15);display:none;min-width:280px;text-align:center}
@@ -248,8 +250,8 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
         <div id="finalScoreBig">Score: 0</div>
 
         <div id="overlayButtons">
-          <button id="retryBtn" class="btnPrimary">Retry</button>
-          <button id="saveBtn" class="btnSecondary">Save score</button>
+          <button id="retryBtn" class="btnSecondary">Retry</button>
+          <button id="saveBtn" class="btnPrimary">Save score to publish live</button>
         </div>
 
         <div id="saveNameRow">
