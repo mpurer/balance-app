@@ -694,6 +694,10 @@ function spawnGate(){
   const minDistanceFromPrevious = 180;
   const margin = 60;
 
+  // Limit horizontal spawn area (similar to Level 2)
+  const bandMinX = canvas.width * 0.40;
+  const bandMaxX = canvas.width * 0.60;
+
   let attempts = 0;
   let validPosition = false;
   let newGate;
@@ -701,9 +705,9 @@ function spawnGate(){
   while(!validPosition && attempts < 50){
     attempts++;
 
-    // Random circular gate
+    // Random circular gate within central band
     const radius = lerp(minGateRadius, maxGateRadius, Math.random());
-    const x = lerp(margin, canvas.width - margin, Math.random());
+    const x = lerp(Math.max(margin, bandMinX), Math.min(canvas.width - margin, bandMaxX), Math.random());
     const y = lerp(margin, canvas.height - margin, Math.random());
     newGate = { x, y, radius };
 
