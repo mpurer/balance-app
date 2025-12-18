@@ -344,8 +344,9 @@ function updateMovingTarget(dt){
   
   // Bounce horizontally only within center band (avoid extreme left/right quarters)
   const margin = ringRadii[ringRadii.length - 1] + 10;
-  const bandMinX = arenaRect.width * 0.25;
-  const bandMaxX = arenaRect.width * 0.75;
+  // Narrow horizontal band: keep target in a tight central strip
+  const bandMinX = arenaRect.width * 0.40;
+  const bandMaxX = arenaRect.width * 0.60;
   const minX = Math.max(margin, bandMinX);
   const maxX = Math.min(arenaRect.width - margin, bandMaxX);
 
