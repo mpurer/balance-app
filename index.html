@@ -688,8 +688,7 @@ function resetReactionGates(){
 }
 
 function spawnGate(){
-  const minGateRadius = 35;
-  const maxGateRadius = 50;
+  const gateRadius = 45; // Fixed size for all gates
   const minDistanceFromBall = 120;
   const minDistanceFromPrevious = 180;
   const margin = 60;
@@ -706,10 +705,9 @@ function spawnGate(){
     attempts++;
 
     // Random circular gate within central band
-    const radius = lerp(minGateRadius, maxGateRadius, Math.random());
     const x = lerp(Math.max(margin, bandMinX), Math.min(canvas.width - margin, bandMaxX), Math.random());
     const y = lerp(margin, canvas.height - margin, Math.random());
-    newGate = { x, y, radius };
+    newGate = { x, y, radius: gateRadius };
 
     // Check distance from ball
     const distFromBall = Math.hypot(x - dotPos.x, y - dotPos.y);
