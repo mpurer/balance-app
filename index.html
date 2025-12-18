@@ -94,11 +94,13 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
   /* level selection menu */
   #levelSelectionMenu{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;background:#fff;border-radius:20px;padding:32px;box-shadow:0 16px 48px rgba(0,0,0,0.15);display:none;min-width:280px;text-align:center}
   #levelSelectionMenu h2{margin:0 0 24px 0;font-size:24px;font-weight:800;color:#111}
-  .level-btn{display:block;width:100%;padding:18px 24px;margin-bottom:12px;border-radius:14px;border:0;background:#e8fc66;color:#111;font-weight:700;font-size:18px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 8px 24px rgba(0,0,0,0.25)}
+  .level-btn{display:block;width:100%;padding:18px 24px;margin-bottom:12px;border-radius:14px;border:0;background:#e8fc66;color:#111;font-weight:700;font-size:18px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 8px 24px rgba(0,0,0,0.25);position:relative}
   .level-btn:hover{background:#d8f540;transform:scale(1.02);box-shadow:0 12px 32px rgba(0,0,0,0.35)}
   .level-btn:active{transform:scale(0.98)}
   .level-btn:last-child{margin-bottom:0}
   .level-description{font-size:14px;color:#666;margin-top:6px;font-weight:400}
+  .live-badge{display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;margin-left:8px;box-shadow:0 2px 8px rgba(16,185,129,0.3);text-transform:uppercase;letter-spacing:0.5px;vertical-align:middle;animation:pulse 2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 2px 8px rgba(16,185,129,0.3)}50%{box-shadow:0 2px 12px rgba(16,185,129,0.6)}}
 </style>
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
@@ -156,11 +158,11 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
         <div class="level-description">Fixed target in center</div>
       </button>
       <button class="level-btn" data-level="2">
-        Level 2 - Moving Target
+        Level 2 - Moving Target<span class="live-badge">Live</span>
         <div class="level-description">Target moves across screen</div>
       </button>
       <button class="level-btn" data-level="3">
-        Survival Arena
+        Survival Arena<span class="live-badge">Live</span>
         <div class="level-description">Dodge obstacles as long as you can</div>
       </button>
     </div>
