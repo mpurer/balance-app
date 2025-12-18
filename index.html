@@ -341,6 +341,7 @@ let gameActive = false;
 let currentLevel = 1; // 1 = static, 2 = moving target, 3 = survival
 let targetVelocity = { x: 0, y: 0 }; // For Level 2 moving target
 let movingTargetTimer = 0; // For Level 2 jump timing
+let targetTransition = { active: false, from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, elapsed: 0, duration: 0.3 }; // Transition state
 let survival = {
   rng: null,
   time: 0,
@@ -410,11 +411,28 @@ function initMovingTarget(){
 function updateMovingTarget(dt){
   if(currentLevel !== 2) return;
 
+  // Handle active transition
+  if(targetTransition.active){
+    targetTransition.elapsed += dt;
+    const progress = Math.min(targetTransition.elapsed / targetTransition.duration, 1);
+    // Smooth easing function (ease-in-out)
+    const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+    targetCenter.x = lerp(targetTransition.from.x, targetTransition.to.x, eased);
+    targetCenter.y = lerp(targetTransition.from.y, targetTransition.to.y, eased);
+
+    if(progress >= 1){
+      targetTransition.active = false;
+      targetCenter.x = targetTransition.to.x;
+      targetCenter.y = targetTransition.to.y;
+    }
+  }
+
   movingTargetTimer += dt;
-  if(movingTargetTimer >= 5){
+  if(movingTargetTimer >= 3 && !targetTransition.active){
     movingTargetTimer = 0;
 
-    // Jump to a new random position within the same band
+    // Start transition to new random position
     const margin = ringRadii[ringRadii.length - 1] + 10;
     const bandMinX = arenaRect.width * 0.40;
     const bandMaxX = arenaRect.width * 0.60;
@@ -423,8 +441,12 @@ function updateMovingTarget(dt){
     const yMin = margin;
     const yMax = arenaRect.height - margin;
 
-    targetCenter.x = lerp(minX, maxX, Math.random());
-    targetCenter.y = lerp(yMin, yMax, Math.random());
+    targetTransition.active = true;
+    targetTransition.from.x = targetCenter.x;
+    targetTransition.from.y = targetCenter.y;
+    targetTransition.to.x = lerp(minX, maxX, Math.random());
+    targetTransition.to.y = lerp(yMin, yMax, Math.random());
+    targetTransition.elapsed = 0;
   }
 }
 
