@@ -127,10 +127,22 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
   .live-badge{display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;margin-left:8px;box-shadow:0 2px 8px rgba(16,185,129,0.3);text-transform:uppercase;letter-spacing:0.5px;vertical-align:middle;animation:pulse 2s ease-in-out infinite}
   @keyframes pulse{0%,100%{box-shadow:0 2px 8px rgba(16,185,129,0.3)}50%{box-shadow:0 2px 12px rgba(16,185,129,0.6)}}
 
-  /* game instructions */
-  #gameInstructions{position:fixed;left:50%;top:60%;transform:translate(-50%,0);z-index:35;background:rgba(255,255,255,0.95);padding:24px 32px;border-radius:16px;max-width:480px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.12);display:none;backdrop-filter:blur(10px)}
-  #gameInstructions .instructions-title{font-size:18px;font-weight:800;color:#111;margin-bottom:12px}
-  #gameInstructions .instructions-text{font-size:15px;color:#333;line-height:1.6}
+  /* calibrate hint text */
+  #calibrateHint{position:fixed;left:50%;top:calc(50% - 80px);transform:translate(-50%,-50%);z-index:35;color:#f5f5f5;font-size:16px;font-weight:600;text-align:center;display:none}
+
+  /* how to play button */
+  #howToPlayBtn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 20px);left:calc(env(safe-area-inset-left,0px) + 20px);z-index:35;background:#e8fc66;color:#111;padding:12px 20px;border-radius:12px;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,0.25);border:0;transition:all 0.2s ease;display:none}
+  #howToPlayBtn:hover{background:#d8f540;transform:scale(1.05)}
+  #howToPlayBtn:active{transform:scale(0.95)}
+
+  /* game instructions overlay */
+  #instructionsOverlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:70;background:rgba(11,18,38,0.95)}
+  #instructionsCard{background:#fff;padding:32px 40px;border-radius:20px;max-width:520px;margin:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center}
+  #instructionsCard .instructions-title{font-size:24px;font-weight:800;color:#111;margin-bottom:16px}
+  #instructionsCard .instructions-text{font-size:16px;color:#333;line-height:1.6;margin-bottom:24px}
+  #closeInstructionsBtn{background:#e8fc66;color:#111;border:0;padding:12px 32px;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 6px 20px rgba(0,0,0,0.25)}
+  #closeInstructionsBtn:hover{background:#d8f540;transform:scale(1.05)}
+  #closeInstructionsBtn:active{transform:scale(0.95)}
 </style>
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
@@ -178,12 +190,21 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
     <div id="timerDisplay" class="ui-pill">30</div>
 
     <button id="btn" class="center-btn">Enable Gyro</button>
+
+    <!-- calibrate hint -->
+    <div id="calibrateHint">Press calibrate to start the game</div>
     <button id="calibrateBtn" class="center-btn" style="display:none">Calibrate</button>
 
-    <!-- game instructions -->
-    <div id="gameInstructions">
-      <div class="instructions-title">How to play?</div>
-      <div class="instructions-text" id="instructionsText"></div>
+    <!-- how to play button -->
+    <button id="howToPlayBtn">How to play?</button>
+
+    <!-- instructions overlay -->
+    <div id="instructionsOverlay">
+      <div id="instructionsCard">
+        <div class="instructions-title">How to play?</div>
+        <div class="instructions-text" id="instructionsText"></div>
+        <button id="closeInstructionsBtn">Got it!</button>
+      </div>
     </div>
 
     <!-- level selection menu -->
@@ -282,8 +303,11 @@ const scoreDisplay = document.getElementById('scoreDisplay');
 const timerDisplay = document.getElementById('timerDisplay');
 const enableBtn = document.getElementById('btn');
 const calibrateBtn = document.getElementById('calibrateBtn');
-const gameInstructions = document.getElementById('gameInstructions');
+const calibrateHint = document.getElementById('calibrateHint');
+const howToPlayBtn = document.getElementById('howToPlayBtn');
+const instructionsOverlay = document.getElementById('instructionsOverlay');
 const instructionsText = document.getElementById('instructionsText');
+const closeInstructionsBtn = document.getElementById('closeInstructionsBtn');
 const levelSelectionMenu = document.getElementById('levelSelectionMenu');
 const levelButtons = document.querySelectorAll('.level-btn');
 const rotateOverlay = document.getElementById('rotateOverlay');
@@ -728,11 +752,22 @@ levelButtons.forEach(btn => {
     currentLevel = parseInt(btn.dataset.level);
     levelSelectionMenu.style.display = 'none';
     calibrateBtn.style.display = 'block';
+    calibrateHint.style.display = 'block';
+    howToPlayBtn.style.display = 'block';
 
-    // Show instructions for selected level
+    // Set instructions text for selected level
     instructionsText.textContent = levelInstructions[currentLevel];
-    gameInstructions.style.display = 'block';
   });
+});
+
+// Show instructions overlay when clicking "How to play?"
+howToPlayBtn.addEventListener('click', () => {
+  instructionsOverlay.style.display = 'flex';
+});
+
+// Hide instructions overlay when clicking "Got it!"
+closeInstructionsBtn.addEventListener('click', () => {
+  instructionsOverlay.style.display = 'none';
 });
 
 /* ---------- Countdown function ---------- */
@@ -806,7 +841,8 @@ calibrateBtn.addEventListener('click', () => {
     drawTargetAndRings();
   }
   calibrateBtn.style.display = 'none';
-  gameInstructions.style.display = 'none';
+  calibrateHint.style.display = 'none';
+  howToPlayBtn.style.display = 'none';
 
   // Hide game elements during countdown
   canvas.style.display = "none";
@@ -876,7 +912,9 @@ retryBtn.addEventListener('click', () => {
 
   enableBtn.style.display = 'block';
   calibrateBtn.style.display = 'none';
-  gameInstructions.style.display = 'none';
+  calibrateHint.style.display = 'none';
+  howToPlayBtn.style.display = 'none';
+  instructionsOverlay.style.display = 'none';
   levelSelectionMenu.style.display = 'none';
 
   sizeCanvas();
