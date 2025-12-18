@@ -447,16 +447,18 @@ function updateSurvival(dt){
   const difficulty = 1 + survival.time / 210; // smoother ramp
   const totalObstacles = survival.shapes.length + survival.lines.length;
 
-  // NO OBSTACLES for first 5 seconds - grace period for player
-  if(survival.time >= 5){
-    const allowExtraSpawns = survival.time >= 6 || totalObstacles === 0;
+  // NO OBSTACLES for first 2 seconds - grace period for player
+  if(survival.time >= 2){
+    const allowExtraSpawns = survival.time >= 5 || totalObstacles === 0;
 
     // spawn circles
     survival.circleSpawn -= dt;
     const circleInterval = 2.9 / Math.pow(difficulty, 0.58);
 
-    // Limit spawning in first 20 seconds to max 5 objects total
-    const canSpawnCircle = (survival.time < 20 && totalObstacles < 5) || survival.time >= 20;
+    // 2-5 seconds: only 1 obstacle, then 5-20 seconds: max 5 objects total
+    const canSpawnCircle = (survival.time < 5 && totalObstacles < 1) ||
+                           (survival.time >= 5 && survival.time < 20 && totalObstacles < 5) ||
+                           survival.time >= 20;
 
     if(survival.circleSpawn <= 0 && totalObstacles < SURVIVAL_MAX_OBS && allowExtraSpawns && canSpawnCircle){
       spawnShape();
