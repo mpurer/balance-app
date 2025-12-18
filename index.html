@@ -446,27 +446,31 @@ function updateSurvival(dt){
   survival.time += dt;
   const difficulty = 1 + survival.time / 210; // smoother ramp
   const totalObstacles = survival.shapes.length + survival.lines.length;
-  const allowExtraSpawns = survival.time >= 6 || totalObstacles === 0;
 
-  // spawn circles
-  survival.circleSpawn -= dt;
-  const circleInterval = 2.9 / Math.pow(difficulty, 0.58);
+  // NO OBSTACLES for first 5 seconds - grace period for player
+  if(survival.time >= 5){
+    const allowExtraSpawns = survival.time >= 6 || totalObstacles === 0;
 
-  // Limit spawning in first 20 seconds to max 5 objects total
-  const canSpawnCircle = (survival.time < 20 && totalObstacles < 5) || survival.time >= 20;
+    // spawn circles
+    survival.circleSpawn -= dt;
+    const circleInterval = 2.9 / Math.pow(difficulty, 0.58);
 
-  if(survival.circleSpawn <= 0 && totalObstacles < SURVIVAL_MAX_OBS && allowExtraSpawns && canSpawnCircle){
-    spawnShape();
-    survival.circleSpawn = circleInterval;
-  }
+    // Limit spawning in first 20 seconds to max 5 objects total
+    const canSpawnCircle = (survival.time < 20 && totalObstacles < 5) || survival.time >= 20;
 
-  // spawn lines - NO LINES for first 30 seconds
-  if(survival.time >= 30){
-    survival.lineSpawn -= dt;
-    const lineInterval = 5.6 / Math.pow(difficulty, 0.54);
-    if(survival.lineSpawn <= 0 && totalObstacles < SURVIVAL_MAX_OBS && allowExtraSpawns){
-      spawnLine();
-      survival.lineSpawn = lineInterval;
+    if(survival.circleSpawn <= 0 && totalObstacles < SURVIVAL_MAX_OBS && allowExtraSpawns && canSpawnCircle){
+      spawnShape();
+      survival.circleSpawn = circleInterval;
+    }
+
+    // spawn lines - NO LINES for first 30 seconds
+    if(survival.time >= 30){
+      survival.lineSpawn -= dt;
+      const lineInterval = 5.6 / Math.pow(difficulty, 0.54);
+      if(survival.lineSpawn <= 0 && totalObstacles < SURVIVAL_MAX_OBS && allowExtraSpawns){
+        spawnLine();
+        survival.lineSpawn = lineInterval;
+      }
     }
   }
 
