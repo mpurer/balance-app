@@ -276,6 +276,7 @@ let timeLeft = GAME_DURATION;
 let gameActive = false;
 let currentLevel = 1; // 1 = static, 2 = moving target, 3 = survival
 let targetVelocity = { x: 0, y: 0 }; // For Level 2 moving target
+let movingTargetTimer = 0; // For Level 2 jump timing
 let survival = {
   rng: null,
   time: 0,
@@ -325,38 +326,41 @@ function drawTargetAndRings(){
 
 /* ---------- Moving target logic (Level 2) ---------- */
 function initMovingTarget(){
-  // Start target at center
-  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
-  
-  // Random initial velocity
-  const angle = Math.random() * Math.PI * 2;
-  const speed = TARGET_MOVE_SPEED;
-  targetVelocity.x = Math.cos(angle) * speed;
-  targetVelocity.y = Math.sin(angle) * speed;
-}
-
-function updateMovingTarget(dt){
-  if(currentLevel !== 2) return;
-  
-  // Update position
-  targetCenter.x += targetVelocity.x * dt;
-  targetCenter.y += targetVelocity.y * dt;
-  
-  // Bounce horizontally only within center band (avoid extreme left/right quarters)
+  // Place target at a random position within the allowed band
   const margin = ringRadii[ringRadii.length - 1] + 10;
-  // Narrow horizontal band: keep target in a tight central strip
   const bandMinX = arenaRect.width * 0.40;
   const bandMaxX = arenaRect.width * 0.60;
   const minX = Math.max(margin, bandMinX);
   const maxX = Math.min(arenaRect.width - margin, bandMaxX);
+  const yMin = margin;
+  const yMax = arenaRect.height - margin;
 
-  if(targetCenter.x <= minX || targetCenter.x >= maxX){
-    targetVelocity.x *= -1;
-    targetCenter.x = clamp(targetCenter.x, minX, maxX);
-  }
-  if(targetCenter.y <= margin || targetCenter.y >= arenaRect.height - margin){
-    targetVelocity.y *= -1;
-    targetCenter.y = clamp(targetCenter.y, margin, arenaRect.height - margin);
+  targetCenter = {
+    x: lerp(minX, maxX, Math.random()),
+    y: lerp(yMin, yMax, Math.random())
+  };
+
+  movingTargetTimer = 0;
+}
+
+function updateMovingTarget(dt){
+  if(currentLevel !== 2) return;
+
+  movingTargetTimer += dt;
+  if(movingTargetTimer >= 5){
+    movingTargetTimer = 0;
+
+    // Jump to a new random position within the same band
+    const margin = ringRadii[ringRadii.length - 1] + 10;
+    const bandMinX = arenaRect.width * 0.40;
+    const bandMaxX = arenaRect.width * 0.60;
+    const minX = Math.max(margin, bandMinX);
+    const maxX = Math.min(arenaRect.width - margin, bandMaxX);
+    const yMin = margin;
+    const yMax = arenaRect.height - margin;
+
+    targetCenter.x = lerp(minX, maxX, Math.random());
+    targetCenter.y = lerp(yMin, yMax, Math.random());
   }
 }
 
@@ -441,11 +445,13 @@ function pointToSegmentDist(px, py, x1, y1, x2, y2){
 function updateSurvival(dt){
   survival.time += dt;
   const difficulty = 1 + survival.time / 210; // smoother ramp
+  const totalObstacles = survival.shapes.length + survival.lines.length;
+  const allowExtraSpawns = survival.time >= 6 || totalObstacles === 0;
 
   // spawn circles
   survival.circleSpawn -= dt;
   const circleInterval = 2.9 / Math.pow(difficulty, 0.58);
-  if(survival.circleSpawn <= 0 && survival.shapes.length + survival.lines.length < SURVIVAL_MAX_OBS){
+  if(survival.circleSpawn <= 0 && totalObstacles < SURVIVAL_MAX_OBS && allowExtraSpawns){
     spawnShape();
     survival.circleSpawn = circleInterval;
   }
@@ -453,7 +459,7 @@ function updateSurvival(dt){
   // spawn lines after short delay
   survival.lineSpawn -= dt;
   const lineInterval = 5.6 / Math.pow(difficulty, 0.54);
-  if(survival.lineSpawn <= 0 && survival.shapes.length + survival.lines.length < SURVIVAL_MAX_OBS){
+  if(survival.lineSpawn <= 0 && totalObstacles < SURVIVAL_MAX_OBS && allowExtraSpawns){
     spawnLine();
     survival.lineSpawn = lineInterval;
   }
