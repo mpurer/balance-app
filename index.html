@@ -109,6 +109,12 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
   #nameInput{padding:8px 10px;border-radius:8px;border:1px solid #e6e6e6;min-width:170px}
 
   /* leaderboard */
+  /* leaderboard toggle tabs */
+  #leaderboardToggle{display:flex;gap:8px;margin-top:16px;justify-content:center;padding:4px;background:#f0f0f0;border-radius:12px;width:fit-content;margin-left:auto;margin-right:auto}
+  .toggle-tab{padding:10px 28px;border-radius:10px;border:0;background:transparent;color:#666;font-weight:700;font-size:15px;cursor:pointer;transition:all 0.2s ease}
+  .toggle-tab.active{background:#e8fc66;color:#111;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+  .toggle-tab:hover:not(.active){color:#111}
+
   #leaderboardContainer{margin-top:12px;border-radius:8px;overflow:hidden;border:1px solid #eee;background:#fff;max-height:200px;overflow-y:auto}
   table#leaderboardTable{width:100%;border-collapse:collapse;font-size:15px}
   thead th{background:#e8fc66;color:#111;padding:12px 14px;font-weight:700;text-align:center}
@@ -264,6 +270,11 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
           <button id="confirmSave" class="btnPrimary">Save</button>
         </div>
 
+        <div id="leaderboardToggle">
+          <button class="toggle-tab active" data-tab="local">Local</button>
+          <button class="toggle-tab" data-tab="online">Online</button>
+        </div>
+
         <div id="leaderboardContainer">
           <table id="leaderboardTable" aria-label="Leaderboard">
             <thead>
@@ -330,6 +341,7 @@ const saveNameRow = document.getElementById('saveNameRow');
 const nameInput = document.getElementById('nameInput');
 const confirmSave = document.getElementById('confirmSave');
 const leaderboardBody = document.getElementById('leaderboardBody');
+const toggleTabs = document.querySelectorAll('.toggle-tab');
 
 /* ---------- State ---------- */
 let arenaRect = arena.getBoundingClientRect();
@@ -384,6 +396,64 @@ function getLeaderboardKey(level){
 function loadLeaderboard(level){ const key = getLeaderboardKey(level); try{ return JSON.parse(localStorage.getItem(key) || '[]').sort((a,b)=>b.score - a.score); }catch(e){ return []; } }
 function saveLocalScore(name, sc, level){ const key = getLeaderboardKey(level); const list = loadLeaderboard(level); list.push({ name: String(name||'Player'), score: Math.floor(sc), date: Date.now() }); list.sort((a,b)=>b.score - a.score); localStorage.setItem(key, JSON.stringify(list.slice(0,50))); }
 function renderLeaderboard(level){ const list = loadLeaderboard(level).slice(0,50); leaderboardBody.innerHTML = ''; if(list.length === 0){ leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">No scores yet</td></tr>`; return; } list.forEach((r,i)=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td class="rank">${i+1}</td><td>${escapeHtml(r.name)}</td><td class="score">${r.score}</td>`; leaderboardBody.appendChild(tr); }); }
+
+/* ---------- Online Leaderboard (Firebase) ---------- */
+let currentLeaderboardMode = 'local'; // 'local' or 'online'
+
+async function renderOnlineLeaderboard(level){
+  leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">Loading online scores...</td></tr>`;
+
+  let collectionRef = db.collection('leaderboardLevel1');
+  if(level === 2){ collectionRef = db.collection('leaderboardLevel2'); }
+  if(level === 3){ collectionRef = db.collection('leaderboardSurvival'); }
+  if(level === 4){ collectionRef = db.collection('leaderboardReactionGates'); }
+
+  try {
+    const snapshot = await collectionRef
+      .orderBy('score', 'desc')
+      .orderBy('timestamp', 'desc')
+      .limit(50)
+      .get();
+
+    leaderboardBody.innerHTML = '';
+
+    if(snapshot.empty){
+      leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">No online scores yet</td></tr>`;
+      return;
+    }
+
+    let rank = 1;
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="rank">${rank}</td><td>${escapeHtml(data.playerName)}</td><td class="score">${data.score}</td>`;
+      leaderboardBody.appendChild(tr);
+      rank++;
+    });
+  } catch (error) {
+    console.error("Error fetching online leaderboard: ", error);
+    leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#e60000">Error loading online scores</td></tr>`;
+  }
+}
+
+/* ---------- Toggle between local and online leaderboards ---------- */
+toggleTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const mode = tab.dataset.tab;
+    currentLeaderboardMode = mode;
+
+    // Update active state
+    toggleTabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+
+    // Render appropriate leaderboard
+    if(mode === 'local'){
+      renderLeaderboard(currentLevel);
+    } else {
+      renderOnlineLeaderboard(currentLevel);
+    }
+  });
+});
 
 /* ---------- Canvas drawing ---------- */
 function drawTargetAndRings(){
@@ -1046,6 +1116,12 @@ function endGame(){
 
   const label = currentLevel === 3 ? 'Survival Score' : 'Score';
   finalScoreBig.textContent = `${label}: ` + Math.floor(score);
+
+  // Reset to local leaderboard view
+  currentLeaderboardMode = 'local';
+  toggleTabs.forEach(t => t.classList.remove('active'));
+  toggleTabs[0].classList.add('active'); // First tab is "Local"
+
   renderLeaderboard(currentLevel);
   gameOverOverlay.style.display = 'flex';
   gameOverOverlay.setAttribute('aria-hidden','false');
@@ -1057,6 +1133,11 @@ retryBtn.addEventListener('click', () => {
   gameOverOverlay.setAttribute('aria-hidden','true');
   saveNameRow.style.display = 'none';
   nameInput.value = '';
+
+  // Reset leaderboard toggle to local
+  currentLeaderboardMode = 'local';
+  toggleTabs.forEach(t => t.classList.remove('active'));
+  toggleTabs[0].classList.add('active');
 
   enableBtn.style.display = 'block';
   calibrateBtn.style.display = 'none';
@@ -1097,7 +1178,13 @@ confirmSave.addEventListener('click', async ()=> { // Make function async
   await saveFirebaseScore(name, score, currentLevel); // <--- NOW ALSO SAVE TO FIREBASE
   saveNameRow.style.display = 'none';
   nameInput.value='';
-  renderLeaderboard(currentLevel); // Re-render local leaderboard as before
+
+  // Refresh the currently selected leaderboard view
+  if(currentLeaderboardMode === 'local'){
+    renderLeaderboard(currentLevel);
+  } else {
+    renderOnlineLeaderboard(currentLevel);
+  }
 });
 
 /* ---------- Orientation UI ---------- */
