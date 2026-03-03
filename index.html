@@ -98,7 +98,7 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
     transition:transform 1s linear;
   }
 
-  #gameOverCard{width:min(720px,92%);background:#fff;border-radius:12px;padding:20px;box-shadow:0 12px 36px rgba(0,0,0,0.08);text-align:center}
+  #gameOverCard{width:min(720px,92%);background:#fff;border-radius:12px;padding:36px 20px 20px;box-shadow:0 12px 36px rgba(0,0,0,0.08);text-align:center}
   #finalScoreBig{font-size:clamp(20px,6vw,40px);font-weight:800;margin-bottom:8px;word-break:break-word}
   .btnPrimary{background:#e8fc66;color:#111;border:0;padding:14px 24px;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s ease}
   .btnSecondary{background:#f0f0f0;color:#111;border:0;padding:14px 24px;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s ease}
@@ -115,7 +115,7 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
 
   #leaderboardContainer{margin-top:12px;border-radius:8px;overflow:hidden;border:1px solid #eee;background:#fff;max-height:200px;overflow-y:auto}
   table#leaderboardTable{width:100%;border-collapse:collapse;font-size:15px}
-  thead th{background:#e8fc66;color:#111;padding:12px 14px;font-weight:700;text-align:center}
+  thead th{background:#e8fc66;color:#111;padding:12px 14px;font-weight:700;text-align:center;position:sticky;top:0;z-index:1}
   tbody td{padding:12px 14px;border-bottom:1px solid #f2f5ff;color:#111}
   td.rank{width:72px}
   td.score{text-align:right;width:110px}
@@ -170,7 +170,7 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
   #registerBtn:disabled:hover{transform:none;background:#e8fc66}
 
   /* --- Game over additions --- */
-  #publishedNotice{display:none;background:#e8fc66;color:#111;font-weight:700;font-size:15px;padding:10px 20px;border-radius:10px;margin:8px auto 4px;width:fit-content}
+  #publishedNotice{display:none;color:#888;font-weight:500;font-size:12px;padding:2px 0;margin:4px auto;width:fit-content}
   #rankDisplay{font-size:20px;color:#111;font-weight:800;margin:6px 0 12px;min-height:26px}
   #autoResetCountdown{font-size:13px;color:#999;margin-top:10px}
   tbody tr.myRow td{background:#e8fc66 !important;font-weight:700;color:#111}
@@ -320,8 +320,7 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
         <div id="rankDisplay"></div>
 
         <div id="overlayButtons">
-          <button id="retryBtn" class="btnSecondary">Play Again</button>
-          <button id="newPlayerBtn" class="btnPrimary">New Player</button>
+          <button id="nextPlayerBtn" class="btnPrimary">Next Player →</button>
         </div>
 
         <div id="autoResetCountdown"></div>
@@ -391,8 +390,7 @@ const gameOverOverlay = document.getElementById('gameOverOverlay');
 const finalScoreBig = document.getElementById('finalScoreBig');
 const publishedNotice = document.getElementById('publishedNotice');
 const rankDisplay = document.getElementById('rankDisplay');
-const retryBtn = document.getElementById('retryBtn');
-const newPlayerBtn = document.getElementById('newPlayerBtn');
+const nextPlayerBtn = document.getElementById('nextPlayerBtn');
 const autoResetCountdown = document.getElementById('autoResetCountdown');
 const leaderboardBody = document.getElementById('leaderboardBody');
 const toggleTabs = document.querySelectorAll('.toggle-tab');
@@ -1344,12 +1342,18 @@ function fireConfetti(){
   })();
 }
 
-/* ---------- Highlight player's own row in leaderboard ---------- */
+/* ---------- Highlight and scroll to player's own row ---------- */
 function highlightPlayerRow(username){
   if(!username) return;
+  const container = document.getElementById('leaderboardContainer');
   leaderboardBody.querySelectorAll('tr').forEach(row => {
     if(row.cells[1] && row.cells[1].textContent === username){
       row.classList.add('myRow');
+      // Scroll the container so the player's row is centered
+      const rowTop = row.offsetTop;
+      const rowHeight = row.offsetHeight;
+      const containerHeight = container.clientHeight;
+      container.scrollTop = rowTop - containerHeight / 2 + rowHeight / 2;
     }
   });
 }
@@ -1386,41 +1390,8 @@ async function endGame(){
   startAutoReset();
 }
 
-/* ---------- Play Again (same player, back to level select) ---------- */
-retryBtn.addEventListener('click', ()=>{
-  cancelAutoReset();
-  gameOverOverlay.style.display = 'none';
-  gameOverOverlay.setAttribute('aria-hidden','true');
-  currentLeaderboardMode = 'local';
-  toggleTabs.forEach(t => t.classList.remove('active'));
-  toggleTabs[0].classList.add('active');
-
-  calibrateBtn.style.display = 'none';
-  calibrateHint.style.display = 'none';
-  howToPlayBtn.style.display = 'none';
-  instructionsOverlay.style.display = 'none';
-
-  sizeCanvas();
-  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
-  dotPos = { x: targetCenter.x, y: targetCenter.y };
-  dotPos0 = {...dotPos};
-  dotEl.style.left = dotPos.x+'px';
-  dotEl.style.top = dotPos.y+'px';
-
-  canvas.style.display = 'none';
-  dotEl.style.display = 'none';
-  scoreDisplay.style.display = 'none';
-  timerDisplay.style.display = 'none';
-
-  score = 0;
-  timeLeft = GAME_DURATION;
-  lastTime = 0;
-
-  levelSelectionMenu.style.display = 'block';
-});
-
-/* ---------- New Player (clear session, back to registration) ---------- */
-newPlayerBtn.addEventListener('click', ()=>{ goToNewPlayer(); });
+/* ---------- Next Player (back to registration) ---------- */
+nextPlayerBtn.addEventListener('click', ()=>{ goToNewPlayer(); });
 
 /* ---------- Orientation UI ---------- */
 function evaluateOrientation(){
