@@ -246,16 +246,16 @@ async function registerNewPlayer(firstName, email, username){
   await db.collection('registrations').add(doc);
 }
 
-/* ---- Live queue subscription ---- */
+/* ---- Live queue subscription (no orderBy to avoid composite index requirement) ---- */
 function subscribeToQueue(){
   if(queueUnsubscribe) queueUnsubscribe();
   queueUnsubscribe = db.collection('queue')
     .where('status','==','waiting')
-    .orderBy('order','asc')
-    .limit(10)
+    .limit(20)
     .onSnapshot(snapshot => {
       const entries = [];
       snapshot.forEach(doc => entries.push({ docId: doc.id, ...doc.data() }));
+      entries.sort((a, b) => (a.order || 0) - (b.order || 0));
       updateConfirmUI(entries);
     }, err => { console.error('Queue snapshot:', err); });
 }

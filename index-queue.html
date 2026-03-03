@@ -1475,11 +1475,11 @@ function subscribeToQueue(){
   if(queueSnapshotUnsub){ queueSnapshotUnsub(); queueSnapshotUnsub = null; }
   queueSnapshotUnsub = db.collection('queue')
     .where('status','==','waiting')
-    .orderBy('order','asc')
-    .limit(10)
+    .limit(20)
     .onSnapshot(snapshot => {
       const entries = [];
       snapshot.forEach(doc => entries.push({ docId: doc.id, ...doc.data() }));
+      entries.sort((a, b) => (a.order || 0) - (b.order || 0));
       pendingQueueEntries = entries;
       updateQueueUI(entries);
     }, err => { console.error('Queue snapshot:', err); });
@@ -1533,8 +1533,8 @@ async function markCurrentDone(){
 
 async function bumpToFront(docId){
   try{
-    const snap = await db.collection('queue').where('status','==','waiting').orderBy('order','asc').limit(1).get();
-    const minOrder = snap.empty ? Date.now() : snap.docs[0].data().order;
+    // Use pendingQueueEntries (already sorted) to find current minimum order
+    const minOrder = pendingQueueEntries.length > 0 ? (pendingQueueEntries[0].order || Date.now()) : Date.now();
     await db.collection('queue').doc(docId).update({ order: minOrder - 1000 });
   }catch(e){ console.error('bumpToFront:', e); }
 }

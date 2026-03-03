@@ -406,25 +406,24 @@
         }
       }, err => { console.error('Queue playing snapshot:', err); });
 
-    // Waiting list
+    // Waiting list (no orderBy to avoid needing a composite index — sort client-side)
     db.collection('queue')
       .where('status','==','waiting')
-      .orderBy('order','asc')
-      .limit(8)
+      .limit(20)
       .onSnapshot(snap => {
         queueWaitList.innerHTML = '';
         if(snap.empty){
           queueWaitList.innerHTML = '<div class="queueEmpty">No one waiting yet</div>';
           return;
         }
-        let pos = 1;
-        snap.forEach(doc => {
-          const d = doc.data();
+        const entries = [];
+        snap.forEach(doc => entries.push(doc.data()));
+        entries.sort((a, b) => (a.order || 0) - (b.order || 0));
+        entries.slice(0, 8).forEach((d, i) => {
           const row = document.createElement('div');
           row.className = 'queueWaitRow';
-          row.innerHTML = `<span class="queueWaitPos">${pos}</span><span>${escapeHtml(d.username || d.firstName || '?')}</span>`;
+          row.innerHTML = `<span class="queueWaitPos">${i+1}</span><span>${escapeHtml(d.username || d.firstName || '?')}</span>`;
           queueWaitList.appendChild(row);
-          pos++;
         });
       }, err => { console.error('Queue waiting snapshot:', err); });
   }
