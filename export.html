@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Gibbon – Registration Export</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f4f6fb;margin:0;padding:24px;color:#111}
+  h1{font-size:22px;font-weight:800;margin:0 0 4px}
+  .subtitle{font-size:14px;color:#666;margin:0 0 24px}
+  .card{background:#fff;border-radius:14px;padding:24px;box-shadow:0 4px 20px rgba(0,0,0,0.07);margin-bottom:20px}
+  .filters{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+  .filters label{font-size:13px;font-weight:600;color:#444;display:flex;flex-direction:column;gap:4px}
+  .filters input{padding:8px 12px;border-radius:8px;border:1.5px solid #e0e0e0;font-size:14px;font-family:inherit}
+  .filters input:focus{outline:none;border-color:#e8fc66}
+  .btn{padding:11px 22px;border-radius:10px;border:0;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.15s ease}
+  .btnYellow{background:#e8fc66;color:#111}
+  .btnYellow:hover{background:#d8f540}
+  .btnGreen{background:#10b981;color:#fff}
+  .btnGreen:hover{background:#059669}
+  .btnGreen:disabled{background:#a0d9c4;cursor:not-allowed}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  #status{font-size:14px;color:#666;font-weight:600}
+  #count{font-size:13px;color:#10b981;font-weight:700;margin-left:8px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:16px}
+  thead th{background:#e8fc66;color:#111;padding:10px 12px;font-weight:700;text-align:left;position:sticky;top:0}
+  tbody td{padding:9px 12px;border-bottom:1px solid #f0f2f8;vertical-align:top;word-break:break-word}
+  tbody tr:hover{background:#f9faff}
+  #tableWrap{max-height:420px;overflow-y:auto;border-radius:8px;border:1px solid #eee}
+  .empty{text-align:center;padding:32px;color:#999}
+  .note{font-size:12px;color:#888;margin-top:12px;line-height:1.5}
+</style>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyA7BZvLHuIXiYdukRpV7bM52pBBuWzv3rU",
+    authDomain: "gibbon-balance-game.firebaseapp.com",
+    projectId: "gibbon-balance-game",
+    storageBucket: "gibbon-balance-game.firebasestorage.app",
+    messagingSenderId: "435375118778",
+    appId: "1:435375118778:web:5513fc213d8d7fef816583"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+</script>
+</head>
+<body>
+
+<h1>Gibbon Balance – Registration Export</h1>
+<p class="subtitle">Load registrations from Firebase and download as CSV for Klaviyo import.</p>
+
+<div class="card">
+  <div class="filters">
+    <label>
+      From date (optional)
+      <input type="date" id="fromDate" />
+    </label>
+    <label>
+      To date (optional)
+      <input type="date" id="toDate" />
+    </label>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <span style="font-size:13px;font-weight:600;color:#444">&nbsp;</span>
+      <button class="btn btnYellow" onclick="loadRegistrations()">Load Registrations</button>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btnGreen" id="downloadBtn" onclick="downloadCSV()" disabled>Download CSV</button>
+    <span id="status">No data loaded yet.</span>
+    <span id="count"></span>
+  </div>
+
+  <div id="tableWrap" style="display:none">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Email</th>
+          <th>First Name</th>
+          <th>Username</th>
+          <th>Signup Date</th>
+          <th>Games Played</th>
+          <th>Newsletter Consent</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <p class="note">
+    CSV format is Klaviyo-compatible: <code>Email, First Name, Username, Signup Date, Games Played, Newsletter Consent</code>.<br>
+    In Klaviyo, map <strong>Email</strong> and <strong>First Name</strong> to their standard fields. Username and other columns become custom properties.
+  </p>
+</div>
+
+<script>
+  let registrations = [];
+
+  function formatDate(ts){
+    if(!ts) return '';
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toISOString().split('T')[0];
+  }
+
+  function escHtml(s){
+    return String(s||'').replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+
+  async function loadRegistrations(){
+    const status = document.getElementById('status');
+    const countEl = document.getElementById('count');
+    const tableBody = document.getElementById('tableBody');
+    const tableWrap = document.getElementById('tableWrap');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    status.textContent = 'Loading...';
+    countEl.textContent = '';
+    tableBody.innerHTML = '';
+    downloadBtn.disabled = true;
+    registrations = [];
+
+    try{
+      let query = db.collection('registrations').orderBy('createdAt','desc');
+
+      const fromVal = document.getElementById('fromDate').value;
+      const toVal = document.getElementById('toDate').value;
+      if(fromVal){
+        query = query.where('createdAt','>=', firebase.firestore.Timestamp.fromDate(new Date(fromVal)));
+      }
+      if(toVal){
+        const toEnd = new Date(toVal);
+        toEnd.setDate(toEnd.getDate() + 1);
+        query = query.where('createdAt','<', firebase.firestore.Timestamp.fromDate(toEnd));
+      }
+
+      const snap = await query.get();
+
+      if(snap.empty){
+        tableBody.innerHTML = '<tr><td colspan="7" class="empty">No registrations found.</td></tr>';
+        tableWrap.style.display = 'block';
+        status.textContent = 'No registrations found.';
+        return;
+      }
+
+      snap.forEach(doc => {
+        const d = doc.data();
+        registrations.push({
+          email: d.email || '',
+          firstName: d.firstName || '',
+          username: d.username || '',
+          signupDate: formatDate(d.createdAt),
+          gamesPlayed: d.gamesPlayed || 1,
+          newsletterConsent: d.newsletterConsent ? 'true' : 'false'
+        });
+      });
+
+      tableBody.innerHTML = registrations.map((r, i) => `
+        <tr>
+          <td>${i+1}</td>
+          <td>${escHtml(r.email)}</td>
+          <td>${escHtml(r.firstName)}</td>
+          <td>${escHtml(r.username)}</td>
+          <td>${escHtml(r.signupDate)}</td>
+          <td>${r.gamesPlayed}</td>
+          <td>${r.newsletterConsent}</td>
+        </tr>
+      `).join('');
+
+      tableWrap.style.display = 'block';
+      status.textContent = 'Loaded successfully.';
+      countEl.textContent = `${registrations.length} registration${registrations.length !== 1 ? 's' : ''}`;
+      downloadBtn.disabled = false;
+
+    }catch(e){
+      console.error(e);
+      status.textContent = 'Error loading data. Check console.';
+    }
+  }
+
+  function downloadCSV(){
+    if(!registrations.length) return;
+
+    const headers = ['Email','First Name','Username','Signup Date','Games Played','Newsletter Consent'];
+    const rows = registrations.map(r => [
+      r.email, r.firstName, r.username, r.signupDate, r.gamesPlayed, r.newsletterConsent
+    ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+
+    const csv = [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gibbon-registrations-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+</script>
+</body>
+</html>

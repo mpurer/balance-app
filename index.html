@@ -105,8 +105,6 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
   .btnPrimary:hover{background:#d8f540;transform:scale(1.02)}
   .btnSecondary:hover{background:#e0e0e0;transform:scale(1.02)}
   #overlayButtons{display:flex;gap:12px;justify-content:center;margin-bottom:8px}
-  #saveNameRow{display:none;margin-top:10px;gap:8px;justify-content:center;align-items:center}
-  #nameInput{padding:8px 10px;border-radius:8px;border:1px solid #e6e6e6;min-width:170px}
 
   /* leaderboard */
   /* leaderboard toggle tabs */
@@ -151,6 +149,30 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
   #closeInstructionsBtn{background:#e8fc66;color:#111;border:0;padding:12px 32px;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 6px 20px rgba(0,0,0,0.25)}
   #closeInstructionsBtn:hover{background:#d8f540;transform:scale(1.05)}
   #closeInstructionsBtn:active{transform:scale(0.95)}
+
+  /* --- Fair Mode: hide non-fair levels --- */
+  .level-btn[data-fair-hidden="true"]{display:none}
+
+  /* --- Registration screen --- */
+  #registrationScreen{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:45;background:rgba(11,18,38,0.97)}
+  #registrationCard{width:min(480px,92%);background:#fff;border-radius:20px;padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center}
+  #regLogo{width:72px;margin-bottom:14px}
+  #regTitle{font-size:24px;font-weight:800;color:#111;margin:0 0 20px;line-height:1.3}
+  .regInput{display:block;width:100%;box-sizing:border-box;padding:14px 16px;border-radius:12px;border:1.5px solid #e0e0e0;font-size:16px;margin-bottom:12px;font-family:inherit;background:#fafafa;transition:border-color 0.2s}
+  .regInput:focus{outline:none;border-color:#e8fc66;background:#fff}
+  .regBtn{display:block;width:100%;padding:16px;border-radius:12px;font-size:17px;font-weight:800;margin-top:4px}
+  .regError{color:#e60000;font-size:14px;min-height:18px;margin-bottom:6px;text-align:left}
+  #consentLabel{display:flex;align-items:flex-start;gap:10px;text-align:left;font-size:14px;color:#444;line-height:1.4;margin:12px 0 16px;cursor:pointer}
+  #consentLabel input[type="checkbox"]{width:20px;height:20px;flex-shrink:0;margin-top:2px;accent-color:#111;cursor:pointer}
+  #returningMsg{font-size:21px;font-weight:700;color:#111;margin-bottom:8px}
+  .regSubtext{font-size:15px;color:#666;margin:0 0 20px}
+  #registerBtn:disabled{opacity:0.5;cursor:not-allowed}
+  #registerBtn:disabled:hover{transform:none;background:#e8fc66}
+
+  /* --- Game over additions --- */
+  #publishedNotice{display:none;background:#e8fc66;color:#111;font-weight:700;font-size:15px;padding:10px 20px;border-radius:10px;margin:8px auto 4px;width:fit-content}
+  #rankDisplay{font-size:16px;color:#555;font-weight:600;margin:4px 0 10px;min-height:22px}
+  #autoResetCountdown{font-size:13px;color:#999;margin-top:10px}
 </style>
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
@@ -219,7 +241,7 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
     <!-- level selection menu -->
     <div id="levelSelectionMenu">
       <h2>Select Game Mode</h2>
-      <button class="level-btn" data-level="1">
+      <button class="level-btn" data-level="1" data-fair-hidden="true">
         Level 1 - Static Mode
         <div class="level-description">Fixed target in center</div>
       </button>
@@ -231,10 +253,44 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
         Survival Arena<span class="live-badge">Live</span>
         <div class="level-description">Dodge obstacles as long as you can</div>
       </button>
-      <button class="level-btn" data-level="4">
+      <button class="level-btn" data-level="4" data-fair-hidden="true">
         Reaction Gates
         <div class="level-description">Touch as many gates as possible</div>
       </button>
+    </div>
+
+    <!-- registration screen -->
+    <div id="registrationScreen">
+      <div id="registrationCard">
+        <img src="gibbon_logo.png" id="regLogo" alt="Gibbon" />
+        <h2 id="regTitle">Welcome to<br>Gibbon Balance!</h2>
+
+        <!-- Step 1: Email lookup -->
+        <div id="emailPhase">
+          <input id="regEmailInput" class="regInput" type="email" placeholder="Your email address" autocomplete="email" />
+          <div id="emailError" class="regError"></div>
+          <button id="emailContinueBtn" class="btnPrimary regBtn">Continue →</button>
+        </div>
+
+        <!-- Step 2a: Returning user -->
+        <div id="returningPhase" style="display:none">
+          <div id="returningMsg">Welcome back,<br><strong id="returningName"></strong>!</div>
+          <p class="regSubtext">Ready for another round?</p>
+          <button id="returningPlayBtn" class="btnPrimary regBtn">Play →</button>
+        </div>
+
+        <!-- Step 2b: New user form -->
+        <div id="newUserPhase" style="display:none">
+          <input id="regFirstName" class="regInput" placeholder="First name" autocomplete="given-name" />
+          <input id="regUsername" class="regInput" placeholder="Choose a username (shown on leaderboard)" />
+          <label id="consentLabel">
+            <input type="checkbox" id="newsletterConsent" />
+            <span>I agree to receive the <strong>Gibbon Slacklines newsletter</strong> and accept the privacy policy.</span>
+          </label>
+          <div id="regError" class="regError"></div>
+          <button id="registerBtn" class="btnPrimary regBtn" disabled>Register & Play →</button>
+        </div>
+      </div>
     </div>
 
     <!-- rotate overlay -->
@@ -259,16 +315,15 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
     <div id="gameOverOverlay" aria-hidden="true">
       <div id="gameOverCard">
         <div id="finalScoreBig">Score: 0</div>
+        <div id="publishedNotice">✓ Published to leaderboard!</div>
+        <div id="rankDisplay"></div>
 
         <div id="overlayButtons">
-          <button id="retryBtn" class="btnSecondary">Retry</button>
-          <button id="saveBtn" class="btnPrimary">Save score to publish live</button>
+          <button id="retryBtn" class="btnSecondary">Play Again</button>
+          <button id="newPlayerBtn" class="btnPrimary">New Player</button>
         </div>
 
-        <div id="saveNameRow">
-          <input id="nameInput" placeholder="Your name" />
-          <button id="confirmSave" class="btnPrimary">Save</button>
-        </div>
+        <div id="autoResetCountdown"></div>
 
         <div id="leaderboardToggle">
           <button class="toggle-tab active" data-tab="local">Local</button>
@@ -283,8 +338,6 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
             <tbody id="leaderboardBody"></tbody>
           </table>
         </div>
-
-        <div class="smallNote">Click on the save score button to publish your result on the live leaderboard.</div>
       </div>
     </div>
   </div>
@@ -335,13 +388,27 @@ const countdownNumber = document.getElementById('countdownNumber');
 const countdownFill = document.getElementById('countdownFill');
 const gameOverOverlay = document.getElementById('gameOverOverlay');
 const finalScoreBig = document.getElementById('finalScoreBig');
+const publishedNotice = document.getElementById('publishedNotice');
+const rankDisplay = document.getElementById('rankDisplay');
 const retryBtn = document.getElementById('retryBtn');
-const saveBtn = document.getElementById('saveBtn');
-const saveNameRow = document.getElementById('saveNameRow');
-const nameInput = document.getElementById('nameInput');
-const confirmSave = document.getElementById('confirmSave');
+const newPlayerBtn = document.getElementById('newPlayerBtn');
+const autoResetCountdown = document.getElementById('autoResetCountdown');
 const leaderboardBody = document.getElementById('leaderboardBody');
 const toggleTabs = document.querySelectorAll('.toggle-tab');
+const registrationScreen = document.getElementById('registrationScreen');
+const emailPhase = document.getElementById('emailPhase');
+const returningPhase = document.getElementById('returningPhase');
+const newUserPhase = document.getElementById('newUserPhase');
+const regEmailInput = document.getElementById('regEmailInput');
+const regFirstName = document.getElementById('regFirstName');
+const regUsername = document.getElementById('regUsername');
+const newsletterConsent = document.getElementById('newsletterConsent');
+const emailError = document.getElementById('emailError');
+const regError = document.getElementById('regError');
+const emailContinueBtn = document.getElementById('emailContinueBtn');
+const returningPlayBtn = document.getElementById('returningPlayBtn');
+const returningName = document.getElementById('returningName');
+const registerBtn = document.getElementById('registerBtn');
 
 /* ---------- State ---------- */
 let arenaRect = arena.getBoundingClientRect();
@@ -357,6 +424,8 @@ let lastBeta = 0, lastGamma = 0;
 let score = 0;
 let lastTime = 0;
 let timeLeft = GAME_DURATION;
+let currentPlayer = null; // { email, firstName, username } — set on registration
+let autoResetTimer = null;
 let gameActive = false;
 let currentLevel = 1; // 1 = static, 2 = moving target, 3 = survival
 let targetVelocity = { x: 0, y: 0 }; // For Level 2 moving target
@@ -396,6 +465,108 @@ function getLeaderboardKey(level){
 function loadLeaderboard(level){ const key = getLeaderboardKey(level); try{ return JSON.parse(localStorage.getItem(key) || '[]').sort((a,b)=>b.score - a.score); }catch(e){ return []; } }
 function saveLocalScore(name, sc, level){ const key = getLeaderboardKey(level); const list = loadLeaderboard(level); list.push({ name: String(name||'Player'), score: Math.floor(sc), date: Date.now() }); list.sort((a,b)=>b.score - a.score); localStorage.setItem(key, JSON.stringify(list.slice(0,50))); }
 function renderLeaderboard(level){ const list = loadLeaderboard(level).slice(0,50); leaderboardBody.innerHTML = ''; if(list.length === 0){ leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">No scores yet</td></tr>`; return; } list.forEach((r,i)=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td class="rank">${i+1}</td><td>${escapeHtml(r.name)}</td><td class="score">${r.score}</td>`; leaderboardBody.appendChild(tr); }); }
+
+/* ---------- Registration (Firebase) ---------- */
+function getCollectionRef(level){
+  if(level === 2) return db.collection('leaderboardLevel2');
+  if(level === 3) return db.collection('leaderboardSurvival');
+  if(level === 4) return db.collection('leaderboardReactionGates');
+  return db.collection('leaderboardLevel1');
+}
+
+async function checkUsernameAvailable(username){
+  try{
+    const snap = await db.collection('registrations').where('username','==',username.trim()).limit(1).get();
+    return snap.empty;
+  }catch(e){ console.error('Username check error:',e); return true; } // allow on error to not block player
+}
+
+async function lookupPlayer(email){
+  try{
+    const snap = await db.collection('registrations').where('email','==',email.toLowerCase().trim()).limit(1).get();
+    if(snap.empty) return null;
+    const data = snap.docs[0].data();
+    return { docId: snap.docs[0].id, ...data };
+  }catch(e){ console.error('Lookup error:',e); return null; }
+}
+
+async function registerNewPlayer(firstName, email, username){
+  const doc = {
+    firstName: firstName.trim(),
+    email: email.toLowerCase().trim(),
+    username: username.trim(),
+    newsletterConsent: true,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    lastPlayedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    gamesPlayed: 1
+  };
+  await db.collection('registrations').add(doc);
+  currentPlayer = { firstName: doc.firstName, email: doc.email, username: doc.username };
+}
+
+async function recordPlay(email){
+  try{
+    const snap = await db.collection('registrations').where('email','==',email.toLowerCase().trim()).limit(1).get();
+    if(!snap.empty){
+      await snap.docs[0].ref.update({
+        lastPlayedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        gamesPlayed: firebase.firestore.FieldValue.increment(1)
+      });
+    }
+  }catch(e){ console.error('Record play error:',e); }
+}
+
+async function getPlayerRank(sc, level){
+  try{
+    const snap = await getCollectionRef(level).where('score','>',Math.floor(sc)).get();
+    return snap.size + 1;
+  }catch(e){ return null; }
+}
+
+function showRegistrationScreen(){
+  emailPhase.style.display = 'block';
+  returningPhase.style.display = 'none';
+  newUserPhase.style.display = 'none';
+  regEmailInput.value = '';
+  regFirstName.value = '';
+  regUsername.value = '';
+  newsletterConsent.checked = false;
+  registerBtn.disabled = true;
+  emailError.textContent = '';
+  regError.textContent = '';
+  registrationScreen.style.display = 'flex';
+}
+
+function goToNewPlayer(){
+  currentPlayer = null;
+  cancelAutoReset();
+  gameOverOverlay.style.display = 'none';
+  gameOverOverlay.setAttribute('aria-hidden','true');
+  currentLeaderboardMode = 'local';
+  toggleTabs.forEach(t => t.classList.remove('active'));
+  toggleTabs[0].classList.add('active');
+  canvas.style.display = 'none';
+  dotEl.style.display = 'none';
+  scoreDisplay.style.display = 'none';
+  timerDisplay.style.display = 'none';
+  showRegistrationScreen();
+}
+
+function startAutoReset(){
+  cancelAutoReset();
+  let remaining = 6;
+  autoResetCountdown.textContent = `Next player in: ${remaining}s`;
+  autoResetTimer = setInterval(()=>{
+    remaining--;
+    autoResetCountdown.textContent = `Next player in: ${remaining}s`;
+    if(remaining <= 0){ cancelAutoReset(); goToNewPlayer(); }
+  }, 1000);
+}
+
+function cancelAutoReset(){
+  if(autoResetTimer){ clearInterval(autoResetTimer); autoResetTimer = null; }
+  autoResetCountdown.textContent = '';
+}
 
 /* ---------- Online Leaderboard (Firebase) ---------- */
 let currentLeaderboardMode = 'local'; // 'local' or 'online'
@@ -945,7 +1116,7 @@ enableBtn.addEventListener('click', async () => {
 
   window.addEventListener('deviceorientation', handleOrientation);
   enableBtn.style.display = 'none';
-  levelSelectionMenu.style.display = 'block';
+  showRegistrationScreen();
 });
 
 /* ---------- Level selection ---------- */
@@ -967,6 +1138,71 @@ levelButtons.forEach(btn => {
     // Set instructions text for selected level
     instructionsText.textContent = levelInstructions[currentLevel];
   });
+});
+
+/* ---------- Registration handlers ---------- */
+emailContinueBtn.addEventListener('click', async ()=>{
+  const email = regEmailInput.value.trim();
+  if(!email || !email.includes('@')){
+    emailError.textContent = 'Please enter a valid email address.';
+    return;
+  }
+  emailError.textContent = '';
+  emailContinueBtn.textContent = 'Checking...';
+  emailContinueBtn.disabled = true;
+
+  const found = await lookupPlayer(email);
+  emailContinueBtn.textContent = 'Continue →';
+  emailContinueBtn.disabled = false;
+
+  if(found){
+    currentPlayer = { email: found.email, firstName: found.firstName, username: found.username };
+    returningName.textContent = found.username;
+    emailPhase.style.display = 'none';
+    returningPhase.style.display = 'block';
+  } else {
+    emailPhase.style.display = 'none';
+    newUserPhase.style.display = 'block';
+  }
+});
+
+newsletterConsent.addEventListener('change', ()=>{
+  registerBtn.disabled = !newsletterConsent.checked;
+});
+
+registerBtn.addEventListener('click', async ()=>{
+  const firstName = regFirstName.value.trim();
+  const username = regUsername.value.trim();
+  if(!firstName){ regError.textContent = 'Please enter your first name.'; return; }
+  if(!username){ regError.textContent = 'Please choose a username.'; return; }
+  regError.textContent = '';
+  registerBtn.textContent = 'Checking...';
+  registerBtn.disabled = true;
+
+  const available = await checkUsernameAvailable(username);
+  if(!available){
+    regError.textContent = `"${username}" is already taken. Please choose a different username.`;
+    registerBtn.textContent = 'Register & Play →';
+    registerBtn.disabled = false;
+    return;
+  }
+
+  registerBtn.textContent = 'Registering...';
+  try{
+    const email = regEmailInput.value.trim();
+    await registerNewPlayer(firstName, email, username);
+    registrationScreen.style.display = 'none';
+    levelSelectionMenu.style.display = 'block';
+  }catch(e){
+    regError.textContent = 'Error registering. Please try again.';
+    registerBtn.textContent = 'Register & Play →';
+    registerBtn.disabled = false;
+  }
+});
+
+returningPlayBtn.addEventListener('click', ()=>{
+  registrationScreen.style.display = 'none';
+  levelSelectionMenu.style.display = 'block';
 });
 
 // Show instructions overlay when clicking "How to play?"
@@ -1108,84 +1344,76 @@ function fireConfetti(){
 }
 
 /* ---------- End game ---------- */
-function endGame(){
+async function endGame(){
   gameActive = false;
-
-  // ★ Trigger confetti immediately when time ends
   fireConfetti();
 
   const label = currentLevel === 3 ? 'Survival Score' : 'Score';
   finalScoreBig.textContent = `${label}: ` + Math.floor(score);
 
-  // Reset to local leaderboard view
-  currentLeaderboardMode = 'local';
-  toggleTabs.forEach(t => t.classList.remove('active'));
-  toggleTabs[0].classList.add('active'); // First tab is "Local"
+  publishedNotice.style.display = 'none';
+  rankDisplay.textContent = '';
 
-  renderLeaderboard(currentLevel);
-  gameOverOverlay.style.display = 'flex';
-  gameOverOverlay.setAttribute('aria-hidden','false');
-}
-
-/* ---------- Retry ---------- */
-retryBtn.addEventListener('click', () => {
-  gameOverOverlay.style.display = 'none';
-  gameOverOverlay.setAttribute('aria-hidden','true');
-  saveNameRow.style.display = 'none';
-  nameInput.value = '';
-
-  // Reset leaderboard toggle to local
   currentLeaderboardMode = 'local';
   toggleTabs.forEach(t => t.classList.remove('active'));
   toggleTabs[0].classList.add('active');
 
-  enableBtn.style.display = 'block';
+  gameOverOverlay.style.display = 'flex';
+  gameOverOverlay.setAttribute('aria-hidden','false');
+
+  if(currentPlayer){
+    saveLocalScore(currentPlayer.username, score, currentLevel);
+    renderLeaderboard(currentLevel);
+    await saveFirebaseScore(currentPlayer.username, score, currentLevel);
+    recordPlay(currentPlayer.email); // fire-and-forget
+    publishedNotice.style.display = 'block';
+    const rank = await getPlayerRank(score, currentLevel);
+    if(rank !== null){
+      const suffix = rank === 1 ? 'st' : rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th';
+      rankDisplay.textContent = `You are #${rank}${suffix} on the leaderboard`;
+    }
+  } else {
+    renderLeaderboard(currentLevel);
+  }
+
+  startAutoReset();
+}
+
+/* ---------- Play Again (same player, back to level select) ---------- */
+retryBtn.addEventListener('click', ()=>{
+  cancelAutoReset();
+  gameOverOverlay.style.display = 'none';
+  gameOverOverlay.setAttribute('aria-hidden','true');
+  currentLeaderboardMode = 'local';
+  toggleTabs.forEach(t => t.classList.remove('active'));
+  toggleTabs[0].classList.add('active');
+
   calibrateBtn.style.display = 'none';
   calibrateHint.style.display = 'none';
   howToPlayBtn.style.display = 'none';
   instructionsOverlay.style.display = 'none';
-  levelSelectionMenu.style.display = 'none';
 
   sizeCanvas();
   targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
   dotPos = { x: targetCenter.x, y: targetCenter.y };
   dotPos0 = {...dotPos};
-
   dotEl.style.left = dotPos.x+'px';
   dotEl.style.top = dotPos.y+'px';
 
-  // Hide game elements when retrying
-  canvas.style.display = "none";
-  dotEl.style.display = "none";
-  scoreDisplay.style.display = "none";
-  timerDisplay.style.display = "none";
+  canvas.style.display = 'none';
+  dotEl.style.display = 'none';
+  scoreDisplay.style.display = 'none';
+  timerDisplay.style.display = 'none';
 
   score = 0;
   timeLeft = GAME_DURATION;
   lastTime = 0;
-  currentLevel = 1; // Reset to level 1
 
-  scoreDisplay.textContent = 'Score: 0';
-  timerDisplay.textContent = GAME_DURATION;
+  levelSelectionMenu.style.display = 'block';
 });
 
-/* ---------- Save score ---------- */
-saveBtn.addEventListener('click', ()=>{ saveNameRow.style.display = 'flex'; nameInput.focus(); });
-confirmSave.addEventListener('click', async ()=> { // Make function async
-  const name=(nameInput.value||'Player').trim();
-  if(!name){ alert('Please enter a name'); nameInput.focus(); return; }
-  saveLocalScore(name, score, currentLevel); // Keep saving to local storage
-  await saveFirebaseScore(name, score, currentLevel); // <--- NOW ALSO SAVE TO FIREBASE
-  saveNameRow.style.display = 'none';
-  nameInput.value='';
-
-  // Refresh the currently selected leaderboard view
-  if(currentLeaderboardMode === 'local'){
-    renderLeaderboard(currentLevel);
-  } else {
-    renderOnlineLeaderboard(currentLevel);
-  }
-});
+/* ---------- New Player (clear session, back to registration) ---------- */
+newPlayerBtn.addEventListener('click', ()=>{ goToNewPlayer(); });
 
 /* ---------- Orientation UI ---------- */
 function evaluateOrientation(){
@@ -1211,12 +1439,13 @@ window.addEventListener('resize', ()=>{sizeCanvas(); targetCenter={x:arenaRect.w
   calibrateBtn.style.display = 'none';
   levelSelectionMenu.style.display = 'none';
   gameOverOverlay.style.display = 'none';
-  
+  registrationScreen.style.display = 'none';
+
   // Hide game elements initially
-  canvas.style.display = "none";
-  dotEl.style.display = "none";
-  scoreDisplay.style.display = "none";
-  timerDisplay.style.display = "none";
+  canvas.style.display = 'none';
+  dotEl.style.display = 'none';
+  scoreDisplay.style.display = 'none';
+  timerDisplay.style.display = 'none';
 })();
 </script>
 </body>
