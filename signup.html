@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<title>Gibbon Balance – Join the Queue</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyA7BZvLHuIXiYdukRpV7bM52pBBuWzv3rU",
+    authDomain: "gibbon-balance-game.firebaseapp.com",
+    projectId: "gibbon-balance-game",
+    storageBucket: "gibbon-balance-game.firebasestorage.app",
+    messagingSenderId: "435375118778",
+    appId: "1:435375118778:web:5513fc213d8d7fef816583"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+</script>
+<style>
+:root{ --bg:#0b1226; --accent:#e8fc66; }
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{
+  height:100%; width:100%; margin:0; padding:0;
+  background:var(--bg);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+  display:flex; align-items:flex-start; justify-content:center;
+  overflow-y:auto;
+}
+
+/* ---- Card ---- */
+#signupCard{
+  width:min(480px,96%);
+  background:#fff;
+  border-radius:20px;
+  padding:32px 28px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.4);
+  text-align:center;
+  margin:28px auto 40px;
+}
+#regLogo{ width:64px; margin-bottom:14px; }
+#regTitle{ font-size:24px; font-weight:800; color:#111; margin:0 0 20px; line-height:1.3; }
+
+/* ---- Inputs ---- */
+.regInput{
+  display:block; width:100%;
+  padding:14px 16px;
+  border-radius:12px;
+  border:1.5px solid #e0e0e0;
+  font-size:16px; font-family:inherit;
+  margin-bottom:12px;
+  background:#fafafa;
+  transition:border-color 0.2s;
+}
+.regInput:focus{ outline:none; border-color:var(--accent); background:#fff; }
+
+/* ---- Buttons ---- */
+.regBtn{
+  display:block; width:100%;
+  padding:16px;
+  border-radius:12px;
+  border:0;
+  font-size:17px; font-weight:800;
+  cursor:pointer;
+  margin-top:4px;
+  transition:all 0.2s ease;
+}
+.btnPrimary{ background:var(--accent); color:#111; }
+.btnPrimary:hover{ background:#d8f540; transform:scale(1.02); }
+.btnPrimary:active{ transform:scale(0.98); }
+.btnPrimary:disabled{ opacity:0.5; cursor:not-allowed; }
+.btnPrimary:disabled:hover{ transform:none; background:var(--accent); }
+
+/* ---- Consent ---- */
+#consentLabel{
+  display:flex; align-items:flex-start;
+  gap:10px; text-align:left;
+  font-size:14px; color:#444; line-height:1.4;
+  margin:12px 0 16px; cursor:pointer;
+}
+#consentLabel input[type="checkbox"]{
+  width:20px; height:20px; flex-shrink:0;
+  margin-top:2px; accent-color:#111; cursor:pointer;
+}
+
+/* ---- Error ---- */
+.regError{ color:#e60000; font-size:14px; min-height:18px; margin-bottom:6px; text-align:left; }
+
+/* ---- Returning user ---- */
+#returningMsg{ font-size:21px; font-weight:700; color:#111; margin-bottom:8px; }
+.regSubtext{ font-size:15px; color:#666; margin:0 0 20px; }
+
+/* ---- Confirmation card ---- */
+#confirmPhase{ display:none; }
+.confirmIcon{ font-size:48px; margin-bottom:8px; }
+#queuePosition{
+  font-size:clamp(56px, 18vw, 80px);
+  font-weight:900; line-height:1;
+  background:linear-gradient(135deg,#19f6ff 0%,#e8fc66 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text;
+  margin:8px 0;
+}
+#queuePositionLabel{ font-size:15px; color:#666; font-weight:600; margin-bottom:16px; }
+#queueStatusMsg{ font-size:15px; color:#444; line-height:1.5; margin-bottom:20px; }
+#queueLiveList{ margin-top:16px; text-align:left; }
+#queueLiveList h3{ font-size:13px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:#999; margin:0 0 10px; }
+.queueEntry{
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px; border-radius:10px;
+  margin-bottom:6px; font-size:15px; font-weight:600; color:#111;
+  background:#f4f6fb;
+}
+.queueEntry.myEntry{ background:var(--accent); }
+.queueEntry .qPos{ width:24px; font-weight:800; color:#999; flex-shrink:0; }
+.queueEntry.myEntry .qPos{ color:#111; }
+.queueEntry .qName{ flex:1; }
+.queueEntry .qYou{ font-size:12px; font-weight:700; color:#111; background:rgba(0,0,0,0.12); padding:2px 8px; border-radius:20px; }
+
+/* ---- Spinner ---- */
+.spinner{
+  display:inline-block; width:20px; height:20px;
+  border:3px solid #e0e0e0; border-top-color:#111;
+  border-radius:50%; animation:spin 0.7s linear infinite;
+  vertical-align:middle; margin-right:8px;
+}
+@keyframes spin{ to{ transform:rotate(360deg); } }
+
+/* ---- Already in queue note ---- */
+.alreadyNote{ font-size:14px; color:#10b981; font-weight:600; margin-bottom:12px; }
+</style>
+</head>
+<body>
+
+<div id="signupCard">
+  <img src="gibbon_logo.png" id="regLogo" alt="Gibbon" />
+  <h2 id="regTitle">Join the<br>Game Queue!</h2>
+
+  <!-- Phase 1: Email -->
+  <div id="emailPhase">
+    <input id="regEmail" class="regInput" type="email" placeholder="Your email address" autocomplete="email" inputmode="email" />
+    <div id="emailError" class="regError"></div>
+    <button id="emailContinueBtn" class="btnPrimary regBtn">Continue →</button>
+  </div>
+
+  <!-- Phase 2a: Returning user -->
+  <div id="returningPhase" style="display:none">
+    <div id="returningMsg">Welcome back,<br><strong id="returningName"></strong>!</div>
+    <p class="regSubtext">Ready to jump in the queue?</p>
+    <div id="alreadyInQueue" class="alreadyNote" style="display:none">You're already in the queue!</div>
+    <button id="returningJoinBtn" class="btnPrimary regBtn">Join the queue →</button>
+  </div>
+
+  <!-- Phase 2b: New user -->
+  <div id="newUserPhase" style="display:none">
+    <input id="regFirstName" class="regInput" placeholder="First name" autocomplete="given-name" />
+    <input id="regUsername" class="regInput" placeholder="Choose a username (shown on leaderboard)" autocomplete="off" />
+    <label id="consentLabel">
+      <input type="checkbox" id="newsletterConsent" />
+      <span>I agree to receive the <strong>Gibbon Slacklines newsletter</strong> and accept the privacy policy.</span>
+    </label>
+    <div id="regError" class="regError"></div>
+    <button id="registerBtn" class="btnPrimary regBtn" disabled>Register & Join Queue →</button>
+  </div>
+
+  <!-- Phase 3: Confirmation + live position -->
+  <div id="confirmPhase">
+    <div class="confirmIcon">🎉</div>
+    <div id="queuePosition">—</div>
+    <div id="queuePositionLabel">in the queue</div>
+    <div id="queueStatusMsg">Watch the screen for your turn!</div>
+    <div id="queueLiveList">
+      <h3>Live Queue</h3>
+      <div id="queueEntries"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---- State ---- */
+let currentEmail = '';
+let currentUsername = '';
+let myQueueDocId = null;
+let queueUnsubscribe = null;
+
+/* ---- Helpers ---- */
+function escHtml(s){ return String(s||'').replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+
+function showPhase(name){
+  document.getElementById('emailPhase').style.display = name==='email' ? 'block' : 'none';
+  document.getElementById('returningPhase').style.display = name==='returning' ? 'block' : 'none';
+  document.getElementById('newUserPhase').style.display = name==='newUser' ? 'block' : 'none';
+  document.getElementById('confirmPhase').style.display = name==='confirm' ? 'block' : 'none';
+}
+
+/* ---- Firebase helpers ---- */
+async function lookupPlayer(email){
+  try{
+    const snap = await db.collection('registrations').where('email','==',email.toLowerCase().trim()).limit(1).get();
+    if(snap.empty) return null;
+    return { docId: snap.docs[0].id, ...snap.docs[0].data() };
+  }catch(e){ console.error('lookupPlayer:', e); return null; }
+}
+
+async function checkUsernameAvailable(username){
+  try{
+    const snap = await db.collection('registrations').where('username','==',username.trim()).limit(1).get();
+    return snap.empty;
+  }catch(e){ console.error('checkUsername:', e); return true; }
+}
+
+async function findInQueue(email){
+  try{
+    const snap = await db.collection('queue').where('email','==',email.toLowerCase().trim()).where('status','==','waiting').limit(1).get();
+    if(snap.empty) return null;
+    return { docId: snap.docs[0].id, ...snap.docs[0].data() };
+  }catch(e){ console.error('findInQueue:', e); return null; }
+}
+
+async function addToQueue(username, firstName, email){
+  const doc = {
+    username: username.trim(),
+    firstName: firstName.trim(),
+    email: email.toLowerCase().trim(),
+    status: 'waiting',
+    joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    order: Date.now()
+  };
+  const ref = await db.collection('queue').add(doc);
+  return ref.id;
+}
+
+async function registerNewPlayer(firstName, email, username){
+  const doc = {
+    firstName: firstName.trim(),
+    email: email.toLowerCase().trim(),
+    username: username.trim(),
+    newsletterConsent: true,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    lastPlayedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    gamesPlayed: 0
+  };
+  await db.collection('registrations').add(doc);
+}
+
+/* ---- Live queue subscription ---- */
+function subscribeToQueue(){
+  if(queueUnsubscribe) queueUnsubscribe();
+  queueUnsubscribe = db.collection('queue')
+    .where('status','==','waiting')
+    .orderBy('order','asc')
+    .limit(10)
+    .onSnapshot(snapshot => {
+      const entries = [];
+      snapshot.forEach(doc => entries.push({ docId: doc.id, ...doc.data() }));
+      updateConfirmUI(entries);
+    }, err => { console.error('Queue snapshot:', err); });
+}
+
+function updateConfirmUI(entries){
+  const myIdx = entries.findIndex(e => e.docId === myQueueDocId);
+  const pos = myIdx + 1; // 1-based
+
+  const posEl = document.getElementById('queuePosition');
+  const labelEl = document.getElementById('queuePositionLabel');
+  const statusEl = document.getElementById('queueStatusMsg');
+  const entriesEl = document.getElementById('queueEntries');
+
+  if(myIdx === -1){
+    // No longer in waiting queue (playing or done)
+    posEl.textContent = '✓';
+    labelEl.textContent = '';
+    statusEl.textContent = "It's your turn — head to the game device!";
+  } else {
+    posEl.textContent = '#' + pos;
+    labelEl.textContent = pos === 1 ? 'You are next! Get ready!' : 'in the queue';
+    statusEl.textContent = pos === 1
+      ? 'Head to the game device — you\'re up next!'
+      : 'Watch the screen for your turn!';
+  }
+
+  // Render visible list (up to 5 entries)
+  entriesEl.innerHTML = '';
+  entries.slice(0, 5).forEach((e, i) => {
+    const isMe = e.docId === myQueueDocId;
+    const div = document.createElement('div');
+    div.className = 'queueEntry' + (isMe ? ' myEntry' : '');
+    div.innerHTML = `<span class="qPos">${i+1}</span><span class="qName">${escHtml(e.username || e.firstName)}</span>${isMe ? '<span class="qYou">You</span>' : ''}`;
+    entriesEl.appendChild(div);
+  });
+  if(entries.length > 5){
+    const more = document.createElement('div');
+    more.style.cssText = 'text-align:center;font-size:13px;color:#999;padding:8px';
+    more.textContent = `+${entries.length - 5} more waiting`;
+    entriesEl.appendChild(more);
+  }
+}
+
+/* ---- Phase 1: Email ---- */
+document.getElementById('emailContinueBtn').addEventListener('click', async () => {
+  const email = document.getElementById('regEmail').value.trim();
+  const errEl = document.getElementById('emailError');
+  errEl.textContent = '';
+
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    errEl.textContent = 'Please enter a valid email address.';
+    return;
+  }
+
+  const btn = document.getElementById('emailContinueBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Checking…';
+
+  currentEmail = email;
+  const player = await lookupPlayer(email);
+
+  btn.disabled = false;
+  btn.textContent = 'Continue →';
+
+  if(player){
+    // Returning user
+    currentUsername = player.username;
+    document.getElementById('returningName').textContent = player.firstName || player.username;
+
+    // Check if already in queue
+    const inQueue = await findInQueue(email);
+    const alreadyEl = document.getElementById('alreadyInQueue');
+    const joinBtn = document.getElementById('returningJoinBtn');
+    if(inQueue){
+      myQueueDocId = inQueue.docId;
+      alreadyEl.style.display = 'block';
+      joinBtn.textContent = 'View my position →';
+    } else {
+      alreadyEl.style.display = 'none';
+      joinBtn.textContent = 'Join the queue →';
+    }
+    showPhase('returning');
+  } else {
+    // New user
+    showPhase('newUser');
+  }
+});
+
+document.getElementById('regEmail').addEventListener('keydown', e => {
+  if(e.key === 'Enter') document.getElementById('emailContinueBtn').click();
+});
+
+/* ---- Phase 2a: Returning user ---- */
+document.getElementById('returningJoinBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('returningJoinBtn');
+
+  // If already in queue, just show confirmation
+  if(myQueueDocId){
+    showPhase('confirm');
+    subscribeToQueue();
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Joining…';
+
+  try{
+    myQueueDocId = await addToQueue(currentUsername, '', currentEmail);
+    showPhase('confirm');
+    subscribeToQueue();
+  }catch(e){
+    console.error('Join queue error:', e);
+    btn.disabled = false;
+    btn.textContent = 'Join the queue →';
+    document.getElementById('emailError').textContent = 'Error joining queue. Please try again.';
+    showPhase('email');
+  }
+});
+
+/* ---- Phase 2b: New user ---- */
+const regFirstName = document.getElementById('regFirstName');
+const regUsername = document.getElementById('regUsername');
+const newsletterConsent = document.getElementById('newsletterConsent');
+const registerBtn = document.getElementById('registerBtn');
+const regError = document.getElementById('regError');
+
+function updateRegisterBtnState(){
+  registerBtn.disabled = !(regFirstName.value.trim() && regUsername.value.trim() && newsletterConsent.checked);
+}
+regFirstName.addEventListener('input', updateRegisterBtnState);
+regUsername.addEventListener('input', updateRegisterBtnState);
+newsletterConsent.addEventListener('change', updateRegisterBtnState);
+
+registerBtn.addEventListener('click', async () => {
+  regError.textContent = '';
+  const firstName = regFirstName.value.trim();
+  const username = regUsername.value.trim();
+
+  if(!firstName){ regError.textContent = 'Please enter your first name.'; return; }
+  if(!username){ regError.textContent = 'Please choose a username.'; return; }
+  if(username.length < 2){ regError.textContent = 'Username must be at least 2 characters.'; return; }
+  if(!newsletterConsent.checked){ regError.textContent = 'Please accept the newsletter to continue.'; return; }
+
+  registerBtn.disabled = true;
+  registerBtn.innerHTML = '<span class="spinner"></span>Checking username…';
+
+  const available = await checkUsernameAvailable(username);
+  if(!available){
+    regError.textContent = 'That username is already taken. Please choose another.';
+    registerBtn.disabled = false;
+    registerBtn.textContent = 'Register & Join Queue →';
+    updateRegisterBtnState();
+    return;
+  }
+
+  registerBtn.innerHTML = '<span class="spinner"></span>Registering…';
+
+  try{
+    await registerNewPlayer(firstName, currentEmail, username);
+    currentUsername = username;
+    myQueueDocId = await addToQueue(username, firstName, currentEmail);
+    showPhase('confirm');
+    subscribeToQueue();
+  }catch(e){
+    console.error('Registration error:', e);
+    regError.textContent = 'Registration failed. Please try again.';
+    registerBtn.disabled = false;
+    registerBtn.textContent = 'Register & Join Queue →';
+    updateRegisterBtnState();
+  }
+});
+</script>
+</body>
+</html>

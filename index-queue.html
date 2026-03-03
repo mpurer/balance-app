@@ -1,0 +1,1590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no, viewport-fit=cover" />
+<title>Gibbon Balance – Queue Mode</title>
+
+<!-- PWA manifest (optional) -->
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<!-- ★ NEW: Confetti library -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+<style>
+:root{
+  --bg:#0b1226;
+  --dot-size:38px;
+  --corner-pad:16px;
+}
+html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+#arena{position:fixed;inset:0;overflow:hidden;background:var(--bg);display:flex;align-items:center;justify-content:center}
+  canvas#targetCanvas{position:absolute;left:0;top:0;width:100%;height:100%;display:none}
+#dot{position:absolute;width:var(--dot-size);height:var(--dot-size);border-radius:50%;background:#19f6ff;transform:translate(-50%,-50%);box-shadow:0 0 22px rgba(25,246,255,0.9),0 0 44px rgba(25,246,255,0.4);z-index:50;pointer-events:none;display:none}
+  .ui-pill{position:fixed;top:calc(env(safe-area-inset-top,0px) + var(--corner-pad));background:rgba(255,255,255,0.95);padding:20px 32px;border-radius:16px;font-weight:800;font-size:36px;z-index:30;box-shadow:0 8px 32px rgba(0,0,0,0.08);display:none;letter-spacing:-0.5px}
+  #scoreDisplay{left:calc(env(safe-area-inset-left,0px) + var(--corner-pad))}
+  #timerDisplay{right:calc(env(safe-area-inset-right,0px) + var(--corner-pad))}
+  .center-btn{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;padding:20px 48px;border-radius:16px;border:0;background:#e8fc66;color:#111;font-weight:800;font-size:20px;box-shadow:0 12px 40px rgba(0,0,0,0.25);cursor:pointer;transition:all 0.2s ease;letter-spacing:0.5px;min-width:240px}
+  .center-btn:hover{background:#d8f540;transform:translate(-50%,-50%) scale(1.02);box-shadow:0 16px 48px rgba(0,0,0,0.35)}
+  .center-btn:active{transform:translate(-50%,-50%) scale(0.98)}
+  #calibrateBtn{background:#e8fc66;box-shadow:0 12px 40px rgba(0,0,0,0.25);color:#111}
+  #calibrateBtn:hover{background:#d8f540;box-shadow:0 16px 48px rgba(0,0,0,0.35)}
+
+  /* overlays */
+  #rotateOverlay,#gameOverOverlay,#countdownOverlay{
+    position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:60;background:rgba(11,18,38,0.95)
+  }
+  #rotateOverlay .rotateCard{
+    background:#e8fc66;
+    padding:40px 48px;
+    border-radius:20px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.3);
+    max-width:600px;
+    margin:20px;
+  }
+  #rotateOverlay .rotateTitle{
+    font-size:28px;
+    font-weight:800;
+    color:#111;
+    text-align:center;
+    margin-bottom:16px;
+    line-height:1.3;
+  }
+  #rotateOverlay .rotateSubtext{
+    font-size:16px;
+    color:#333;
+    text-align:center;
+    line-height:1.5;
+  }
+  #gameOverOverlay,#countdownOverlay{
+    background:rgba(255,255,255,0.98)
+  }
+
+  /* countdown circle container */
+  #countdownContainer{
+    text-align:center;
+    position:relative;
+  }
+
+  #countdownNumber{
+    font-size:80px;
+    font-weight:800;
+    color:#111;
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+  }
+
+  /* circular ring animation */
+  .countdown-ring{
+    width:160px;
+    height:160px;
+    border-radius:50%;
+    border:10px solid #e6e6e6;
+    position:relative;
+    overflow:hidden;
+  }
+
+  .countdown-fill{
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    border:10px solid #e8fc66;
+    transform-origin:center;
+    transform:rotate(0deg);
+    transition:transform 1s linear;
+  }
+
+  #gameOverCard{width:min(720px,92%);background:#fff;border-radius:12px;padding:36px 20px 20px;box-shadow:0 12px 36px rgba(0,0,0,0.08);text-align:center}
+  #finalScoreBig{margin-bottom:10px;word-break:break-word}
+  .scoreLabel{display:block;font-size:11px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#999;margin-bottom:6px}
+  .scoreValue{display:block;font-size:clamp(44px,11vw,76px);font-weight:900;line-height:1;background:linear-gradient(135deg,#19f6ff 0%,#e8fc66 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 10px rgba(25,246,255,0.25))}
+  .btnPrimary{background:#e8fc66;color:#111;border:0;padding:14px 24px;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s ease}
+  .btnSecondary{background:#f0f0f0;color:#111;border:0;padding:14px 24px;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s ease}
+  .btnPrimary:hover{background:#d8f540;transform:scale(1.02)}
+  .btnSecondary:hover{background:#e0e0e0;transform:scale(1.02)}
+  #overlayButtons{display:flex;gap:12px;justify-content:center;margin-bottom:8px}
+
+  /* leaderboard */
+  /* leaderboard toggle tabs */
+  #leaderboardToggle{display:none}
+  .toggle-tab{padding:10px 28px;border-radius:10px;border:0;background:transparent;color:#666;font-weight:700;font-size:15px;cursor:pointer;transition:all 0.2s ease}
+  .toggle-tab.active{background:#e8fc66;color:#111;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+  .toggle-tab:hover:not(.active){color:#111}
+
+  #leaderboardContainer{margin-top:12px;border-radius:8px;overflow:hidden;border:1px solid #eee;background:#fff;max-height:200px;overflow-y:auto}
+  table#leaderboardTable{width:100%;border-collapse:collapse;font-size:15px}
+  thead th{background:#e8fc66;color:#111;padding:12px 14px;font-weight:700;text-align:center;position:sticky;top:0;z-index:1}
+  tbody td{padding:12px 14px;border-bottom:1px solid #f2f5ff;color:#111}
+  td.rank{width:72px}
+  td.score{text-align:right;width:110px}
+  tbody tr:nth-child(even){background:#fbfdff}
+  .smallNote{color:#111;margin-top:14px;font-size:15px;font-weight:600}
+
+  /* level selection menu */
+  #levelSelectionMenu{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;background:#fff;border-radius:20px;padding:32px;box-shadow:0 16px 48px rgba(0,0,0,0.15);display:none;min-width:280px;max-height:80vh;overflow-y:auto;text-align:center}
+  #levelSelectionMenu h2{margin:0 0 24px 0;font-size:24px;font-weight:800;color:#111}
+  .level-btn{display:block;width:100%;padding:18px 24px;margin-bottom:12px;border-radius:14px;border:0;background:#e8fc66;color:#111;font-weight:700;font-size:18px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 8px 24px rgba(0,0,0,0.25);position:relative}
+  .level-btn:hover{background:#d8f540;transform:scale(1.02);box-shadow:0 12px 32px rgba(0,0,0,0.35)}
+  .level-btn:active{transform:scale(0.98)}
+  .level-btn:last-child{margin-bottom:0}
+  .level-description{font-size:14px;color:#666;margin-top:6px;font-weight:400}
+  .live-badge{display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;margin-left:8px;box-shadow:0 2px 8px rgba(16,185,129,0.3);text-transform:uppercase;letter-spacing:0.5px;vertical-align:middle;animation:pulse 2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 2px 8px rgba(16,185,129,0.3)}50%{box-shadow:0 2px 12px rgba(16,185,129,0.6)}}
+
+  /* calibrate hint text */
+  #calibrateHint{position:fixed;left:50%;top:calc(50% - 80px);transform:translate(-50%,-50%);z-index:35;color:#f5f5f5;font-size:16px;font-weight:600;text-align:center;display:none}
+
+  /* how to play button */
+  #howToPlayBtn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 20px);left:calc(env(safe-area-inset-left,0px) + 20px);z-index:35;background:#e8fc66;color:#111;padding:12px 20px;border-radius:12px;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,0.25);border:0;transition:all 0.2s ease;display:none}
+  #howToPlayBtn:hover{background:#d8f540;transform:scale(1.05)}
+  #howToPlayBtn:active{transform:scale(0.95)}
+
+  /* game instructions overlay */
+  #instructionsOverlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:70;background:rgba(11,18,38,0.95)}
+  #instructionsCard{background:#fff;padding:32px 40px;border-radius:20px;max-width:520px;margin:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center}
+  #instructionsCard .instructions-title{font-size:24px;font-weight:800;color:#111;margin-bottom:16px}
+  #instructionsCard .instructions-text{font-size:16px;color:#333;line-height:1.6;margin-bottom:24px}
+  #closeInstructionsBtn{background:#e8fc66;color:#111;border:0;padding:12px 32px;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 6px 20px rgba(0,0,0,0.25)}
+  #closeInstructionsBtn:hover{background:#d8f540;transform:scale(1.05)}
+  #closeInstructionsBtn:active{transform:scale(0.95)}
+
+  /* --- Fair Mode: hide non-fair levels --- */
+  .level-btn[data-fair-hidden="true"]{display:none}
+
+  /* --- Registration screen --- */
+  #registrationScreen{position:fixed;inset:0;display:none;overflow-y:auto;z-index:45;background:rgba(11,18,38,0.97)}
+  #registrationCard{width:min(480px,92%);background:#fff;border-radius:20px;padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;margin:20px auto}
+  #regLogo{width:72px;margin-bottom:14px}
+  #regTitle{font-size:24px;font-weight:800;color:#111;margin:0 0 20px;line-height:1.3}
+  .regInput{display:block;width:100%;box-sizing:border-box;padding:14px 16px;border-radius:12px;border:1.5px solid #e0e0e0;font-size:16px;margin-bottom:12px;font-family:inherit;background:#fafafa;transition:border-color 0.2s}
+  .regInput:focus{outline:none;border-color:#e8fc66;background:#fff}
+  .regBtn{display:block;width:100%;padding:16px;border-radius:12px;font-size:17px;font-weight:800;margin-top:4px}
+  .regError{color:#e60000;font-size:14px;min-height:18px;margin-bottom:6px;text-align:left}
+  #consentLabel{display:flex;align-items:flex-start;gap:10px;text-align:left;font-size:14px;color:#444;line-height:1.4;margin:12px 0 16px;cursor:pointer}
+  #consentLabel input[type="checkbox"]{width:20px;height:20px;flex-shrink:0;margin-top:2px;accent-color:#111;cursor:pointer}
+  #returningMsg{font-size:21px;font-weight:700;color:#111;margin-bottom:8px}
+  .regSubtext{font-size:15px;color:#666;margin:0 0 20px}
+  #registerBtn:disabled{opacity:0.5;cursor:not-allowed}
+  #registerBtn:disabled:hover{transform:none;background:#e8fc66}
+
+  /* --- Queue Screen (index-queue.html) --- */
+  #queueScreen{position:fixed;inset:0;display:none;overflow-y:auto;z-index:45;background:rgba(11,18,38,0.97)}
+  #queueCard{width:min(520px,94%);background:#fff;border-radius:20px;padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;margin:20px auto}
+  #queueLogo{width:56px;margin-bottom:14px}
+  #queueNextLabel{font-size:11px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#999;margin-bottom:8px}
+  #queuePlayerDisplay{font-size:clamp(32px,8vw,52px);font-weight:900;color:#111;line-height:1.1;margin-bottom:6px;word-break:break-word}
+  #queuePlayerSub{font-size:15px;color:#666;margin-bottom:20px}
+  .queueActionBtns{display:flex;gap:12px;justify-content:center;margin-bottom:24px}
+  .queueActionBtns button{flex:1;max-width:180px}
+  #queueWaitSection{text-align:left;border-top:1px solid #f0f2f8;padding-top:16px;margin-top:4px}
+  #queueWaitSection h3{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#999;margin:0 0 12px}
+  .queueWaitItem{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f5f7ff}
+  .queueWaitItem:last-child{border-bottom:none}
+  .queueWaitNum{width:24px;font-weight:800;color:#bbb;font-size:15px;flex-shrink:0}
+  .queueWaitName{flex:1;font-size:16px;font-weight:600;color:#111}
+  .bumpBtn{padding:6px 14px;border-radius:8px;border:1.5px solid #e8fc66;background:transparent;font-size:13px;font-weight:700;cursor:pointer;color:#111;transition:all 0.15s}
+  .bumpBtn:hover{background:#e8fc66}
+  #queueEmptyBox{padding:24px 0}
+  #queueEmptyBox h2{font-size:22px;font-weight:800;color:#111;margin:0 0 8px}
+  #queueEmptyBox p{font-size:15px;color:#666;margin:0 0 20px}
+  #queueEmptyBox img{width:160px;border-radius:12px}
+
+  /* --- Game over additions --- */
+  #publishedNotice{display:none;color:#888;font-weight:500;font-size:12px;padding:2px 0;margin:4px auto;width:fit-content}
+  #rankDisplay{font-size:20px;color:#111;font-weight:800;margin:6px 0 12px;min-height:26px}
+  #autoResetCountdown{font-size:13px;color:#999;margin-top:10px}
+  tbody tr.myRow td{background:#e8fc66 !important;font-weight:700;color:#111}
+</style>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script>
+  // Your Firebase project configuration for "gibbon-balance-game"
+  const firebaseConfig = {
+    apiKey: "AIzaSyA7BZvLHuIXiYdukRpV7bM52pBBuWzv3rU", // <--- PASTE YOUR API KEY HERE
+    authDomain: "gibbon-balance-game.firebaseapp.com",
+    projectId: "gibbon-balance-game",
+    storageBucket: "gibbon-balance-game.firebasestorage.app",
+    messagingSenderId: "435375118778",
+    appId: "1:435375118778:web:5513fc213d8d7fef816583" // <--- PASTE YOUR APP ID HERE
+  };
+
+  // Initialize Firebase and get Firestore instance
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  // Function to save score to Firebase
+  async function saveFirebaseScore(name, sc, level) {
+    let collectionRef = db.collection('leaderboardLevel1');
+    if(level === 2){ collectionRef = db.collection('leaderboardLevel2'); }
+    if(level === 3){ collectionRef = db.collection('leaderboardSurvival'); }
+    if(level === 4){ collectionRef = db.collection('leaderboardReactionGates'); }
+    try {
+      const docRef = await collectionRef.add({
+        playerName: String(name || 'Player').trim(),
+        score: Math.floor(sc),
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      return docRef.id;
+    } catch (error) {
+      console.error("Error saving score to Firebase: ", error);
+      return null;
+    }
+  }
+</script>
+</head>
+<body>
+  <div id="arena">
+    <canvas id="targetCanvas"></canvas>
+    <div id="dot" aria-hidden="true"></div>
+
+    <div id="scoreDisplay" class="ui-pill">Score: 0</div>
+    <div id="timerDisplay" class="ui-pill">30</div>
+
+    <button id="btn" class="center-btn">Enable Gyro</button>
+
+    <!-- calibrate hint -->
+    <div id="calibrateHint">Press Start to begin the game</div>
+    <button id="calibrateBtn" class="center-btn" style="display:none">Start</button>
+
+    <!-- how to play button -->
+    <button id="howToPlayBtn">How to play?</button>
+
+    <!-- instructions overlay -->
+    <div id="instructionsOverlay">
+      <div id="instructionsCard">
+        <div class="instructions-title">How to play?</div>
+        <div class="instructions-text" id="instructionsText"></div>
+        <button id="closeInstructionsBtn">Got it!</button>
+      </div>
+    </div>
+
+    <!-- level selection menu -->
+    <div id="levelSelectionMenu">
+      <h2>Select Game Mode</h2>
+      <button class="level-btn" data-level="1" data-fair-hidden="true">
+        Level 1 - Static Mode
+        <div class="level-description">Fixed target in center</div>
+      </button>
+      <button class="level-btn" data-level="2">
+        Level 2 - Moving Target<span class="live-badge">Live</span>
+        <div class="level-description">Target moves across screen</div>
+      </button>
+      <button class="level-btn" data-level="3">
+        Survival Arena<span class="live-badge">Live</span>
+        <div class="level-description">Dodge obstacles as long as you can</div>
+      </button>
+      <button class="level-btn" data-level="4" data-fair-hidden="true">
+        Reaction Gates
+        <div class="level-description">Touch as many gates as possible</div>
+      </button>
+    </div>
+
+    <!-- registration screen -->
+    <div id="registrationScreen">
+      <div id="registrationCard">
+        <img src="gibbon_logo.png" id="regLogo" alt="Gibbon" />
+        <h2 id="regTitle">Welcome to<br>Gibbon Balance!</h2>
+
+        <!-- Step 1: Email lookup -->
+        <div id="emailPhase">
+          <input id="regEmailInput" class="regInput" type="email" placeholder="Your email address" autocomplete="email" />
+          <div id="emailError" class="regError"></div>
+          <button id="emailContinueBtn" class="btnPrimary regBtn">Continue →</button>
+        </div>
+
+        <!-- Step 2a: Returning user -->
+        <div id="returningPhase" style="display:none">
+          <div id="returningMsg">Welcome back,<br><strong id="returningName"></strong>!</div>
+          <p class="regSubtext">Ready for another round?</p>
+          <button id="returningPlayBtn" class="btnPrimary regBtn">Play →</button>
+        </div>
+
+        <!-- Step 2b: New user form -->
+        <div id="newUserPhase" style="display:none">
+          <input id="regFirstName" class="regInput" placeholder="First name" autocomplete="given-name" />
+          <input id="regUsername" class="regInput" placeholder="Choose a username (shown on leaderboard)" />
+          <label id="consentLabel">
+            <input type="checkbox" id="newsletterConsent" />
+            <span>I agree to receive the <strong>Gibbon Slacklines newsletter</strong> and accept the privacy policy.</span>
+          </label>
+          <div id="regError" class="regError"></div>
+          <button id="registerBtn" class="btnPrimary regBtn" disabled>Register & Play →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Queue screen (replaces registration in queue mode) -->
+    <div id="queueScreen">
+      <div id="queueCard">
+        <img src="gibbon_logo.png" id="queueLogo" alt="Gibbon" />
+
+        <!-- Empty queue state -->
+        <div id="queueEmptyBox" style="display:none">
+          <h2>Queue is empty</h2>
+          <p>Players scan the QR code to join!</p>
+          <img src="QR_balance_app.png" alt="QR code" />
+        </div>
+
+        <!-- Next-up player state -->
+        <div id="queuePlayerState" style="display:none">
+          <div id="queueNextLabel">Next Up</div>
+          <div id="queuePlayerDisplay">—</div>
+          <div id="queuePlayerSub"></div>
+          <div class="queueActionBtns">
+            <button id="queuePlayBtn" class="btnPrimary regBtn">▶ Play</button>
+            <button id="queueSkipBtn" class="btnSecondary regBtn">Skip</button>
+          </div>
+        </div>
+
+        <!-- Waiting list -->
+        <div id="queueWaitSection" style="display:none">
+          <h3>Waiting</h3>
+          <div id="queueWaitEntries"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- rotate overlay -->
+    <div id="rotateOverlay">
+      <div class="rotateCard">
+        <div class="rotateTitle">Please rotate your device to landscape (home button / speaker to the right)</div>
+        <div class="rotateSubtext">For best results on iPhone click the share button in the middle and press "Zum-Home-Bildschirm" hinzufügen</div>
+      </div>
+    </div>
+
+    <!-- countdown overlay -->
+    <div id="countdownOverlay">
+      <div id="countdownContainer">
+        <div class="countdown-ring">
+          <div class="countdown-fill" id="countdownFill"></div>
+        </div>
+        <div id="countdownNumber">3</div>
+      </div>
+    </div>
+
+    <!-- game over overlay -->
+    <div id="gameOverOverlay" aria-hidden="true">
+      <div id="gameOverCard">
+        <div id="finalScoreBig">Score: 0</div>
+        <div id="publishedNotice">✓ Published to leaderboard!</div>
+        <div id="rankDisplay"></div>
+
+        <div id="overlayButtons">
+          <button id="nextPlayerBtn" class="btnPrimary">Next Player →</button>
+        </div>
+
+        <div id="autoResetCountdown"></div>
+
+        <div id="leaderboardToggle">
+          <button class="toggle-tab active" data-tab="local">Local</button>
+          <button class="toggle-tab" data-tab="online">Online</button>
+        </div>
+
+        <div id="leaderboardContainer">
+          <table id="leaderboardTable" aria-label="Leaderboard">
+            <thead>
+              <tr><th>Rank</th><th>Name</th><th>Score</th></tr>
+            </thead>
+            <tbody id="leaderboardBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ---------- Config ---------- */
+const LB_KEY_LEVEL1 = 'tilt_dot_leaderboard_level1_v1';
+const LB_KEY_LEVEL2 = 'tilt_dot_leaderboard_level2_v1';
+const LB_KEY_LEVEL3 = 'tilt_dot_leaderboard_level3_v1'; // Survival
+const LB_KEY_LEVEL4 = 'tilt_dot_leaderboard_level4_v1'; // Reaction Gates
+const GAME_DURATION = 30;
+const DOT_RADIUS = 18;
+const MAX_TILT = 30; 
+const ringRadii = [50, 100, 150];
+const maxPointsPerSecond = 30;
+const TARGET_MOVE_SPEED = 110; // pixels per second for Level 2 (slightly faster)
+const SURVIVAL_SEED = 123456;
+const SURVIVAL_SCORE_MULT = 10;
+const SURVIVAL_MAX_OBS = 40;
+const SURVIVAL_BASE_SPEED = 88;
+const SURVIVAL_SPEED_GAIN = 85;
+const SURVIVAL_ROT_GAIN = 0.52; // base rad/s
+const SURVIVAL_LEN_MIN = 90;
+const SURVIVAL_LEN_MAX = 160;
+const SURVIVAL_BG = '#0d1024';
+const SURVIVAL_COLORS = ['#ff5fad', '#ff9f43', '#7eff6b', '#9b7bff', '#ffde59'];
+const SURVIVAL_LINE_COLOR = '#f26bff';
+
+/* ---------- Elements ---------- */
+const arena = document.getElementById('arena');
+const canvas = document.getElementById('targetCanvas');
+const ctx = canvas.getContext('2d');
+const dotEl = document.getElementById('dot');
+const scoreDisplay = document.getElementById('scoreDisplay');
+const timerDisplay = document.getElementById('timerDisplay');
+const enableBtn = document.getElementById('btn');
+const calibrateBtn = document.getElementById('calibrateBtn');
+const calibrateHint = document.getElementById('calibrateHint');
+const howToPlayBtn = document.getElementById('howToPlayBtn');
+const instructionsOverlay = document.getElementById('instructionsOverlay');
+const instructionsText = document.getElementById('instructionsText');
+const closeInstructionsBtn = document.getElementById('closeInstructionsBtn');
+const levelSelectionMenu = document.getElementById('levelSelectionMenu');
+const levelButtons = document.querySelectorAll('.level-btn');
+const rotateOverlay = document.getElementById('rotateOverlay');
+const countdownOverlay = document.getElementById('countdownOverlay');
+const countdownNumber = document.getElementById('countdownNumber');
+const countdownFill = document.getElementById('countdownFill');
+const gameOverOverlay = document.getElementById('gameOverOverlay');
+const finalScoreBig = document.getElementById('finalScoreBig');
+const publishedNotice = document.getElementById('publishedNotice');
+const rankDisplay = document.getElementById('rankDisplay');
+const nextPlayerBtn = document.getElementById('nextPlayerBtn');
+const autoResetCountdown = document.getElementById('autoResetCountdown');
+const leaderboardBody = document.getElementById('leaderboardBody');
+const toggleTabs = document.querySelectorAll('.toggle-tab');
+const registrationScreen = document.getElementById('registrationScreen');
+const emailPhase = document.getElementById('emailPhase');
+const returningPhase = document.getElementById('returningPhase');
+const newUserPhase = document.getElementById('newUserPhase');
+const regEmailInput = document.getElementById('regEmailInput');
+const regFirstName = document.getElementById('regFirstName');
+const regUsername = document.getElementById('regUsername');
+const newsletterConsent = document.getElementById('newsletterConsent');
+const emailError = document.getElementById('emailError');
+const regError = document.getElementById('regError');
+const emailContinueBtn = document.getElementById('emailContinueBtn');
+const returningPlayBtn = document.getElementById('returningPlayBtn');
+const returningName = document.getElementById('returningName');
+const registerBtn = document.getElementById('registerBtn');
+
+/* ---------- State ---------- */
+let arenaRect = arena.getBoundingClientRect();
+function sizeCanvas(){ arenaRect = arena.getBoundingClientRect(); canvas.width = Math.round(arenaRect.width); canvas.height = Math.round(arenaRect.height); }
+sizeCanvas();
+
+let targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
+let dotPos = { x: targetCenter.x, y: targetCenter.y };
+let dotPos0 = {...dotPos};
+let beta0 = 0, gamma0 = 0;
+let lastBeta = 0, lastGamma = 0;
+
+let score = 0;
+let lastTime = 0;
+let timeLeft = GAME_DURATION;
+let currentPlayer = null; // { email, firstName, username } — set on registration
+let autoResetTimer = null;
+let gameActive = false;
+let currentLevel = 1; // 1 = static, 2 = moving target, 3 = survival
+let targetVelocity = { x: 0, y: 0 }; // For Level 2 moving target
+let movingTargetTimer = 0; // For Level 2 jump timing
+let targetTransition = { active: false, from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, elapsed: 0, duration: 0.3 }; // Transition state
+let survival = {
+  rng: null,
+  time: 0,
+  shapes: [],
+  lines: [],
+  circleSpawn: 0,
+  lineSpawn: 0
+};
+let reactionGates = {
+  currentGate: null,
+  previousGatePos: null,
+  gatesCleared: 0
+};
+
+/* detect iPad */
+const isIpad = (navigator.userAgent.includes('iPad') || (navigator.userAgent.includes('Macintosh') && navigator.maxTouchPoints > 1));
+
+/* ---------- Helpers ---------- */
+function clamp(v,a,b){ return Math.min(Math.max(v,a),b); }
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function mulberry32(a){ return function(){ let t = a += 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function lerp(a,b,t){ return a + (b-a)*t; }
+
+/* ---------- Leaderboard ---------- */
+function getLeaderboardKey(level){
+  if(level === 1) return LB_KEY_LEVEL1;
+  if(level === 2) return LB_KEY_LEVEL2;
+  if(level === 3) return LB_KEY_LEVEL3;
+  if(level === 4) return LB_KEY_LEVEL4;
+  return LB_KEY_LEVEL1;
+}
+function loadLeaderboard(level){ const key = getLeaderboardKey(level); try{ return JSON.parse(localStorage.getItem(key) || '[]').sort((a,b)=>b.score - a.score); }catch(e){ return []; } }
+function saveLocalScore(name, sc, level){ const key = getLeaderboardKey(level); const list = loadLeaderboard(level); list.push({ name: String(name||'Player'), score: Math.floor(sc), date: Date.now() }); list.sort((a,b)=>b.score - a.score); localStorage.setItem(key, JSON.stringify(list.slice(0,50))); }
+function renderLeaderboard(level){ const list = loadLeaderboard(level).slice(0,50); leaderboardBody.innerHTML = ''; if(list.length === 0){ leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">No scores yet</td></tr>`; return; } list.forEach((r,i)=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td class="rank">${i+1}</td><td>${escapeHtml(r.name)}</td><td class="score">${r.score}</td>`; leaderboardBody.appendChild(tr); }); }
+
+/* ---------- Registration (Firebase) ---------- */
+function getCollectionRef(level){
+  if(level === 2) return db.collection('leaderboardLevel2');
+  if(level === 3) return db.collection('leaderboardSurvival');
+  if(level === 4) return db.collection('leaderboardReactionGates');
+  return db.collection('leaderboardLevel1');
+}
+
+async function checkUsernameAvailable(username){
+  try{
+    const snap = await db.collection('registrations').where('username','==',username.trim()).limit(1).get();
+    return snap.empty;
+  }catch(e){ console.error('Username check error:',e); return true; } // allow on error to not block player
+}
+
+async function lookupPlayer(email){
+  try{
+    const snap = await db.collection('registrations').where('email','==',email.toLowerCase().trim()).limit(1).get();
+    if(snap.empty) return null;
+    const data = snap.docs[0].data();
+    return { docId: snap.docs[0].id, ...data };
+  }catch(e){ console.error('Lookup error:',e); return null; }
+}
+
+async function registerNewPlayer(firstName, email, username){
+  const doc = {
+    firstName: firstName.trim(),
+    email: email.toLowerCase().trim(),
+    username: username.trim(),
+    newsletterConsent: true,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    lastPlayedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    gamesPlayed: 1
+  };
+  await db.collection('registrations').add(doc);
+  currentPlayer = { firstName: doc.firstName, email: doc.email, username: doc.username };
+}
+
+async function recordPlay(email){
+  try{
+    const snap = await db.collection('registrations').where('email','==',email.toLowerCase().trim()).limit(1).get();
+    if(!snap.empty){
+      await snap.docs[0].ref.update({
+        lastPlayedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        gamesPlayed: firebase.firestore.FieldValue.increment(1)
+      });
+    }
+  }catch(e){ console.error('Record play error:',e); }
+}
+
+async function getPlayerRank(sc, level){
+  try{
+    const snap = await getCollectionRef(level).where('score','>',Math.floor(sc)).get();
+    return snap.size + 1;
+  }catch(e){ return null; }
+}
+
+function showRegistrationScreen(){
+  emailPhase.style.display = 'block';
+  returningPhase.style.display = 'none';
+  newUserPhase.style.display = 'none';
+  regEmailInput.value = '';
+  regFirstName.value = '';
+  regUsername.value = '';
+  newsletterConsent.checked = false;
+  registerBtn.disabled = true;
+  emailError.textContent = '';
+  regError.textContent = '';
+  registrationScreen.style.display = 'block';
+}
+
+function goToNewPlayer(){
+  currentPlayer = null;
+  cancelAutoReset();
+  gameOverOverlay.style.display = 'none';
+  gameOverOverlay.setAttribute('aria-hidden','true');
+  currentLeaderboardMode = 'local';
+  toggleTabs.forEach(t => t.classList.remove('active'));
+  toggleTabs[0].classList.add('active');
+  canvas.style.display = 'none';
+  dotEl.style.display = 'none';
+  scoreDisplay.style.display = 'none';
+  timerDisplay.style.display = 'none';
+  markCurrentDone().then(() => showQueueScreen());
+}
+
+function startAutoReset(){
+  cancelAutoReset();
+  let remaining = 30;
+  autoResetCountdown.textContent = `Next player in: ${remaining}s`;
+  autoResetTimer = setInterval(()=>{
+    remaining--;
+    autoResetCountdown.textContent = `Next player in: ${remaining}s`;
+    if(remaining <= 0){ cancelAutoReset(); goToNewPlayer(); }
+  }, 1000);
+}
+
+function cancelAutoReset(){
+  if(autoResetTimer){ clearInterval(autoResetTimer); autoResetTimer = null; }
+  autoResetCountdown.textContent = '';
+}
+
+/* ---------- Online Leaderboard (Firebase) ---------- */
+let currentLeaderboardMode = 'local'; // 'local' or 'online'
+
+async function renderOnlineLeaderboard(level){
+  leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">Loading online scores...</td></tr>`;
+
+  let collectionRef = db.collection('leaderboardLevel1');
+  if(level === 2){ collectionRef = db.collection('leaderboardLevel2'); }
+  if(level === 3){ collectionRef = db.collection('leaderboardSurvival'); }
+  if(level === 4){ collectionRef = db.collection('leaderboardReactionGates'); }
+
+  try {
+    const snapshot = await collectionRef
+      .orderBy('score', 'desc')
+      .orderBy('timestamp', 'desc')
+      .limit(50)
+      .get();
+
+    leaderboardBody.innerHTML = '';
+
+    if(snapshot.empty){
+      leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#666">No online scores yet</td></tr>`;
+      return;
+    }
+
+    let rank = 1;
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const tr = document.createElement('tr');
+      tr.dataset.docid = doc.id;
+      tr.innerHTML = `<td class="rank">${rank}</td><td>${escapeHtml(data.playerName)}</td><td class="score">${data.score}</td>`;
+      leaderboardBody.appendChild(tr);
+      rank++;
+    });
+  } catch (error) {
+    console.error("Error fetching online leaderboard: ", error);
+    leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:18px;color:#e60000">Error loading online scores</td></tr>`;
+  }
+}
+
+/* ---------- Toggle between local and online leaderboards ---------- */
+toggleTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const mode = tab.dataset.tab;
+    currentLeaderboardMode = mode;
+
+    // Update active state
+    toggleTabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+
+    // Render appropriate leaderboard
+    if(mode === 'local'){
+      renderLeaderboard(currentLevel);
+    } else {
+      renderOnlineLeaderboard(currentLevel);
+    }
+  });
+});
+
+/* ---------- Canvas drawing ---------- */
+function drawTargetAndRings(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle='rgba(232,252,102,0.8)';
+  ctx.lineWidth=3;
+  ringRadii.forEach(r=>{
+    ctx.beginPath();
+    ctx.arc(targetCenter.x,targetCenter.y,r,0,Math.PI*2);
+    ctx.stroke();
+  });
+  ctx.fillStyle='#ff7a7a';
+  ctx.shadowColor = '#ff7a7a';
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.arc(targetCenter.x,targetCenter.y,6,0,Math.PI*2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+}
+
+/* ---------- Moving target logic (Level 2) ---------- */
+function initMovingTarget(){
+  // Place target at a random position within the allowed band
+  const margin = ringRadii[ringRadii.length - 1] + 10;
+  const bandMinX = arenaRect.width * 0.40;
+  const bandMaxX = arenaRect.width * 0.60;
+  const minX = Math.max(margin, bandMinX);
+  const maxX = Math.min(arenaRect.width - margin, bandMaxX);
+  const yMin = margin;
+  const yMax = arenaRect.height - margin;
+
+  targetCenter = {
+    x: lerp(minX, maxX, Math.random()),
+    y: lerp(yMin, yMax, Math.random())
+  };
+
+  movingTargetTimer = 0;
+}
+
+function updateMovingTarget(dt){
+  if(currentLevel !== 2) return;
+
+  // Handle active transition
+  if(targetTransition.active){
+    targetTransition.elapsed += dt;
+    const progress = Math.min(targetTransition.elapsed / targetTransition.duration, 1);
+    // Smooth easing function (ease-in-out)
+    const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+    targetCenter.x = lerp(targetTransition.from.x, targetTransition.to.x, eased);
+    targetCenter.y = lerp(targetTransition.from.y, targetTransition.to.y, eased);
+
+    if(progress >= 1){
+      targetTransition.active = false;
+      targetCenter.x = targetTransition.to.x;
+      targetCenter.y = targetTransition.to.y;
+    }
+  }
+
+  movingTargetTimer += dt;
+  if(movingTargetTimer >= 3 && !targetTransition.active){
+    movingTargetTimer = 0;
+
+    // Start transition to new random position
+    const margin = ringRadii[ringRadii.length - 1] + 10;
+    const bandMinX = arenaRect.width * 0.40;
+    const bandMaxX = arenaRect.width * 0.60;
+    const minX = Math.max(margin, bandMinX);
+    const maxX = Math.min(arenaRect.width - margin, bandMaxX);
+    const yMin = margin;
+    const yMax = arenaRect.height - margin;
+
+    targetTransition.active = true;
+    targetTransition.from.x = targetCenter.x;
+    targetTransition.from.y = targetCenter.y;
+    targetTransition.to.x = lerp(minX, maxX, Math.random());
+    targetTransition.to.y = lerp(yMin, yMax, Math.random());
+    targetTransition.elapsed = 0;
+  }
+}
+
+/* ---------- Survival mode (Level 3) ---------- */
+function resetSurvival(){
+  const runSeed = (SURVIVAL_SEED + Math.floor(Math.random()*1_000_000_000)) >>> 0;
+  survival.rng = mulberry32(runSeed);
+  survival.time = 0;
+  survival.shapes = [];
+  survival.lines = [];
+  survival.circleSpawn = 0;
+  survival.lineSpawn = 6; // delay lines
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+function spawnShape(){
+  if(!survival.rng) return;
+  const edge = Math.floor(survival.rng()*4);
+  const size = lerp(18, 30, survival.rng());
+  let x=0,y=0;
+  if(edge === 0){ x = -size*2; y = survival.rng()*canvas.height; }
+  else if(edge === 1){ x = canvas.width + size*2; y = survival.rng()*canvas.height; }
+  else if(edge === 2){ x = survival.rng()*canvas.width; y = -size*2; }
+  else { x = survival.rng()*canvas.width; y = canvas.height + size*2; }
+
+  // Aim roughly toward center with small offset
+  const angleToCenter = Math.atan2(canvas.height/2 - y, canvas.width/2 - x);
+  const spread = (survival.rng()-0.5) * 0.7;
+  const difficulty = 1 + survival.time / 220; // unbounded ramp, slow early
+  const speed = SURVIVAL_BASE_SPEED + SURVIVAL_SPEED_GAIN * Math.log1p(difficulty);
+  const vx = Math.cos(angleToCenter + spread) * speed;
+  const vy = Math.sin(angleToCenter + spread) * speed;
+
+  const shapeTypeRoll = survival.rng();
+  const type = shapeTypeRoll < 0.33 ? 'circle' : shapeTypeRoll < 0.66 ? 'square' : 'triangle';
+  const color = SURVIVAL_COLORS[Math.floor(survival.rng()*SURVIVAL_COLORS.length)];
+  const rot = survival.rng() * Math.PI * 2;
+  const rotVel = (survival.rng()*1.2 - 0.6) * SURVIVAL_ROT_GAIN * difficulty; // playful spin scales over time
+  survival.shapes.push({ x, y, r: size, vx, vy, type, color, rot, rotVel });
+}
+
+function spawnLine(){
+  if(!survival.rng) return;
+  const side = Math.floor(survival.rng()*4); // 0 left, 1 right, 2 top, 3 bottom
+  const margin = 80;
+  const length = lerp(SURVIVAL_LEN_MIN, SURVIVAL_LEN_MAX, survival.rng());
+  let cx=0, cy=0, vx=0, vy=0;
+  const difficulty = 1 + survival.time / 220;
+  const driftSpeed = SURVIVAL_BASE_SPEED * 0.7 + SURVIVAL_SPEED_GAIN * 0.5 * Math.log1p(difficulty);
+  if(side === 0){
+    cx = -margin; cy = lerp(-margin, canvas.height + margin, survival.rng());
+    vx = driftSpeed; vy = (survival.rng()-0.5) * driftSpeed * 0.25;
+  } else if(side === 1){
+    cx = canvas.width + margin; cy = lerp(-margin, canvas.height + margin, survival.rng());
+    vx = -driftSpeed; vy = (survival.rng()-0.5) * driftSpeed * 0.25;
+  } else if(side === 2){
+    cx = lerp(-margin, canvas.width + margin, survival.rng()); cy = -margin;
+    vy = driftSpeed; vx = (survival.rng()-0.5) * driftSpeed * 0.25;
+  } else {
+    cx = lerp(-margin, canvas.width + margin, survival.rng()); cy = canvas.height + margin;
+    vy = -driftSpeed; vx = (survival.rng()-0.5) * driftSpeed * 0.25;
+  }
+
+  const angleBase = Math.atan2(vy, vx);
+  const angle = angleBase + (survival.rng()-0.5) * 0.5;
+  const angVel = SURVIVAL_ROT_GAIN * difficulty * (survival.rng() > 0.5 ? 1 : -1);
+  survival.lines.push({ cx, cy, length, angle, angVel, vx, vy });
+}
+
+function pointToSegmentDist(px, py, x1, y1, x2, y2){
+  const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+  const dot = A*C + B*D;
+  const lenSq = C*C + D*D;
+  const t = lenSq ? clamp(dot / lenSq, 0, 1) : 0;
+  const nx = x1 + C * t;
+  const ny = y1 + D * t;
+  const dx = px - nx;
+  const dy = py - ny;
+  return Math.hypot(dx, dy);
+}
+
+function updateSurvival(dt){
+  survival.time += dt;
+  const difficulty = 1 + survival.time / 210; // smoother ramp
+  const totalObstacles = survival.shapes.length + survival.lines.length;
+
+  // NO OBSTACLES for first 2 seconds - grace period for player
+  if(survival.time >= 2){
+    const allowExtraSpawns = survival.time >= 5 || totalObstacles === 0;
+
+    // spawn circles
+    survival.circleSpawn -= dt;
+    const circleInterval = 2.9 / Math.pow(difficulty, 0.58);
+
+    // 2-5 seconds: only 1 obstacle, then 5-20 seconds: max 5 objects total
+    const canSpawnCircle = (survival.time < 5 && totalObstacles < 1) ||
+                           (survival.time >= 5 && survival.time < 20 && totalObstacles < 5) ||
+                           survival.time >= 20;
+
+    if(survival.circleSpawn <= 0 && totalObstacles < SURVIVAL_MAX_OBS && allowExtraSpawns && canSpawnCircle){
+      spawnShape();
+      survival.circleSpawn = circleInterval;
+    }
+
+    // spawn lines - NO LINES for first 30 seconds
+    if(survival.time >= 30){
+      survival.lineSpawn -= dt;
+      const lineInterval = 5.6 / Math.pow(difficulty, 0.54);
+      if(survival.lineSpawn <= 0 && totalObstacles < SURVIVAL_MAX_OBS && allowExtraSpawns){
+        spawnLine();
+        survival.lineSpawn = lineInterval;
+      }
+    }
+  }
+
+  // update moving shapes
+  survival.shapes.forEach(c=>{
+    c.x += c.vx * dt;
+    c.y += c.vy * dt;
+    c.rot += c.rotVel * dt;
+  });
+  // keep shapes in bounds by bouncing
+  survival.shapes.forEach(c=>{
+    const margin = c.r;
+    if(c.x < margin){ c.x = margin; c.vx = Math.abs(c.vx); }
+    if(c.x > canvas.width - margin){ c.x = canvas.width - margin; c.vx = -Math.abs(c.vx); }
+    if(c.y < margin){ c.y = margin; c.vy = Math.abs(c.vy); }
+    if(c.y > canvas.height - margin){ c.y = canvas.height - margin; c.vy = -Math.abs(c.vy); }
+  });
+
+  // update lines
+  survival.lines.forEach(l=>{
+    l.cx += l.vx * dt;
+    l.cy += l.vy * dt;
+    l.angle += l.angVel * dt;
+
+    const margin = 40;
+    if(l.cx < margin){ l.cx = margin; l.vx = Math.abs(l.vx); }
+    if(l.cx > canvas.width - margin){ l.cx = canvas.width - margin; l.vx = -Math.abs(l.vx); }
+    if(l.cy < margin){ l.cy = margin; l.vy = Math.abs(l.vy); }
+    if(l.cy > canvas.height - margin){ l.cy = canvas.height - margin; l.vy = -Math.abs(l.vy); }
+  });
+
+  // collision
+  const dotR = DOT_RADIUS;
+  const px = dotPos.x, py = dotPos.y;
+
+  for(const c of survival.shapes){
+    const hitRadius = c.type === 'circle' ? c.r : c.r * 1.1;
+    if(Math.hypot(px - c.x, py - c.y) <= hitRadius + dotR){ endGame(); return; }
+  }
+  for(const l of survival.lines){
+    const half = l.length / 2;
+    const x1 = l.cx + Math.cos(l.angle) * (-half);
+    const y1 = l.cy + Math.sin(l.angle) * (-half);
+    const x2 = l.cx + Math.cos(l.angle) * half;
+    const y2 = l.cy + Math.sin(l.angle) * half;
+    if(pointToSegmentDist(px, py, x1, y1, x2, y2) <= dotR + 6){ endGame(); return; }
+  }
+
+  // scoring (survival time)
+  score = survival.time * SURVIVAL_SCORE_MULT;
+  scoreDisplay.textContent = 'Survival: ' + Math.floor(score);
+  timerDisplay.textContent = Math.floor(survival.time) + 's';
+}
+
+function drawSurvival(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = SURVIVAL_BG;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // obstacles
+  survival.shapes.forEach(c=>{
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.rot);
+    ctx.fillStyle = c.color;
+    ctx.shadowColor = c.color;
+    ctx.shadowBlur = 20;
+    if(c.type === 'circle'){
+      ctx.beginPath();
+      ctx.arc(0, 0, c.r, 0, Math.PI*2);
+      ctx.fill();
+    } else if(c.type === 'square'){
+      const s = c.r * 1.6;
+      ctx.fillRect(-s/2, -s/2, s, s);
+    } else { // triangle
+      const s = c.r * 1.9;
+      ctx.beginPath();
+      ctx.moveTo(0, -s/2);
+      ctx.lineTo(-s/2, s/2);
+      ctx.lineTo(s/2, s/2);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  });
+
+  survival.lines.forEach(l=>{
+    const half = l.length / 2;
+    const x1 = l.cx + Math.cos(l.angle) * (-half);
+    const y1 = l.cy + Math.sin(l.angle) * (-half);
+    const x2 = l.cx + Math.cos(l.angle) * half;
+    const y2 = l.cy + Math.sin(l.angle) * half;
+    ctx.strokeStyle = SURVIVAL_LINE_COLOR;
+    ctx.lineWidth = 12;
+    ctx.shadowColor = SURVIVAL_LINE_COLOR;
+    ctx.shadowBlur = 18;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  });
+}
+
+/* ---------- Reaction Gates mode (Level 4) ---------- */
+function resetReactionGates(){
+  reactionGates.currentGate = null;
+  reactionGates.previousGatePos = null;
+  reactionGates.gatesCleared = 0;
+  spawnGate();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+function spawnGate(){
+  const gateRadius = 45; // Fixed size for all gates
+  const minDistanceFromBall = 120;
+  const minDistanceFromPrevious = 180;
+  const margin = 60;
+
+  // Limit horizontal spawn area (similar to Level 2)
+  const bandMinX = canvas.width * 0.40;
+  const bandMaxX = canvas.width * 0.60;
+
+  let attempts = 0;
+  let validPosition = false;
+  let newGate;
+
+  while(!validPosition && attempts < 50){
+    attempts++;
+
+    // Random circular gate within central band
+    const x = lerp(Math.max(margin, bandMinX), Math.min(canvas.width - margin, bandMaxX), Math.random());
+    const y = lerp(margin, canvas.height - margin, Math.random());
+    newGate = { x, y, radius: gateRadius };
+
+    // Check distance from ball
+    const distFromBall = Math.hypot(x - dotPos.x, y - dotPos.y);
+
+    if(distFromBall < minDistanceFromBall){
+      continue;
+    }
+
+    // Check distance from previous gate
+    if(reactionGates.previousGatePos){
+      const distFromPrevious = Math.hypot(
+        x - reactionGates.previousGatePos.x,
+        y - reactionGates.previousGatePos.y
+      );
+      if(distFromPrevious < minDistanceFromPrevious){
+        continue;
+      }
+    }
+
+    validPosition = true;
+  }
+
+  reactionGates.currentGate = newGate;
+  reactionGates.previousGatePos = { x: newGate.x, y: newGate.y };
+}
+
+function updateReactionGates(dt){
+  if(!reactionGates.currentGate) return;
+
+  const gate = reactionGates.currentGate;
+  const dotR = DOT_RADIUS;
+  const px = dotPos.x;
+  const py = dotPos.y;
+
+  // Check collision with circular gate (circle to circle)
+  const distance = Math.hypot(px - gate.x, py - gate.y);
+
+  if(distance <= dotR + gate.radius){
+    // Gate touched!
+    reactionGates.gatesCleared++;
+    score = reactionGates.gatesCleared;
+    scoreDisplay.textContent = 'Gates: ' + score;
+    spawnGate();
+  }
+
+  // Update timer
+  timeLeft -= dt;
+  if(timeLeft <= 0){ timeLeft = 0; endGame(); }
+  timerDisplay.textContent = Math.ceil(timeLeft);
+}
+
+function drawReactionGates(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#0d1024';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  if(reactionGates.currentGate){
+    const gate = reactionGates.currentGate;
+    ctx.fillStyle = '#e8fc66';
+    ctx.shadowColor = '#e8fc66';
+    ctx.shadowBlur = 30;
+    ctx.beginPath();
+    ctx.arc(gate.x, gate.y, gate.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+}
+
+/* ---------- Game update loop ---------- */
+function updateLoop(){
+  const now = performance.now();
+  const dt = lastTime ? (now-lastTime)/1000 : 0;
+  lastTime = now;
+
+  if(gameActive){
+    if(currentLevel === 3){
+      drawSurvival();
+      updateSurvival(dt);
+    } else if(currentLevel === 4){
+      drawReactionGates();
+      updateReactionGates(dt);
+    } else {
+      // Update moving target for Level 2
+      if(currentLevel === 2){
+        updateMovingTarget(dt);
+      }
+
+      drawTargetAndRings();
+      const dx = dotPos.x - targetCenter.x;
+      const dy = dotPos.y - targetCenter.y;
+      const dist = Math.hypot(dx,dy);
+      if(dist <= ringRadii[ringRadii.length-1]){
+        score += maxPointsPerSecond * (1 - dist / ringRadii[ringRadii.length-1]) * dt;
+      }
+      scoreDisplay.textContent = 'Score: ' + Math.floor(score);
+      timeLeft -= dt;
+      if(timeLeft <= 0){ timeLeft = 0; endGame(); }
+      timerDisplay.textContent = Math.ceil(timeLeft);
+    }
+  }
+
+  requestAnimationFrame(updateLoop);
+}
+updateLoop();
+
+/* ---------- Orientation mapping ---------- */
+function mapOrientationToXY(beta,gamma){
+  const angle = screen.orientation?.angle ?? window.orientation ?? 0;
+  let dx=0, dy=0;
+
+  if(isIpad){
+    switch(angle){
+      case 90: dx = gamma; dy = -beta; break;
+      case -90: case 270: dx = -gamma; dy = beta; break;
+      case 180: dx = -beta; dy = gamma; break;
+      default: dx = beta; dy = -gamma;
+    }
+  } else {
+    switch(angle){
+      case 90: dx = beta; dy = -gamma; break;
+      case -90: case 270: dx = -beta; dy = gamma; break;
+      case 180: dx = -gamma; dy = -beta; break;
+      default: dx = gamma; dy = beta;
+    }
+  }
+
+  return {dx,dy};
+}
+
+/* ---------- Orientation handler ---------- */
+function handleOrientation(e){
+  lastBeta = (typeof e.beta === 'number') ? e.beta : lastBeta;
+  lastGamma = (typeof e.gamma === 'number') ? e.gamma : lastGamma;
+  if(!gameActive) return;
+
+  const relBeta = (typeof e.beta === 'number' ? e.beta : 0) - beta0;
+  const relGamma = (typeof e.gamma === 'number' ? e.gamma : 0) - gamma0;
+  const {dx,dy} = mapOrientationToXY(relBeta,relGamma);
+
+  const scaleX = arenaRect.width / MAX_TILT;
+  const scaleY = arenaRect.height / MAX_TILT;
+
+  dotPos.x = clamp(dotPos0.x + dx*scaleX, DOT_RADIUS, arenaRect.width-DOT_RADIUS);
+  dotPos.y = clamp(dotPos0.y + dy*scaleY, DOT_RADIUS, arenaRect.height-DOT_RADIUS);
+
+  dotEl.style.left = Math.round(dotPos.x)+'px';
+  dotEl.style.top = Math.round(dotPos.y)+'px';
+}
+
+window.addEventListener('deviceorientation', e => {
+  lastBeta = (typeof e.beta === 'number') ? e.beta : lastBeta;
+  lastGamma = (typeof e.gamma === 'number') ? e.gamma : lastGamma;
+});
+
+/* ---------- Enable gyro ---------- */
+enableBtn.addEventListener('click', async () => {
+  evaluateOrientation();
+
+  if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+    try{
+      const res = await DeviceOrientationEvent.requestPermission();
+      if(res !== 'granted'){ alert('Motion permission required'); return; }
+    }catch(err){}
+  }
+
+  window.addEventListener('deviceorientation', handleOrientation);
+  enableBtn.style.display = 'none';
+  showQueueScreen();
+});
+
+/* ---------- Level selection ---------- */
+const levelInstructions = {
+  1: "Control the blue ball and keep it steady on the orange center to show your accuracy. Play in standing or plank position and press Start to begin the game!",
+  2: "Control the blue ball and chase the moving target as fast as you can to score big! Play in standing or plank position and press Start to begin the game!",
+  3: "Control the blue ball to dodge incoming obstacles—one hit and the game's over! Play in standing or plank position and press Start to begin the game!",
+  4: "Control the blue ball to touch as many yellow gates as possible in 30 seconds! Each gate touched adds +1 to your score. Play in standing or plank position and press Start to begin the game!"
+};
+
+levelButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentLevel = parseInt(btn.dataset.level);
+    levelSelectionMenu.style.display = 'none';
+    calibrateBtn.style.display = 'block';
+    calibrateHint.style.display = 'block';
+    howToPlayBtn.style.display = 'block';
+
+    // Set instructions text for selected level
+    instructionsText.textContent = levelInstructions[currentLevel];
+  });
+});
+
+/* ---------- Registration handlers ---------- */
+emailContinueBtn.addEventListener('click', async ()=>{
+  const email = regEmailInput.value.trim();
+  if(!email || !email.includes('@')){
+    emailError.textContent = 'Please enter a valid email address.';
+    return;
+  }
+  emailError.textContent = '';
+  emailContinueBtn.textContent = 'Checking...';
+  emailContinueBtn.disabled = true;
+
+  const found = await lookupPlayer(email);
+  emailContinueBtn.textContent = 'Continue →';
+  emailContinueBtn.disabled = false;
+
+  if(found){
+    currentPlayer = { email: found.email, firstName: found.firstName, username: found.username };
+    returningName.textContent = found.username;
+    emailPhase.style.display = 'none';
+    returningPhase.style.display = 'block';
+  } else {
+    emailPhase.style.display = 'none';
+    newUserPhase.style.display = 'block';
+  }
+});
+
+newsletterConsent.addEventListener('change', ()=>{
+  registerBtn.disabled = !newsletterConsent.checked;
+});
+
+registerBtn.addEventListener('click', async ()=>{
+  const firstName = regFirstName.value.trim();
+  const username = regUsername.value.trim();
+  if(!firstName){ regError.textContent = 'Please enter your first name.'; return; }
+  if(!username){ regError.textContent = 'Please choose a username.'; return; }
+  regError.textContent = '';
+  registerBtn.textContent = 'Checking...';
+  registerBtn.disabled = true;
+
+  const available = await checkUsernameAvailable(username);
+  if(!available){
+    regError.textContent = `"${username}" is already taken. Please choose a different username.`;
+    registerBtn.textContent = 'Register & Play →';
+    registerBtn.disabled = false;
+    return;
+  }
+
+  registerBtn.textContent = 'Registering...';
+  try{
+    const email = regEmailInput.value.trim();
+    await registerNewPlayer(firstName, email, username);
+    registrationScreen.style.display = 'none';
+    levelSelectionMenu.style.display = 'block';
+  }catch(e){
+    regError.textContent = 'Error registering. Please try again.';
+    registerBtn.textContent = 'Register & Play →';
+    registerBtn.disabled = false;
+  }
+});
+
+returningPlayBtn.addEventListener('click', ()=>{
+  registrationScreen.style.display = 'none';
+  levelSelectionMenu.style.display = 'block';
+});
+
+// Show instructions overlay when clicking "How to play?"
+howToPlayBtn.addEventListener('click', () => {
+  instructionsOverlay.style.display = 'flex';
+});
+
+// Hide instructions overlay when clicking "Got it!"
+closeInstructionsBtn.addEventListener('click', () => {
+  instructionsOverlay.style.display = 'none';
+});
+
+/* ---------- Countdown function ---------- */
+function startCountdown(callback){
+  countdownOverlay.style.display = "flex";
+
+  let count = 3;
+
+  function tick(){
+    countdownNumber.textContent = count;
+
+    countdownFill.style.transform = "rotate(360deg)";
+    countdownFill.style.transition = "transform 1s linear";
+
+    setTimeout(()=>{
+      countdownFill.style.transition = "none";
+      countdownFill.style.transform = "rotate(0deg)";
+    },1000);
+
+    if(count === 0){
+      countdownNumber.textContent = "GO!";
+      countdownFill.style.display = "none";
+
+      setTimeout(()=>{
+        countdownOverlay.style.display = "none";
+        countdownFill.style.display = "block";
+        countdownFill.style.transform = "rotate(0deg)";
+        countdownFill.style.transition = "none";
+        // Show game elements when countdown ends
+        canvas.style.display = "block";
+        dotEl.style.display = "block";
+        scoreDisplay.style.display = "block";
+        timerDisplay.style.display = "block";
+        callback();
+      },700);
+
+      return;
+    }
+
+    count--;
+    setTimeout(tick,1000);
+  }
+
+  tick();
+}
+
+/* ---------- Calibrate ---------- */
+calibrateBtn.addEventListener('click', () => {
+  sizeCanvas();
+  
+  // Initialize target based on level
+  if(currentLevel === 1){
+    targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
+  } else if(currentLevel === 2){
+    initMovingTarget();
+  } else if(currentLevel === 3){
+    resetSurvival();
+  } else if(currentLevel === 4){
+    resetReactionGates();
+  }
+
+  beta0 = lastBeta ?? 0;
+  gamma0 = lastGamma ?? 0;
+
+  dotPos0 = { x: arenaRect.width/2, y: arenaRect.height/2 };
+  dotPos = {...dotPos0};
+  dotEl.style.left = dotPos.x+'px';
+  dotEl.style.top = dotPos.y+'px';
+
+  if(currentLevel === 3){
+    drawSurvival();
+  } else if(currentLevel === 4){
+    drawReactionGates();
+  } else {
+    drawTargetAndRings();
+  }
+  calibrateBtn.style.display = 'none';
+  calibrateHint.style.display = 'none';
+  howToPlayBtn.style.display = 'none';
+
+  // Hide game elements during countdown
+  canvas.style.display = "none";
+  dotEl.style.display = "none";
+  scoreDisplay.style.display = "none";
+  timerDisplay.style.display = "none";
+
+  startCountdown(() => {
+    score = 0;
+    timeLeft = GAME_DURATION;
+    lastTime = performance.now();
+    gameActive = true;
+
+    // Reinitialize moving target when game starts
+    if(currentLevel === 2){
+      initMovingTarget();
+    }
+    if(currentLevel === 3){
+      resetSurvival();
+      scoreDisplay.textContent = 'Survival: 0';
+      timerDisplay.textContent = '0s';
+    }
+    if(currentLevel === 4){
+      resetReactionGates();
+      scoreDisplay.textContent = 'Gates: 0';
+      timerDisplay.textContent = '30';
+    }
+  });
+});
+
+/* ---------- ★ NEW: Confetti burst function ---------- */
+function fireConfetti(){
+  const duration = 2200; // 2.2 seconds
+  const end = Date.now() + duration;
+
+  (function frame(){
+    // top center burst, falling downward
+    confetti({
+      particleCount: 6,
+      startVelocity: 45,
+      spread: 80,
+      origin: { x: 0.5, y: 0 }, // <-- top center
+      angle: 90
+    });
+
+    if(Date.now() < end){
+      requestAnimationFrame(frame);
+    }
+  })();
+}
+
+/* ---------- Highlight and scroll to player's own row ---------- */
+function highlightPlayerRow(docId){
+  if(!docId) return;
+  const container = document.getElementById('leaderboardContainer');
+  leaderboardBody.querySelectorAll('tr').forEach(row => {
+    if(row.dataset.docid === docId){
+      row.classList.add('myRow');
+      const rowTop = row.offsetTop;
+      const rowHeight = row.offsetHeight;
+      const containerHeight = container.clientHeight;
+      container.scrollTop = rowTop - containerHeight / 2 + rowHeight / 2;
+    }
+  });
+}
+
+/* ---------- End game ---------- */
+async function endGame(){
+  gameActive = false;
+  fireConfetti();
+
+  const label = currentLevel === 3 ? 'Survival Score' : 'Score';
+  finalScoreBig.innerHTML = `<span class="scoreLabel">${label}</span><span class="scoreValue">${Math.floor(score)}</span>`;
+
+  publishedNotice.style.display = 'none';
+  rankDisplay.textContent = '';
+  leaderboardBody.innerHTML = '';
+
+  gameOverOverlay.style.display = 'flex';
+  gameOverOverlay.setAttribute('aria-hidden','false');
+
+  let newDocId = null;
+  if(currentPlayer){
+    saveLocalScore(currentPlayer.username, score, currentLevel);
+    newDocId = await saveFirebaseScore(currentPlayer.username, score, currentLevel);
+    recordPlay(currentPlayer.email); // fire-and-forget
+    publishedNotice.style.display = 'block';
+    const rank = await getPlayerRank(score, currentLevel);
+    if(rank !== null){
+      const suffix = rank === 1 ? 'st' : rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th';
+      rankDisplay.textContent = `${rank}${suffix} place overall`;
+    }
+  }
+
+  await renderOnlineLeaderboard(currentLevel);
+  if(newDocId) highlightPlayerRow(newDocId);
+
+  startAutoReset();
+}
+
+/* ---------- Next Player (back to queue screen) ---------- */
+nextPlayerBtn.addEventListener('click', ()=>{ goToNewPlayer(); });
+
+/* ---------- Orientation UI ---------- */
+function evaluateOrientation(){
+  const w=window.innerWidth, h=window.innerHeight;
+  const isLandscape = w>=h;
+  rotateOverlay.style.display = isLandscape ? 'none' : 'flex';
+  return isLandscape;
+}
+window.addEventListener('orientationchange', ()=>setTimeout(()=>{sizeCanvas(); targetCenter={x:arenaRect.width/2,y:arenaRect.height/2};evaluateOrientation();},120));
+window.addEventListener('resize', ()=>{sizeCanvas(); targetCenter={x:arenaRect.width/2,y:arenaRect.height/2}; drawTargetAndRings();});
+
+/* ---------- Queue Mode Functions ---------- */
+const queueScreen = document.getElementById('queueScreen');
+let currentQueueDocId = null;
+let queueSnapshotUnsub = null;
+let pendingQueueEntries = [];
+
+function showQueueScreen(){
+  queueScreen.style.display = 'block';
+  subscribeToQueue();
+}
+
+function subscribeToQueue(){
+  if(queueSnapshotUnsub){ queueSnapshotUnsub(); queueSnapshotUnsub = null; }
+  queueSnapshotUnsub = db.collection('queue')
+    .where('status','==','waiting')
+    .orderBy('order','asc')
+    .limit(10)
+    .onSnapshot(snapshot => {
+      const entries = [];
+      snapshot.forEach(doc => entries.push({ docId: doc.id, ...doc.data() }));
+      pendingQueueEntries = entries;
+      updateQueueUI(entries);
+    }, err => { console.error('Queue snapshot:', err); });
+}
+
+function updateQueueUI(entries){
+  const emptyBox = document.getElementById('queueEmptyBox');
+  const playerState = document.getElementById('queuePlayerState');
+  const waitSection = document.getElementById('queueWaitSection');
+  const waitEntries = document.getElementById('queueWaitEntries');
+
+  if(entries.length === 0){
+    emptyBox.style.display = 'block';
+    playerState.style.display = 'none';
+    waitSection.style.display = 'none';
+    return;
+  }
+
+  emptyBox.style.display = 'none';
+  playerState.style.display = 'block';
+
+  const nextUp = entries[0];
+  document.getElementById('queuePlayerDisplay').textContent = nextUp.username || nextUp.firstName || '?';
+  const sub = (nextUp.firstName && nextUp.username && nextUp.username !== nextUp.firstName) ? nextUp.firstName : '';
+  document.getElementById('queuePlayerSub').textContent = sub;
+
+  const waiting = entries.slice(1);
+  if(waiting.length > 0){
+    waitSection.style.display = 'block';
+    waitEntries.innerHTML = '';
+    waiting.forEach((e, i) => {
+      const row = document.createElement('div');
+      row.className = 'queueWaitItem';
+      row.innerHTML = `<span class="queueWaitNum">${i+2}</span><span class="queueWaitName">${escapeHtml(e.username || e.firstName || '?')}</span><button class="bumpBtn" onclick="bumpToFront('${e.docId}')">↑ Front</button>`;
+      waitEntries.appendChild(row);
+    });
+  } else {
+    waitSection.style.display = 'none';
+  }
+}
+
+async function markCurrentDone(){
+  if(!currentQueueDocId) return;
+  const docId = currentQueueDocId;
+  currentQueueDocId = null;
+  currentPlayer = null;
+  try{
+    await db.collection('queue').doc(docId).update({ status: 'done' });
+  }catch(e){ console.error('markCurrentDone:', e); }
+}
+
+async function bumpToFront(docId){
+  try{
+    const snap = await db.collection('queue').where('status','==','waiting').orderBy('order','asc').limit(1).get();
+    const minOrder = snap.empty ? Date.now() : snap.docs[0].data().order;
+    await db.collection('queue').doc(docId).update({ order: minOrder - 1000 });
+  }catch(e){ console.error('bumpToFront:', e); }
+}
+
+/* Play button: load player, mark as playing, go to level select */
+document.getElementById('queuePlayBtn').addEventListener('click', async () => {
+  if(pendingQueueEntries.length === 0) return;
+  const next = pendingQueueEntries[0];
+  currentQueueDocId = next.docId;
+  currentPlayer = { email: next.email || '', firstName: next.firstName || '', username: next.username || 'Player' };
+  queueScreen.style.display = 'none';
+  // Mark as playing so TV shows "Now Playing"
+  try{
+    await db.collection('queue').doc(currentQueueDocId).update({ status: 'playing' });
+  }catch(e){ console.error('Mark playing error:', e); }
+  levelSelectionMenu.style.display = 'block';
+});
+
+/* Skip button: skip current, queue subscription auto-updates UI */
+document.getElementById('queueSkipBtn').addEventListener('click', async () => {
+  if(pendingQueueEntries.length === 0) return;
+  const toSkip = pendingQueueEntries[0];
+  try{
+    await db.collection('queue').doc(toSkip.docId).update({ status: 'skipped' });
+  }catch(e){ console.error('skipCurrent:', e); }
+  // UI auto-updates via onSnapshot
+});
+
+/* ---------- Init ---------- */
+(function init(){
+  sizeCanvas();
+  targetCenter = { x: arenaRect.width/2, y: arenaRect.height/2 };
+  dotPos = { x: targetCenter.x, y: targetCenter.y };
+  dotPos0 = {...dotPos};
+  dotEl.style.left = dotPos.x+'px';
+  dotEl.style.top = dotPos.y+'px';
+  drawTargetAndRings();
+  renderLeaderboard(1);
+  evaluateOrientation();
+  calibrateBtn.style.display = 'none';
+  levelSelectionMenu.style.display = 'none';
+  gameOverOverlay.style.display = 'none';
+  registrationScreen.style.display = 'none';
+
+  // Hide game elements initially
+  canvas.style.display = 'none';
+  dotEl.style.display = 'none';
+  scoreDisplay.style.display = 'none';
+  timerDisplay.style.display = 'none';
+})();
+</script>
+</body>
+</html>
