@@ -1468,7 +1468,16 @@ let pendingQueueEntries = [];
 
 function showQueueScreen(){
   queueScreen.style.display = 'block';
+  cleanupStuckPlaying();
   subscribeToQueue();
+}
+
+// If the queue screen is visible, no one is playing — mark any stuck 'playing' entries as 'done'
+async function cleanupStuckPlaying(){
+  try{
+    const snap = await db.collection('queue').where('status','==','playing').get();
+    snap.forEach(doc => doc.ref.update({ status: 'done' }));
+  }catch(e){ console.error('cleanupStuckPlaying:', e); }
 }
 
 function subscribeToQueue(){
