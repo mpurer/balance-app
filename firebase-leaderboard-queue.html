@@ -2,376 +2,359 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
 <title>Firebase Live Leaderboard + Queue</title>
 
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
 <script>
-  // Your Firebase project configuration for "gibbon-balance-game"
   const firebaseConfig = {
-    apiKey: "AIzaSyA7BZvLHuIXiYdukRpV7bM52pBBuWzv3rU", // <--- PASTE YOUR API KEY HERE
+    apiKey: "AIzaSyA7BZvLHuIXiYdukRpV7bM52pBBuWzv3rU",
     authDomain: "gibbon-balance-game.firebaseapp.com",
     projectId: "gibbon-balance-game",
     storageBucket: "gibbon-balance-game.firebasestorage.app",
     messagingSenderId: "435375118778",
-    appId: "1:435375118778:web:5513fc213d8d7fef816583" // <--- PASTE YOUR APP ID HERE
+    appId: "1:435375118778:web:5513fc213d8d7fef816583"
   };
-
-  // Initialize Firebase and get Firestore instance
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 </script>
 
 <style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
   html, body {
+    width: 100%;
     height: 100%;
-    width: 100%;
-    margin: 0;
-    padding: 0;
+    overflow: hidden;
+    background: #000;
     font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
-    background: #05070f;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    color: #f5f5f5;
   }
-  #header {
-    width: 100%;
-    padding: 28px 32px;
-    background: #E8FC66;
-    color: #111;
-    font-size: 32px;
-    font-weight: 800;
-    box-shadow: 0 4px 18px rgba(0,0,0,0.28);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    box-sizing: border-box;
+
+  /* ── Zone positions ─────────────────────────────────────────────────────
+     Adjust these to align live data with your PNG design.
+     Units are pixels within the 1920×1080 canvas.             ──────────── */
+  :root {
+    --zone-queue-x:   60px;   --zone-queue-y:  130px;
+    --zone-queue-w:  340px;   --zone-queue-h:  880px;
+
+    --zone-lb1-x:   460px;   --zone-lb1-y:  130px;
+    --zone-lb1-w:   600px;   --zone-lb1-h:  880px;
+
+    --zone-lb2-x:  1120px;   --zone-lb2-y:  130px;
+    --zone-lb2-w:   600px;   --zone-lb2-h:  880px;
+
+    --zone-qr-x:   1760px;   --zone-qr-y:    30px;
+    --zone-qr-w:    140px;   --zone-qr-h:   140px;
   }
-  #headerLogo {
+
+  /* ── Full-screen 1920×1080 canvas, scaled to fit any TV ────────────────
+     ╔═══════════════════════════════════════════════════════════════╗
+     ║  WHEN PNG IS READY:                                           ║
+     ║  1. Add:    background-image: url('design.png');              ║
+     ║             background-size: cover;                           ║
+     ║  2. Remove the #bg-placeholder div (and its CSS block below)  ║
+     ║  3. Adjust the --zone-* variables above to match the design   ║
+     ║  4. Remove the background-color line below                    ║
+     ╚═══════════════════════════════════════════════════════════════╝ */
+  #screen {
     position: absolute;
-    left: 24px;
-    top: 50%;
-    transform: translateY(-50%);
-    height: 56px;
-    width: auto;
-    object-fit: contain;
-  }
-  #leaderboardModeSelection {
-    margin-top: 20px;
-    margin-bottom: 20px;
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-  }
-  .btnPrimary, .btnSecondary {
-    padding: 10px 20px;
-    border-radius: 999px;
-    border: 0;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 15px;
-  }
-  .btnPrimary {
-    background: #E8FC66;
-    color: #111;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
-  }
-  .btnSecondary {
-    background: #141824;
+    top: 0;
+    left: 0;
+    width: 1920px;
+    height: 1080px;
+    transform-origin: top left;
+    background-color: #0b1226;
     color: #f5f5f5;
-    box-shadow: 0 3px 12px rgba(0,0,0,0.35);
   }
-  .btnPrimary:hover {
-    background: #d4f349;
+
+  /* ── Placeholder (remove this block when PNG is added) ─────────────── */
+  #bg-placeholder {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
   }
-  .btnSecondary:hover {
-    background: #1b2030;
-  }
-  .leaderboardsRow {
-    width: min(1200px, 96%);
-    margin-top: 18px;
+  .ph-zone {
+    position: absolute;
+    border: 2px dashed rgba(232,252,102,0.35);
+    border-radius: 8px;
     display: flex;
-    gap: 32px;
-    justify-content: center;
     align-items: flex-start;
-    flex-wrap: wrap;
+    justify-content: center;
+    padding-top: 10px;
   }
-  .leaderboardCard {
-    flex: 1 1 340px;
-    max-width: 560px;
-    border-radius: 16px;
-    border: 1px solid rgba(232,252,102,0.25);
-    background: radial-gradient(circle at top left,#141824,#05070f);
-    box-shadow: 0 18px 40px rgba(0,0,0,0.6);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-  .lbTitle {
-    padding: 14px 18px;
-    font-weight: 800;
-    font-size: 18px;
-    color: #E8FC66;
-    border-bottom: 1px solid rgba(232,252,102,0.4);
-    text-align: center;
-  }
-  .lbTableWrapper {
-    max-height: 360px;
-    overflow-y: auto;
-  }
-  table.leaderboardTable {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 18px;
-  }
-  thead th {
-    background: rgba(5,7,15,0.96);
-    color: #E8FC66;
-    padding: 15px 18px;
+  .ph-label {
+    font-size: 12px;
     font-weight: 700;
-    text-align: center;
-    border-bottom: 1px solid rgba(232,252,102,0.4);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(232,252,102,0.45);
   }
-  tbody td {
-    padding: 15px 18px;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
-    color: #f5f5f5;
-  }
-  td.rank { width: 80px; text-align: center; font-weight: bold; }
-  td.name { text-align: center; }
-  td.score { text-align: right; width: 120px; font-weight: bold; }
-  tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
-  tbody tr:last-child td { border-bottom: none; }
-  .topRow {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: stretch;
-    gap: 24px;
-    padding: 0 24px;
-    box-sizing: border-box;
-    flex-wrap: wrap;
-  }
-  .qrCallout {
-    width: 440px;
-    min-height: 176px;
-    margin-top: 12px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    padding: 20px 24px;
-    border-radius: 16px;
-    border: 2px solid rgba(232,252,102,0.3);
-    background: #05070f;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-    box-sizing: border-box;
-  }
-  .qrCallout img {
-    width: 136px;
-    height: 136px;
-    border-radius: 12px;
-    object-fit: cover;
-    border: 2px solid #f0f0f0;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    flex-shrink: 0;
-  }
-  .qrCopy {
+  /* ── End placeholder ────────────────────────────────────────────────── */
+
+  /* ── Queue zone ─────────────────────────────────────────────────────── */
+  #zoneQueue {
+    position: absolute;
+    left: var(--zone-queue-x);
+    top: var(--zone-queue-y);
+    width: var(--zone-queue-w);
+    height: var(--zone-queue-h);
     display: flex;
     flex-direction: column;
-    gap: 8px;
-  }
-  .qrCopy .headline {
-    font-size: 32px;
-    font-weight: 800;
-    color: #ffffff;
-  }
-  .announcementBox {
-    width: 440px;
-    min-height: 176px;
-    margin-top: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px 24px;
-    border-radius: 16px;
-    border: 2px solid rgba(232,252,102,0.3);
-    background: #05070f;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-    font-size: 32px;
-    font-weight: 800;
-    color: #ffffff;
-    text-align: center;
-    line-height: 1.3;
-    box-sizing: border-box;
-  }
-  /* ---- Queue Card ---- */
-  .queueCard {
-    flex: 0 0 300px;
-    max-width: 340px;
-    border-radius: 16px;
-    border: 1px solid rgba(232,252,102,0.25);
-    background: radial-gradient(circle at top left,#141824,#05070f);
-    box-shadow: 0 18px 40px rgba(0,0,0,0.6);
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
   }
   .queueNowPlaying {
-    padding: 16px 18px 14px;
-    border-bottom: 1px solid rgba(232,252,102,0.25);
+    padding: 0 0 20px;
+    border-bottom: 1px solid rgba(232,252,102,0.2);
     text-align: center;
   }
   .queueNowLabel {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 3px;
     text-transform: uppercase;
     color: #E8FC66;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
   }
   .queueNowName {
-    font-size: 32px;
+    font-size: 48px;
     font-weight: 900;
     color: #fff;
     line-height: 1.1;
     word-break: break-word;
-    min-height: 38px;
+    min-height: 54px;
   }
   .queueWaiting {
-    padding: 14px 18px;
+    padding: 20px 0 0;
     flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
   .queueWaitingLabel {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 3px;
     text-transform: uppercase;
-    color: #999;
-    margin-bottom: 10px;
+    color: #E8FC66;
+    margin-bottom: 14px;
   }
   .queueWaitRow {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     padding: 10px 0;
     border-bottom: 1px solid rgba(255,255,255,0.05);
-    font-size: 18px;
+    font-size: 24px;
     color: #f5f5f5;
   }
   .queueWaitRow:last-child { border-bottom: none; }
   .queueWaitPos {
-    width: 28px;
+    width: 32px;
     color: #E8FC66;
     font-weight: 800;
     text-align: center;
     flex-shrink: 0;
   }
   .queueEmpty {
-    color: #666;
-    font-size: 15px;
-    text-align: center;
-    padding: 20px 0;
+    color: #555;
+    font-size: 18px;
     font-style: italic;
   }
-  @media (max-width: 760px) {
-    .topRow {
-      gap: 10px;
-    }
-    .qrCallout {
-      width: min(360px, 92%);
-      margin-top: 0;
-    }
+
+  /* ── Leaderboard zones ──────────────────────────────────────────────── */
+  #zoneLb1 {
+    position: absolute;
+    left: var(--zone-lb1-x);
+    top: var(--zone-lb1-y);
+    width: var(--zone-lb1-w);
+    height: var(--zone-lb1-h);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #zoneLb2 {
+    position: absolute;
+    left: var(--zone-lb2-x);
+    top: var(--zone-lb2-y);
+    width: var(--zone-lb2-w);
+    height: var(--zone-lb2-h);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .lbTitle {
+    font-size: 20px;
+    font-weight: 800;
+    color: #E8FC66;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(232,252,102,0.25);
+    margin-bottom: 4px;
+    flex-shrink: 0;
+  }
+  .lbTableWrapper {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .lbTableWrapper::-webkit-scrollbar { display: none; }
+  table.leaderboardTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 26px;
+  }
+  thead th {
+    color: #E8FC66;
+    padding: 10px 12px;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: center;
+    border-bottom: 1px solid rgba(232,252,102,0.2);
+  }
+  tbody td {
+    padding: 12px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: #f5f5f5;
+  }
+  td.rank  { width: 60px; text-align: center; font-weight: bold; color: #E8FC66; }
+  td.name  { text-align: left; }
+  td.score { text-align: right; width: 100px; font-weight: bold; }
+  tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+  tbody tr:last-child td   { border-bottom: none; }
+
+  /* ── QR code zone ───────────────────────────────────────────────────── */
+  #zoneQr {
+    position: absolute;
+    left: var(--zone-qr-x);
+    top: var(--zone-qr-y);
+    width: var(--zone-qr-w);
+    height: var(--zone-qr-h);
+  }
+  #zoneQr img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
   }
 </style>
 </head>
 <body>
-  <div id="header">
-    <img id="headerLogo" src="gibbon_logo.png" alt="Gibbon brand logo" />
-    Gibbon Balance Game Live Leaderboard
-  </div>
 
-  <div class="topRow">
-    <div class="qrCallout" aria-label="Scan the QR code to join the queue">
-      <img src="QR_code_queue.png" alt="QR code to join the queue" />
-      <div class="qrCopy">
-        <div class="headline">Join the Queue &amp; Play and Win Prizes!</div>
-      </div>
+<div id="screen">
+
+  <!-- ═══ PLACEHOLDER — remove this block when PNG is added ═══════════ -->
+  <div id="bg-placeholder">
+    <div class="ph-zone" style="left:var(--zone-queue-x);top:var(--zone-queue-y);width:var(--zone-queue-w);height:var(--zone-queue-h)">
+      <span class="ph-label">Queue Panel</span>
+    </div>
+    <div class="ph-zone" style="left:var(--zone-lb1-x);top:var(--zone-lb1-y);width:var(--zone-lb1-w);height:var(--zone-lb1-h)">
+      <span class="ph-label">Moving Target LB</span>
+    </div>
+    <div class="ph-zone" style="left:var(--zone-lb2-x);top:var(--zone-lb2-y);width:var(--zone-lb2-w);height:var(--zone-lb2-h)">
+      <span class="ph-label">Survival LB</span>
+    </div>
+    <div class="ph-zone" style="left:var(--zone-qr-x);top:var(--zone-qr-y);width:var(--zone-qr-w);height:var(--zone-qr-h)">
+      <span class="ph-label">QR Code</span>
     </div>
   </div>
+  <!-- ═══ End placeholder ═════════════════════════════════════════════ -->
 
-  <div class="leaderboardsRow">
-    <!-- Queue panel -->
-    <div class="queueCard" aria-label="Live Player Queue">
-      <div class="queueNowPlaying">
-        <div class="queueNowLabel">🎮 Now Playing</div>
-        <div class="queueNowName" id="nowPlayingName">—</div>
-      </div>
-      <div class="queueWaiting">
-        <div class="queueWaitingLabel">Waiting</div>
-        <div id="queueWaitList"><div class="queueEmpty">No one waiting yet</div></div>
-      </div>
+  <!-- ═══ QUEUE PANEL ══════════════════════════════════════════════════ -->
+  <div id="zoneQueue" aria-label="Live Player Queue">
+    <div class="queueNowPlaying">
+      <div class="queueNowLabel">🎮 Now Playing</div>
+      <div class="queueNowName" id="nowPlayingName">—</div>
     </div>
-
-    <div class="leaderboardCard" aria-label="Moving Target Leaderboard">
-      <div class="lbTitle">Moving Target Leaderboard</div>
-      <div class="lbTableWrapper">
-        <table class="leaderboardTable">
-          <thead>
-            <tr><th>Rank</th><th class="name">Name</th><th class="score">Score</th></tr>
-          </thead>
-          <tbody id="leaderboardBodyMoving">
-            <tr><td colspan="3" style="text-align:center;padding:20px;color:#cfd2d8">Loading leaderboard...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="leaderboardCard" aria-label="Survival Arena Leaderboard">
-      <div class="lbTitle">Survival Arena Leaderboard</div>
-      <div class="lbTableWrapper">
-        <table class="leaderboardTable">
-          <thead>
-            <tr><th>Rank</th><th class="name">Name</th><th class="score">Score</th></tr>
-          </thead>
-          <tbody id="leaderboardBodySurvival">
-            <tr><td colspan="3" style="text-align:center;padding:20px;color:#cfd2d8">Loading leaderboard...</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <div class="queueWaiting">
+      <div class="queueWaitingLabel">Waiting</div>
+      <div id="queueWaitList"><div class="queueEmpty">No one waiting yet</div></div>
     </div>
   </div>
+
+  <!-- ═══ MOVING TARGET LEADERBOARD ════════════════════════════════════ -->
+  <div id="zoneLb1" aria-label="Moving Target Leaderboard">
+    <div class="lbTitle">Moving Target</div>
+    <div class="lbTableWrapper">
+      <table class="leaderboardTable">
+        <thead>
+          <tr><th>Rank</th><th class="name">Name</th><th class="score">Score</th></tr>
+        </thead>
+        <tbody id="leaderboardBodyMoving">
+          <tr><td colspan="3" style="text-align:center;padding:20px;color:#666">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ SURVIVAL ARENA LEADERBOARD ═══════════════════════════════════ -->
+  <div id="zoneLb2" aria-label="Survival Arena Leaderboard">
+    <div class="lbTitle">Survival Arena</div>
+    <div class="lbTableWrapper">
+      <table class="leaderboardTable">
+        <thead>
+          <tr><th>Rank</th><th class="name">Name</th><th class="score">Score</th></tr>
+        </thead>
+        <tbody id="leaderboardBodySurvival">
+          <tr><td colspan="3" style="text-align:center;padding:20px;color:#666">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ QR CODE ═══════════════════════════════════════════════════════ -->
+  <div id="zoneQr">
+    <img src="QR_code_queue.png" alt="QR code to join the queue" />
+  </div>
+
+</div><!-- /#screen -->
 
 <script>
-  // Elements
-  const leaderboardBodyMoving = document.getElementById('leaderboardBodyMoving');
-  const leaderboardBodySurvival = document.getElementById('leaderboardBodySurvival');
+  // ── Scale #screen to fill the viewport ────────────────────────────
+  function scaleScreen() {
+    const s = document.getElementById('screen');
+    const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    s.style.transform = `scale(${scale})`;
+    s.style.left = Math.round((window.innerWidth  - 1920 * scale) / 2) + 'px';
+    s.style.top  = Math.round((window.innerHeight - 1080 * scale) / 2) + 'px';
+  }
+  window.addEventListener('resize', scaleScreen);
+  scaleScreen();
 
-  // State
-  let unsubscribeMoving = null;
+  // ── Elements ──────────────────────────────────────────────────────
+  const leaderboardBodyMoving   = document.getElementById('leaderboardBodyMoving');
+  const leaderboardBodySurvival = document.getElementById('leaderboardBodySurvival');
+  const nowPlayingName          = document.getElementById('nowPlayingName');
+  const queueWaitList           = document.getElementById('queueWaitList');
+
+  // ── State ─────────────────────────────────────────────────────────
+  let unsubscribeMoving   = null;
   let unsubscribeSurvival = null;
 
-  // Helper for escaping HTML (for player names)
-  function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+  // ── Helpers ───────────────────────────────────────────────────────
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, ch =>
+      ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch])
+    );
+  }
 
-  function subscribeToLeaderboard(collectionRef, targetBody){
-    const unsubscribe = collectionRef
+  function subscribeToLeaderboard(collectionRef, targetBody) {
+    return collectionRef
       .orderBy('score', 'desc')
       .orderBy('timestamp', 'desc')
       .limit(500)
       .onSnapshot(snapshot => {
         targetBody.innerHTML = '';
         if (snapshot.empty) {
-          targetBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#cfd2d8">No scores yet for this level. Play the game to add some!</td></tr>`;
+          targetBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#666">No scores yet.</td></tr>`;
           return;
         }
         let rank = 1;
-        snapshot.forEach((doc) => {
+        snapshot.forEach(doc => {
           const data = doc.data();
           const tr = document.createElement('tr');
           tr.innerHTML = `<td class="rank">${rank}</td><td class="name">${escapeHtml(data.playerName)}</td><td class="score">${data.score}</td>`;
@@ -379,23 +362,18 @@
           rank++;
         });
       }, error => {
-        console.error("Error fetching leaderboard: ", error);
+        console.error('Error fetching leaderboard:', error);
         targetBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#e60000">Error loading leaderboard.</td></tr>`;
       });
-    return unsubscribe;
   }
 
-  // Queue subscriptions
-  const nowPlayingName = document.getElementById('nowPlayingName');
-  const queueWaitList = document.getElementById('queueWaitList');
-
-  function subscribeToQueue(){
-    // Now playing (status = 'playing')
+  function subscribeToQueue() {
+    // Now playing
     db.collection('queue')
-      .where('status','==','playing')
+      .where('status', '==', 'playing')
       .limit(1)
       .onSnapshot(snap => {
-        if(snap.empty){
+        if (snap.empty) {
           nowPlayingName.textContent = '—';
         } else {
           const d = snap.docs[0].data();
@@ -403,13 +381,13 @@
         }
       }, err => { console.error('Queue playing snapshot:', err); });
 
-    // Waiting list (no orderBy to avoid needing a composite index — sort client-side)
+    // Waiting list — no orderBy to avoid composite index; sort client-side
     db.collection('queue')
-      .where('status','==','waiting')
+      .where('status', '==', 'waiting')
       .limit(20)
       .onSnapshot(snap => {
         queueWaitList.innerHTML = '';
-        if(snap.empty){
+        if (snap.empty) {
           queueWaitList.innerHTML = '<div class="queueEmpty">No one waiting yet</div>';
           return;
         }
@@ -419,18 +397,15 @@
         entries.slice(0, 8).forEach((d, i) => {
           const row = document.createElement('div');
           row.className = 'queueWaitRow';
-          row.innerHTML = `<span class="queueWaitPos">${i+1}</span><span>${escapeHtml(d.username || d.firstName || '?')}</span>`;
+          row.innerHTML = `<span class="queueWaitPos">${i + 1}</span><span>${escapeHtml(d.username || d.firstName || '?')}</span>`;
           queueWaitList.appendChild(row);
         });
       }, err => { console.error('Queue waiting snapshot:', err); });
   }
 
-  // Initial load: subscribe to both leaderboards
+  // ── Init ──────────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
-    leaderboardBodyMoving.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#cfd2d8">Loading leaderboard...</td></tr>`;
-    leaderboardBodySurvival.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#cfd2d8">Loading leaderboard...</td></tr>`;
-
-    unsubscribeMoving = subscribeToLeaderboard(db.collection('leaderboardLevel2'), leaderboardBodyMoving);
+    unsubscribeMoving   = subscribeToLeaderboard(db.collection('leaderboardLevel2'),  leaderboardBodyMoving);
     unsubscribeSurvival = subscribeToLeaderboard(db.collection('leaderboardSurvival'), leaderboardBodySurvival);
     subscribeToQueue();
   });
