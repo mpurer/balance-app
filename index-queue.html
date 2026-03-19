@@ -383,8 +383,11 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
         <div id="publishedNotice">✓ Published to leaderboard!</div>
         <div id="rankDisplay"></div>
 
+        <div id="attemptDisplay" style="font-size:14px;font-weight:700;color:#999;margin-bottom:10px;letter-spacing:0.5px"></div>
+
         <div id="overlayButtons">
-          <button id="nextPlayerBtn" class="btnPrimary">Next Player →</button>
+          <button id="playAgainBtn" class="btnPrimary">Nochmal spielen →</button>
+          <button id="nextPlayerBtn" class="btnSecondary">Nächster Spieler →</button>
         </div>
 
         <div id="autoResetCountdown"></div>
@@ -419,6 +422,7 @@ const ringRadii = [50, 100, 150];
 const maxPointsPerSecond = 30;
 const TARGET_MOVE_SPEED = 110; // pixels per second for Level 2 (slightly faster)
 const SURVIVAL_SEED = 123456;
+const MAX_ATTEMPTS = 3;
 const SURVIVAL_SCORE_MULT = 10;
 const SURVIVAL_MAX_OBS = 40;
 const SURVIVAL_BASE_SPEED = 88;
@@ -456,6 +460,8 @@ const finalScoreBig = document.getElementById('finalScoreBig');
 const publishedNotice = document.getElementById('publishedNotice');
 const rankDisplay = document.getElementById('rankDisplay');
 const nextPlayerBtn = document.getElementById('nextPlayerBtn');
+const playAgainBtn = document.getElementById('playAgainBtn');
+const attemptDisplay = document.getElementById('attemptDisplay');
 const autoResetCountdown = document.getElementById('autoResetCountdown');
 const leaderboardBody = document.getElementById('leaderboardBody');
 const toggleTabs = document.querySelectorAll('.toggle-tab');
@@ -491,6 +497,7 @@ let timeLeft = GAME_DURATION;
 let currentPlayer = null; // { email, firstName, username } — set on registration
 let autoResetTimer = null;
 let gameActive = false;
+let currentAttempt = 0;
 let currentLevel = 1; // 1 = static, 2 = moving target, 3 = survival
 let targetVelocity = { x: 0, y: 0 }; // For Level 2 moving target
 let movingTargetTimer = 0; // For Level 2 jump timing
@@ -603,6 +610,7 @@ function showRegistrationScreen(){
 
 function goToNewPlayer(){
   currentPlayer = null;
+  currentAttempt = 0;
   cancelAutoReset();
   gameOverOverlay.style.display = 'none';
   gameOverOverlay.setAttribute('aria-hidden','true');
@@ -619,10 +627,10 @@ function goToNewPlayer(){
 function startAutoReset(){
   cancelAutoReset();
   let remaining = 30;
-  autoResetCountdown.textContent = `Next player in: ${remaining}s`;
+  autoResetCountdown.textContent = `Nächster Spieler in: ${remaining}s`;
   autoResetTimer = setInterval(()=>{
     remaining--;
-    autoResetCountdown.textContent = `Next player in: ${remaining}s`;
+    autoResetCountdown.textContent = `Nächster Spieler in: ${remaining}s`;
     if(remaining <= 0){ cancelAutoReset(); goToNewPlayer(); }
   }, 1000);
 }
@@ -1429,7 +1437,11 @@ async function endGame(){
   gameActive = false;
   fireConfetti();
 
-  const label = currentLevel === 3 ? 'Survival Score' : 'Score';
+  currentAttempt++;
+  attemptDisplay.textContent = `Versuch ${currentAttempt} von ${MAX_ATTEMPTS}`;
+  playAgainBtn.style.display = currentAttempt < MAX_ATTEMPTS ? 'block' : 'none';
+
+  const label = currentLevel === 3 ? 'Punkte' : 'Score';
   finalScoreBig.innerHTML = `<span class="scoreLabel">${label}</span><span class="scoreValue">${Math.floor(score)}</span>`;
 
   publishedNotice.style.display = 'none';
@@ -1460,6 +1472,20 @@ async function endGame(){
 
 /* ---------- Next Player (back to queue screen) ---------- */
 nextPlayerBtn.addEventListener('click', ()=>{ goToNewPlayer(); });
+
+/* ---------- Play Again (same player, new attempt) ---------- */
+playAgainBtn.addEventListener('click', () => {
+  cancelAutoReset();
+  gameOverOverlay.style.display = 'none';
+  gameOverOverlay.setAttribute('aria-hidden', 'true');
+  canvas.style.display = 'none';
+  dotEl.style.display = 'none';
+  scoreDisplay.style.display = 'none';
+  timerDisplay.style.display = 'none';
+  calibrateBtn.style.display = 'block';
+  calibrateHint.style.display = 'block';
+  howToPlayBtn.style.display = 'block';
+});
 
 /* ---------- Orientation UI ---------- */
 function evaluateOrientation(){
@@ -1571,6 +1597,7 @@ document.getElementById('queuePlayBtn').addEventListener('click', async () => {
     await db.collection('queue').doc(currentQueueDocId).update({ status: 'playing' });
   }catch(e){ console.error('Mark playing error:', e); }
   // Skip level select — go straight to Slackboard Survival
+  currentAttempt = 0;
   currentLevel = 3;
   calibrateBtn.style.display = 'block';
   calibrateHint.style.display = 'block';
