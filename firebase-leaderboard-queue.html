@@ -149,7 +149,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    font-size: 19px;
+    font-size: 24px;
     font-weight: 800;
     letter-spacing: 4px;
     text-transform: uppercase;
@@ -248,6 +248,15 @@
     color: #000;
     font-weight: 900;
   }
+  #ctaPrize strong.highlight {
+    display: inline-block;
+    background: #111;
+    color: var(--yellow);
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+  }
 
   /* ════════════════════════════════════════════
      CENTER COLUMN  —  LEADERBOARD
@@ -273,7 +282,7 @@
     border-collapse: collapse;
   }
   table.lbTable thead th {
-    font-size: 15px;
+    font-size: 19px;
     font-weight: 700;
     letter-spacing: 3px;
     text-transform: uppercase;
@@ -423,8 +432,8 @@
       <div id="ctaTitle">Scannen,<br>Spielen &amp;<br>Preise&nbsp;Gewinnen</div>
       <div class="ctaSeparator"></div>
       <div id="ctaPrize">
-        Die <strong>Top&nbsp;3</strong> Platzierungen des Tages erhalten
-        <strong>1h vor Messeschluss</strong> coole Goodies von
+        Die <strong class="highlight">Top&nbsp;3</strong> Platzierungen des Tages erhalten
+        <strong class="highlight">1h vor Messeschluss</strong> coole Goodies von
         <strong>Gibbon&nbsp;Slacklines</strong>.
       </div>
     </div>
