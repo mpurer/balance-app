@@ -270,12 +270,12 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
         Level 1 - Static Mode
         <div class="level-description">Fixed target in center</div>
       </button>
-      <button class="level-btn" data-level="2">
+      <button class="level-btn" data-level="2" data-fair-hidden="true">
         Level 2 - Moving Target<span class="live-badge">Live</span>
         <div class="level-description">Target moves across screen</div>
       </button>
       <button class="level-btn" data-level="3">
-        Survival Arena<span class="live-badge">Live</span>
+        Slackboard Survival<span class="live-badge">Live</span>
         <div class="level-description">Dodge obstacles as long as you can</div>
       </button>
       <button class="level-btn" data-level="4" data-fair-hidden="true">
@@ -1559,7 +1559,12 @@ document.getElementById('queuePlayBtn').addEventListener('click', async () => {
   try{
     await db.collection('queue').doc(currentQueueDocId).update({ status: 'playing' });
   }catch(e){ console.error('Mark playing error:', e); }
-  levelSelectionMenu.style.display = 'block';
+  // Skip level select — go straight to Slackboard Survival
+  currentLevel = 3;
+  calibrateBtn.style.display = 'block';
+  calibrateHint.style.display = 'block';
+  howToPlayBtn.style.display = 'block';
+  instructionsText.textContent = levelInstructions[currentLevel];
 });
 
 /* Skip button: skip current, queue subscription auto-updates UI */

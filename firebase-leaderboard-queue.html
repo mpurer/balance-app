@@ -252,7 +252,7 @@
     <div class="ph-zone" style="left:var(--zone-queue-x);top:var(--zone-queue-y);width:var(--zone-queue-w);height:var(--zone-queue-h)">
       <span class="ph-label">Queue Panel</span>
     </div>
-    <div class="ph-zone" style="left:var(--zone-lb1-x);top:var(--zone-lb1-y);width:var(--zone-lb1-w);height:var(--zone-lb1-h)">
+    <div class="ph-zone" style="display:none;left:var(--zone-lb1-x);top:var(--zone-lb1-y);width:var(--zone-lb1-w);height:var(--zone-lb1-h)">
       <span class="ph-label">Moving Target LB</span>
     </div>
     <div class="ph-zone" style="left:var(--zone-lb2-x);top:var(--zone-lb2-y);width:var(--zone-lb2-w);height:var(--zone-lb2-h)">
@@ -276,8 +276,8 @@
     </div>
   </div>
 
-  <!-- ═══ MOVING TARGET LEADERBOARD ════════════════════════════════════ -->
-  <div id="zoneLb1" aria-label="Moving Target Leaderboard">
+  <!-- ═══ MOVING TARGET LEADERBOARD (hidden) ═══════════════════════════ -->
+  <div id="zoneLb1" aria-label="Moving Target Leaderboard" style="display:none">
     <div class="lbTitle">Moving Target</div>
     <div class="lbTableWrapper">
       <table class="leaderboardTable">
@@ -291,9 +291,9 @@
     </div>
   </div>
 
-  <!-- ═══ SURVIVAL ARENA LEADERBOARD ═══════════════════════════════════ -->
-  <div id="zoneLb2" aria-label="Survival Arena Leaderboard">
-    <div class="lbTitle">Survival Arena</div>
+  <!-- ═══ SLACKBOARD SURVIVAL LEADERBOARD ══════════════════════════════ -->
+  <div id="zoneLb2" aria-label="Slackboard Survival Leaderboard">
+    <div class="lbTitle">Slackboard Survival</div>
     <div class="lbTableWrapper">
       <table class="leaderboardTable">
         <thead>
