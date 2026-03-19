@@ -137,13 +137,13 @@ html,body{
 
 <div id="signupCard">
   <img src="gibbon_logo.png" id="regLogo" alt="Gibbon" />
-  <h2 id="regTitle">Join the<br>Game Queue!</h2>
+  <h2 id="regTitle">Melde dich an<br>um zu spielen!</h2>
 
   <!-- Phase 1: Email -->
   <div id="emailPhase">
     <input id="regEmail" class="regInput" type="email" placeholder="Your email address" autocomplete="email" inputmode="email" />
     <div id="emailError" class="regError"></div>
-    <button id="emailContinueBtn" class="btnPrimary regBtn">Continue →</button>
+    <button id="emailContinueBtn" class="btnPrimary regBtn">Weiter →</button>
   </div>
 
   <!-- Phase 2a: Returning user -->
@@ -156,7 +156,7 @@ html,body{
 
   <!-- Phase 2b: New user -->
   <div id="newUserPhase" style="display:none">
-    <input id="regFirstName" class="regInput" placeholder="First name" autocomplete="given-name" />
+    <input id="regFirstName" class="regInput" placeholder="Name" autocomplete="given-name" />
     <input id="regUsername" class="regInput" placeholder="Choose a username (shown on leaderboard)" autocomplete="off" />
     <label id="consentLabel">
       <input type="checkbox" id="newsletterConsent" />
@@ -194,6 +194,7 @@ function showPhase(name){
   document.getElementById('returningPhase').style.display = name==='returning' ? 'block' : 'none';
   document.getElementById('newUserPhase').style.display = name==='newUser' ? 'block' : 'none';
   document.getElementById('confirmPhase').style.display = name==='confirm' ? 'block' : 'none';
+  if(name === 'confirm') document.getElementById('regTitle').textContent = 'Warteschlange';
 }
 
 /* ---- Firebase helpers ---- */
@@ -273,13 +274,13 @@ function updateConfirmUI(entries){
     // No longer in waiting queue (playing or done)
     posEl.textContent = '✓';
     labelEl.textContent = '';
-    statusEl.textContent = "It's your turn — head to the game device!";
+    statusEl.textContent = "Du bist dran – geh zum Spielgerät!";
   } else {
     posEl.textContent = '#' + pos;
-    labelEl.textContent = pos === 1 ? 'You are next! Get ready!' : 'in the queue';
+    labelEl.textContent = pos === 1 ? 'Du bist als Nächstes dran! Mach dich bereit!' : 'in der Warteschlange';
     statusEl.textContent = pos === 1
-      ? 'Head to the game device — you\'re up next!'
-      : 'Watch the screen for your turn!';
+      ? 'Geh zum Spielgerät – du bist als Nächstes dran!'
+      : 'Schau auf den Bildschirm und warte auf deinen Aufruf!';
   }
 
   // Render visible list (up to 5 entries)
@@ -318,7 +319,7 @@ document.getElementById('emailContinueBtn').addEventListener('click', async () =
   const player = await lookupPlayer(email);
 
   btn.disabled = false;
-  btn.textContent = 'Continue →';
+  btn.textContent = 'Weiter →';
 
   if(player){
     // Returning user
