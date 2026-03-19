@@ -1,11 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<title>Firebase Live Leaderboard + Queue</title>
+<title>Slackboard Survival – Live Rangliste</title>
 
-<!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
 <script>
@@ -25,296 +24,425 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   html, body {
-    width: 100%;
-    height: 100%;
+    width: 100%; height: 100%;
     overflow: hidden;
     background: #000;
     font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
   }
 
-  /* ── Zone positions ─────────────────────────────────────────────────────
-     Adjust these to align live data with your PNG design.
-     Units are pixels within the 1920×1080 canvas.             ──────────── */
   :root {
-    --zone-queue-x:   60px;   --zone-queue-y:  130px;
-    --zone-queue-w:  340px;   --zone-queue-h:  880px;
-
-    --zone-lb1-x:   460px;   --zone-lb1-y:  130px;
-    --zone-lb1-w:   600px;   --zone-lb1-h:  880px;
-
-    --zone-lb2-x:  1120px;   --zone-lb2-y:  130px;
-    --zone-lb2-w:   600px;   --zone-lb2-h:  880px;
-
-    --zone-qr-x:   1760px;   --zone-qr-y:    30px;
-    --zone-qr-w:    140px;   --zone-qr-h:   140px;
+    --yellow:  #e8fc66;
+    --cyan:    #19f6ff;
+    --bg:      #0b1226;
+    --panel:   rgba(255,255,255,0.03);
+    --border:  rgba(232,252,102,0.18);
+    --gold:    #ffd700;
+    --silver:  #c0c0c0;
+    --bronze:  #cd7f32;
   }
 
-  /* ── Full-screen 1920×1080 canvas, scaled to fit any TV ────────────────
-     ╔═══════════════════════════════════════════════════════════════╗
-     ║  WHEN PNG IS READY:                                           ║
-     ║  1. Add:    background-image: url('design.png');              ║
-     ║             background-size: cover;                           ║
-     ║  2. Remove the #bg-placeholder div (and its CSS block below)  ║
-     ║  3. Adjust the --zone-* variables above to match the design   ║
-     ║  4. Remove the background-color line below                    ║
-     ╚═══════════════════════════════════════════════════════════════╝ */
+  /* ── 1920×1080 canvas scaled to any screen ── */
   #screen {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 1920px;
-    height: 1080px;
+    top: 0; left: 0;
+    width: 1920px; height: 1080px;
     transform-origin: top left;
-    background-color: #0b1226;
+    background-color: var(--bg);
+    /* Retro grid */
+    background-image:
+      linear-gradient(rgba(232,252,102,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,252,102,0.045) 1px, transparent 1px);
+    background-size: 80px 80px;
     color: #f5f5f5;
-  }
-
-  /* ── Placeholder (remove this block when PNG is added) ─────────────── */
-  #bg-placeholder {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-  .ph-zone {
-    position: absolute;
-    border: 2px dashed rgba(232,252,102,0.35);
-    border-radius: 8px;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: 10px;
-  }
-  .ph-label {
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: rgba(232,252,102,0.45);
-  }
-  /* ── End placeholder ────────────────────────────────────────────────── */
-
-  /* ── Queue zone ─────────────────────────────────────────────────────── */
-  #zoneQueue {
-    position: absolute;
-    left: var(--zone-queue-x);
-    top: var(--zone-queue-y);
-    width: var(--zone-queue-w);
-    height: var(--zone-queue-h);
-    display: flex;
-    flex-direction: column;
     overflow: hidden;
   }
-  .queueNowPlaying {
-    padding: 0 0 20px;
-    border-bottom: 1px solid rgba(232,252,102,0.2);
+
+  /* Scanline overlay */
+  #screen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(0,0,0,0.055) 3px,
+      rgba(0,0,0,0.055) 4px
+    );
+    pointer-events: none;
+    z-index: 300;
+  }
+
+  /* ════════════════════════════════════════════
+     HEADER
+  ════════════════════════════════════════════ */
+  #header {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 96px;
+    display: flex;
+    align-items: center;
+    padding: 0 48px;
+    background: rgba(8,13,30,0.92);
+    border-bottom: 2px solid var(--yellow);
+    z-index: 10;
+    gap: 0;
+  }
+
+  #headerLogo {
+    height: 56px;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 12px rgba(232,252,102,0.3));
+  }
+
+  #headerCenter {
+    flex: 1;
     text-align: center;
   }
-  .queueNowLabel {
+  #headerTitle {
+    font-size: 42px;
+    font-weight: 900;
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    color: var(--yellow);
+    line-height: 1;
+    text-shadow: 0 0 24px rgba(232,252,102,0.45);
+  }
+  #headerSub {
     font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: rgba(232,252,102,0.45);
+    margin-top: 5px;
+  }
+
+  #headerRight {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: 3px;
     text-transform: uppercase;
-    color: #E8FC66;
-    margin-bottom: 10px;
+    color: rgba(255,255,255,0.35);
   }
-  .queueNowName {
-    font-size: 48px;
+  .liveDot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #19f6ff;
+    box-shadow: 0 0 8px rgba(25,246,255,0.8);
+    animation: blink 1.8s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ════════════════════════════════════════════
+     MAIN 3-COLUMN LAYOUT
+  ════════════════════════════════════════════ */
+  #main {
+    position: absolute;
+    top: 96px; left: 0; right: 0; bottom: 0;
+    display: flex;
+  }
+
+  /* ── Shared panel header label ── */
+  .secLabel {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--yellow);
+    margin-bottom: 14px;
+    flex-shrink: 0;
+  }
+  .secDivider {
+    height: 1px;
+    background: linear-gradient(90deg, var(--yellow), transparent);
+    margin-bottom: 20px;
+    flex-shrink: 0;
+  }
+
+  /* ════════════════════════════════════════════
+     LEFT COLUMN  —  QR + CTA
+  ════════════════════════════════════════════ */
+  #colLeft {
+    width: 420px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 36px 40px;
+    border-right: 1px solid var(--border);
+    text-align: center;
+    gap: 22px;
+  }
+
+  #qrFrame {
+    padding: 12px;
+    background: #fff;
+    border-radius: 16px;
+    border: 3px solid var(--yellow);
+    box-shadow:
+      0 0 28px rgba(232,252,102,0.25),
+      0 0 60px rgba(232,252,102,0.08);
+  }
+  #qrFrame img {
+    width: 220px;
+    height: 220px;
+    display: block;
+    border-radius: 6px;
+  }
+
+  #ctaTitle {
+    font-size: 36px;
+    font-weight: 900;
+    line-height: 1.15;
+    color: var(--yellow);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: 0 0 18px rgba(232,252,102,0.3);
+  }
+
+  .ctaSeparator {
+    width: 56px;
+    height: 3px;
+    background: linear-gradient(90deg, var(--cyan), var(--yellow));
+    border-radius: 2px;
+  }
+
+  #ctaPrize {
+    font-size: 17px;
+    color: rgba(255,255,255,0.7);
+    line-height: 1.6;
+    max-width: 340px;
+  }
+  #ctaPrize strong {
+    color: #fff;
+    font-weight: 800;
+  }
+
+  /* ════════════════════════════════════════════
+     CENTER COLUMN  —  LEADERBOARD
+  ════════════════════════════════════════════ */
+  #colCenter {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 36px 56px;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  #lbWrapper {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  #lbWrapper::-webkit-scrollbar { display: none; }
+
+  table.lbTable {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  table.lbTable thead th {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(232,252,102,0.55);
+    padding: 0 16px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.lbTable thead th.name { text-align: left; }
+  table.lbTable thead th.score { text-align: right; }
+  table.lbTable thead th.rank { text-align: center; width: 80px; }
+
+  table.lbTable tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  table.lbTable tbody td {
+    padding: 12px 16px;
+    font-size: 22px;
+    color: rgba(255,255,255,0.8);
+    font-weight: 600;
+  }
+  td.rank  { text-align: center; width: 80px; font-weight: 900; font-size: 20px; color: rgba(255,255,255,0.3); }
+  td.name  { text-align: left; }
+  td.score { text-align: right; font-weight: 800; }
+  table.lbTable tbody tr:not(.top-1):not(.top-2):not(.top-3):nth-child(even) {
+    background: rgba(255,255,255,0.02);
+  }
+
+  /* ── Top 3 rows ── */
+  tr.top-1 {
+    background: rgba(255,215,0,0.09) !important;
+    border-bottom: 1px solid rgba(255,215,0,0.18) !important;
+    border-left: 3px solid var(--gold);
+  }
+  tr.top-1 td { font-size: 30px; color: #fff; }
+  tr.top-1 td.rank { color: var(--gold); font-size: 26px; text-shadow: 0 0 12px rgba(255,215,0,0.6); }
+  tr.top-1 td.score { color: var(--gold); text-shadow: 0 0 10px rgba(255,215,0,0.4); }
+
+  tr.top-2 {
+    background: rgba(192,192,192,0.07) !important;
+    border-bottom: 1px solid rgba(192,192,192,0.15) !important;
+    border-left: 3px solid var(--silver);
+  }
+  tr.top-2 td { font-size: 26px; color: #fff; }
+  tr.top-2 td.rank { color: var(--silver); font-size: 22px; }
+  tr.top-2 td.score { color: var(--silver); }
+
+  tr.top-3 {
+    background: rgba(205,127,50,0.07) !important;
+    border-bottom: 1px solid rgba(205,127,50,0.15) !important;
+    border-left: 3px solid var(--bronze);
+  }
+  tr.top-3 td { font-size: 24px; color: #fff; }
+  tr.top-3 td.rank { color: var(--bronze); font-size: 20px; }
+  tr.top-3 td.score { color: var(--bronze); }
+
+  /* ════════════════════════════════════════════
+     RIGHT COLUMN  —  QUEUE
+  ════════════════════════════════════════════ */
+  #colRight {
+    width: 420px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 36px 40px;
+    border-left: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .nowPlayingCard {
+    background: rgba(232,252,102,0.07);
+    border: 1px solid rgba(232,252,102,0.2);
+    border-radius: 14px;
+    padding: 18px 22px;
+    text-align: center;
+    margin-bottom: 30px;
+    flex-shrink: 0;
+  }
+  #nowPlayingName {
+    font-size: 44px;
     font-weight: 900;
     color: #fff;
     line-height: 1.1;
     word-break: break-word;
-    min-height: 54px;
+    min-height: 50px;
+    text-shadow: 0 0 16px rgba(255,255,255,0.15);
   }
-  .queueWaiting {
-    padding: 20px 0 0;
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-  .queueWaitingLabel {
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: #E8FC66;
-    margin-bottom: 14px;
-  }
+
+  #queueWaitList { flex: 1; overflow: hidden; }
   .queueWaitRow {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 0;
+    gap: 14px;
+    padding: 12px 0;
     border-bottom: 1px solid rgba(255,255,255,0.05);
-    font-size: 24px;
-    color: #f5f5f5;
+    font-size: 23px;
+    color: rgba(255,255,255,0.85);
   }
   .queueWaitRow:last-child { border-bottom: none; }
   .queueWaitPos {
     width: 32px;
-    color: #E8FC66;
+    color: var(--yellow);
     font-weight: 800;
     text-align: center;
     flex-shrink: 0;
   }
   .queueEmpty {
-    color: #555;
-    font-size: 18px;
+    color: #444;
+    font-size: 17px;
     font-style: italic;
+    padding-top: 6px;
   }
 
-  /* ── Leaderboard zones ──────────────────────────────────────────────── */
-  #zoneLb1 {
-    position: absolute;
-    left: var(--zone-lb1-x);
-    top: var(--zone-lb1-y);
-    width: var(--zone-lb1-w);
-    height: var(--zone-lb1-h);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  #zoneLb2 {
-    position: absolute;
-    left: var(--zone-lb2-x);
-    top: var(--zone-lb2-y);
-    width: var(--zone-lb2-w);
-    height: var(--zone-lb2-h);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  .lbTitle {
-    font-size: 20px;
-    font-weight: 800;
-    color: #E8FC66;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid rgba(232,252,102,0.25);
-    margin-bottom: 4px;
-    flex-shrink: 0;
-  }
-  .lbTableWrapper {
-    flex: 1;
-    overflow-y: auto;
-    scrollbar-width: none;
-  }
-  .lbTableWrapper::-webkit-scrollbar { display: none; }
-  table.leaderboardTable {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 26px;
-  }
-  thead th {
-    color: #E8FC66;
-    padding: 10px 12px;
-    font-weight: 700;
-    font-size: 14px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    text-align: center;
-    border-bottom: 1px solid rgba(232,252,102,0.2);
-  }
-  tbody td {
-    padding: 12px 12px;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-    color: #f5f5f5;
-  }
-  td.rank  { width: 60px; text-align: center; font-weight: bold; color: #E8FC66; }
-  td.name  { text-align: left; }
-  td.score { text-align: right; width: 100px; font-weight: bold; }
-  tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
-  tbody tr:last-child td   { border-bottom: none; }
-
-  /* ── QR code zone ───────────────────────────────────────────────────── */
-  #zoneQr {
-    position: absolute;
-    left: var(--zone-qr-x);
-    top: var(--zone-qr-y);
-    width: var(--zone-qr-w);
-    height: var(--zone-qr-h);
-  }
-  #zoneQr img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    border-radius: 8px;
-  }
+  /* ── Hidden Moving Target LB (keeps JS wiring alive) ── */
+  #zoneLb1 { display: none; }
 </style>
 </head>
 <body>
 
 <div id="screen">
 
-  <!-- ═══ PLACEHOLDER — remove this block when PNG is added ═══════════ -->
-  <div id="bg-placeholder">
-    <div class="ph-zone" style="left:var(--zone-queue-x);top:var(--zone-queue-y);width:var(--zone-queue-w);height:var(--zone-queue-h)">
-      <span class="ph-label">Queue Panel</span>
+  <!-- ═══ HEADER ══════════════════════════════════════════════════════ -->
+  <div id="header">
+    <img src="gibbon_logo.png" id="headerLogo" alt="Gibbon" />
+    <div id="headerCenter">
+      <div id="headerTitle">Slackboard Survival</div>
+      <div id="headerSub">Live Rangliste · Gibbon Slacklines</div>
     </div>
-    <div class="ph-zone" style="display:none;left:var(--zone-lb1-x);top:var(--zone-lb1-y);width:var(--zone-lb1-w);height:var(--zone-lb1-h)">
-      <span class="ph-label">Moving Target LB</span>
-    </div>
-    <div class="ph-zone" style="left:var(--zone-lb2-x);top:var(--zone-lb2-y);width:var(--zone-lb2-w);height:var(--zone-lb2-h)">
-      <span class="ph-label">Survival LB</span>
-    </div>
-    <div class="ph-zone" style="left:var(--zone-qr-x);top:var(--zone-qr-y);width:var(--zone-qr-w);height:var(--zone-qr-h)">
-      <span class="ph-label">QR Code</span>
-    </div>
-  </div>
-  <!-- ═══ End placeholder ═════════════════════════════════════════════ -->
-
-  <!-- ═══ QUEUE PANEL ══════════════════════════════════════════════════ -->
-  <div id="zoneQueue" aria-label="Live Player Queue">
-    <div class="queueNowPlaying">
-      <div class="queueNowLabel">🎮 Now Playing</div>
-      <div class="queueNowName" id="nowPlayingName">—</div>
-    </div>
-    <div class="queueWaiting">
-      <div class="queueWaitingLabel">Waiting</div>
-      <div id="queueWaitList"><div class="queueEmpty">No one waiting yet</div></div>
+    <div id="headerRight">
+      <span class="liveDot"></span>
+      Live
     </div>
   </div>
 
-  <!-- ═══ MOVING TARGET LEADERBOARD (hidden) ═══════════════════════════ -->
-  <div id="zoneLb1" aria-label="Moving Target Leaderboard" style="display:none">
-    <div class="lbTitle">Moving Target</div>
-    <div class="lbTableWrapper">
-      <table class="leaderboardTable">
-        <thead>
-          <tr><th>Rank</th><th class="name">Name</th><th class="score">Score</th></tr>
-        </thead>
-        <tbody id="leaderboardBodyMoving">
-          <tr><td colspan="3" style="text-align:center;padding:20px;color:#666">Loading…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+  <!-- ═══ MAIN LAYOUT ══════════════════════════════════════════════════ -->
+  <div id="main">
 
-  <!-- ═══ SLACKBOARD SURVIVAL LEADERBOARD ══════════════════════════════ -->
-  <div id="zoneLb2" aria-label="Slackboard Survival Leaderboard">
-    <div class="lbTitle">Slackboard Survival</div>
-    <div class="lbTableWrapper">
-      <table class="leaderboardTable">
-        <thead>
-          <tr><th>Rank</th><th class="name">Name</th><th class="score">Score</th></tr>
-        </thead>
-        <tbody id="leaderboardBodySurvival">
-          <tr><td colspan="3" style="text-align:center;padding:20px;color:#666">Loading…</td></tr>
-        </tbody>
-      </table>
+    <!-- LEFT: QR + CTA ────────────────────────────────────────────── -->
+    <div id="colLeft">
+      <div id="qrFrame">
+        <img src="QR_code_queue.png" alt="QR Code – Warteschlange beitreten" />
+      </div>
+      <div id="ctaTitle">Scannen,<br>Spielen &amp;<br>Preise&nbsp;Gewinnen</div>
+      <div class="ctaSeparator"></div>
+      <div id="ctaPrize">
+        Die <strong>Top&nbsp;3</strong> Platzierungen des Tages erhalten
+        <strong>1h vor Messeschluss</strong> coole Goodies von
+        <strong>Gibbon&nbsp;Slacklines</strong>.
+      </div>
     </div>
-  </div>
 
-  <!-- ═══ QR CODE ═══════════════════════════════════════════════════════ -->
-  <div id="zoneQr">
-    <img src="QR_code_queue.png" alt="QR code to join the queue" />
+    <!-- CENTER: LEADERBOARD ──────────────────────────────────────── -->
+    <div id="colCenter">
+      <div class="secLabel">🏆 &nbsp;Rangliste</div>
+      <div class="secDivider"></div>
+      <div id="lbWrapper">
+        <table class="lbTable" aria-label="Slackboard Survival Rangliste">
+          <thead>
+            <tr>
+              <th class="rank">#</th>
+              <th class="name">Spieler</th>
+              <th class="score">Punkte</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardBodySurvival">
+            <tr><td colspan="3" style="text-align:center;padding:28px;color:#444;font-style:italic">Lade Rangliste…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT: QUEUE ─────────────────────────────────────────────── -->
+    <div id="colRight">
+      <div class="secLabel">🎮 &nbsp;Jetzt am Spielen</div>
+      <div class="nowPlayingCard">
+        <div id="nowPlayingName">—</div>
+      </div>
+      <div class="secLabel">Warteschlange</div>
+      <div class="secDivider"></div>
+      <div id="queueWaitList">
+        <div class="queueEmpty">Niemand wartet gerade</div>
+      </div>
+    </div>
+
+  </div><!-- /#main -->
+
+  <!-- Hidden Moving Target LB — keeps JS subscription working ──────── -->
+  <div id="zoneLb1" style="display:none" aria-hidden="true">
+    <table><tbody id="leaderboardBodyMoving"></tbody></table>
   </div>
 
 </div><!-- /#screen -->
 
 <script>
-  // ── Scale #screen to fill the viewport ────────────────────────────
+  // ── Scale #screen to fill viewport ──────────────────────────────
   function scaleScreen() {
     const s = document.getElementById('screen');
     const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
@@ -325,22 +453,24 @@
   window.addEventListener('resize', scaleScreen);
   scaleScreen();
 
-  // ── Elements ──────────────────────────────────────────────────────
+  // ── Elements ────────────────────────────────────────────────────
   const leaderboardBodyMoving   = document.getElementById('leaderboardBodyMoving');
   const leaderboardBodySurvival = document.getElementById('leaderboardBodySurvival');
   const nowPlayingName          = document.getElementById('nowPlayingName');
   const queueWaitList           = document.getElementById('queueWaitList');
 
-  // ── State ─────────────────────────────────────────────────────────
+  // ── State ───────────────────────────────────────────────────────
   let unsubscribeMoving   = null;
   let unsubscribeSurvival = null;
 
-  // ── Helpers ───────────────────────────────────────────────────────
+  // ── Helpers ─────────────────────────────────────────────────────
   function escapeHtml(s) {
     return String(s || '').replace(/[&<>"']/g, ch =>
       ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch])
     );
   }
+
+  const MEDALS = ['🥇', '🥈', '🥉'];
 
   function subscribeToLeaderboard(collectionRef, targetBody) {
     return collectionRef
@@ -350,20 +480,22 @@
       .onSnapshot(snapshot => {
         targetBody.innerHTML = '';
         if (snapshot.empty) {
-          targetBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#666">No scores yet.</td></tr>`;
+          targetBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:28px;color:#444;font-style:italic">Noch keine Einträge.</td></tr>`;
           return;
         }
         let rank = 1;
         snapshot.forEach(doc => {
           const data = doc.data();
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td class="rank">${rank}</td><td class="name">${escapeHtml(data.playerName)}</td><td class="score">${data.score}</td>`;
+          if (rank <= 3) tr.classList.add('top-' + rank);
+          const rankCell = rank <= 3 ? MEDALS[rank - 1] : rank;
+          tr.innerHTML = `<td class="rank">${rankCell}</td><td class="name">${escapeHtml(data.playerName)}</td><td class="score">${data.score}</td>`;
           targetBody.appendChild(tr);
           rank++;
         });
       }, error => {
         console.error('Error fetching leaderboard:', error);
-        targetBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:#e60000">Error loading leaderboard.</td></tr>`;
+        targetBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:28px;color:#e60000">Fehler beim Laden.</td></tr>`;
       });
   }
 
@@ -373,28 +505,25 @@
       .where('status', '==', 'playing')
       .limit(1)
       .onSnapshot(snap => {
-        if (snap.empty) {
-          nowPlayingName.textContent = '—';
-        } else {
-          const d = snap.docs[0].data();
-          nowPlayingName.textContent = d.username || d.firstName || '—';
-        }
+        nowPlayingName.textContent = snap.empty
+          ? '—'
+          : (snap.docs[0].data().username || snap.docs[0].data().firstName || '—');
       }, err => { console.error('Queue playing snapshot:', err); });
 
-    // Waiting list — no orderBy to avoid composite index; sort client-side
+    // Waiting list — client-side sort to avoid composite index
     db.collection('queue')
       .where('status', '==', 'waiting')
       .limit(20)
       .onSnapshot(snap => {
         queueWaitList.innerHTML = '';
         if (snap.empty) {
-          queueWaitList.innerHTML = '<div class="queueEmpty">No one waiting yet</div>';
+          queueWaitList.innerHTML = '<div class="queueEmpty">Niemand wartet gerade</div>';
           return;
         }
         const entries = [];
         snap.forEach(doc => entries.push(doc.data()));
         entries.sort((a, b) => (a.order || 0) - (b.order || 0));
-        entries.slice(0, 8).forEach((d, i) => {
+        entries.slice(0, 10).forEach((d, i) => {
           const row = document.createElement('div');
           row.className = 'queueWaitRow';
           row.innerHTML = `<span class="queueWaitPos">${i + 1}</span><span>${escapeHtml(d.username || d.firstName || '?')}</span>`;
@@ -403,7 +532,7 @@
       }, err => { console.error('Queue waiting snapshot:', err); });
   }
 
-  // ── Init ──────────────────────────────────────────────────────────
+  // ── Init ────────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
     unsubscribeMoving   = subscribeToLeaderboard(db.collection('leaderboardLevel2'),  leaderboardBodyMoving);
     unsubscribeSurvival = subscribeToLeaderboard(db.collection('leaderboardSurvival'), leaderboardBodySurvival);
