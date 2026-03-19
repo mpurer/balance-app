@@ -99,9 +99,9 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
   }
 
   #gameOverCard{width:min(720px,92%);background:#fff;border-radius:12px;padding:18px 20px 16px;box-shadow:0 12px 36px rgba(0,0,0,0.08);text-align:center}
-  #finalScoreBig{margin-bottom:6px;word-break:break-word}
-  .scoreLabel{display:block;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#999;margin-bottom:4px}
-  .scoreValue{display:block;font-size:clamp(32px,7vw,52px);font-weight:900;line-height:1;background:linear-gradient(135deg,#19f6ff 0%,#e8fc66 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 10px rgba(25,246,255,0.25))}
+  #finalScoreBig{margin-bottom:6px;display:flex;align-items:baseline;justify-content:center;gap:10px;flex-wrap:wrap}
+  .scoreLabel{font-size:15px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#999}
+  .scoreValue{font-size:clamp(32px,7vw,52px);font-weight:900;line-height:1;background:linear-gradient(135deg,#19f6ff 0%,#e8fc66 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 10px rgba(25,246,255,0.25))}
   .btnPrimary{background:#e8fc66;color:#111;border:0;padding:14px 24px;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s ease}
   .btnSecondary{background:#f0f0f0;color:#111;border:0;padding:14px 24px;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s ease}
   .btnPrimary:hover{background:#d8f540;transform:scale(1.02)}
@@ -115,7 +115,7 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
   .toggle-tab.active{background:#e8fc66;color:#111;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
   .toggle-tab:hover:not(.active){color:#111}
 
-  #leaderboardContainer{margin-top:12px;border-radius:8px;overflow:hidden;border:1px solid #eee;background:#fff;max-height:200px;overflow-y:auto}
+  #leaderboardContainer{margin-top:12px;border-radius:8px;overflow:hidden;border:1px solid #eee;background:#fff;height:180px;overflow-y:auto}
   table#leaderboardTable{width:100%;border-collapse:collapse;font-size:15px}
   thead th{background:#e8fc66;color:#111;padding:12px 14px;font-weight:700;text-align:center;position:sticky;top:0;z-index:1}
   tbody td{padding:12px 14px;border-bottom:1px solid #f2f5ff;color:#111}
@@ -196,9 +196,8 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
   #queueEmptyBox img{width:160px;border-radius:12px}
 
   /* --- Game over additions --- */
-  #publishedNotice{display:none;color:#888;font-weight:500;font-size:12px;padding:2px 0;margin:4px auto;width:fit-content}
-  #rankDisplay{font-size:20px;color:#111;font-weight:800;margin:6px 0 12px;min-height:26px}
-  #autoResetCountdown{font-size:13px;color:#999;margin-top:10px}
+  #rankDisplay{font-size:18px;color:#111;font-weight:800;margin:4px 0 10px;min-height:24px}
+  #autoResetCountdown{font-size:13px;color:#999;margin-top:6px;min-height:18px}
   tbody tr.myRow td{background:#e8fc66 !important;font-weight:700;color:#111}
 </style>
 <!-- Firebase SDKs -->
@@ -380,7 +379,6 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
     <div id="gameOverOverlay" aria-hidden="true">
       <div id="gameOverCard">
         <div id="finalScoreBig">Score: 0</div>
-        <div id="publishedNotice">✓ Published to leaderboard!</div>
         <div id="rankDisplay"></div>
 
         <div id="attemptDisplay" style="font-size:14px;font-weight:700;color:#999;margin-bottom:10px;letter-spacing:0.5px"></div>
@@ -457,7 +455,6 @@ const countdownNumber = document.getElementById('countdownNumber');
 const countdownFill = document.getElementById('countdownFill');
 const gameOverOverlay = document.getElementById('gameOverOverlay');
 const finalScoreBig = document.getElementById('finalScoreBig');
-const publishedNotice = document.getElementById('publishedNotice');
 const rankDisplay = document.getElementById('rankDisplay');
 const nextPlayerBtn = document.getElementById('nextPlayerBtn');
 const playAgainBtn = document.getElementById('playAgainBtn');
@@ -1442,9 +1439,8 @@ async function endGame(){
   playAgainBtn.style.display = currentAttempt < MAX_ATTEMPTS ? 'block' : 'none';
 
   const label = currentLevel === 3 ? 'Punkte' : 'Score';
-  finalScoreBig.innerHTML = `<span class="scoreLabel">${label}</span><span class="scoreValue">${Math.floor(score)}</span>`;
+  finalScoreBig.innerHTML = `<span class="scoreValue">${Math.floor(score)}</span><span class="scoreLabel">${label}</span>`;
 
-  publishedNotice.style.display = 'none';
   rankDisplay.textContent = '';
   leaderboardBody.innerHTML = '';
 
@@ -1456,7 +1452,6 @@ async function endGame(){
     saveLocalScore(currentPlayer.username, score, currentLevel);
     newDocId = await saveFirebaseScore(currentPlayer.username, score, currentLevel);
     recordPlay(currentPlayer.email); // fire-and-forget
-    publishedNotice.style.display = 'block';
     const rank = await getPlayerRank(score, currentLevel);
     if(rank !== null){
       const suffix = rank === 1 ? 'st' : rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th';
