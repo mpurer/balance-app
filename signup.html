@@ -195,6 +195,7 @@ function showPhase(name){
   document.getElementById('newUserPhase').style.display = name==='newUser' ? 'block' : 'none';
   document.getElementById('confirmPhase').style.display = name==='confirm' ? 'block' : 'none';
   if(name === 'confirm') document.getElementById('regTitle').textContent = 'Warteschlange';
+  if(name === 'returning') document.getElementById('regTitle').textContent = '';
 }
 
 /* ---- Firebase helpers ---- */
