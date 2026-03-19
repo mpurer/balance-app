@@ -48,11 +48,6 @@
     width: 1920px; height: 1080px;
     transform-origin: top left;
     background-color: var(--bg);
-    /* Tighter, more visible retro grid */
-    background-image:
-      linear-gradient(rgba(232,252,102,0.07) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(232,252,102,0.07) 1px, transparent 1px);
-    background-size: 60px 60px;
     color: #f0f0f0;
     overflow: hidden;
   }
@@ -235,13 +230,22 @@
   }
 
   #ctaPrize {
-    font-size: 22px;
-    color: rgba(255,255,255,0.88);
-    line-height: 1.65;
-    max-width: 360px;
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1.55;
+    max-width: 370px;
+    /* Retro sticker look */
+    background: var(--yellow);
+    color: #111;
+    padding: 18px 22px;
+    border-radius: 6px;
+    border: 3px solid #111;
+    box-shadow: 5px 5px 0px #111;
+    transform: rotate(-2deg);
+    text-align: left;
   }
   #ctaPrize strong {
-    color: #fff;
+    color: #000;
     font-weight: 900;
   }
 
