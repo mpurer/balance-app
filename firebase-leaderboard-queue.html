@@ -33,12 +33,12 @@
   :root {
     --yellow:  #e8fc66;
     --cyan:    #19f6ff;
-    --bg:      #0b1226;
-    --panel:   rgba(255,255,255,0.03);
-    --border:  rgba(232,252,102,0.18);
+    --bg:      #12203d;
+    --panel:   rgba(255,255,255,0.055);
+    --border:  rgba(232,252,102,0.28);
     --gold:    #ffd700;
-    --silver:  #c0c0c0;
-    --bronze:  #cd7f32;
+    --silver:  #c8c8c8;
+    --bronze:  #e8944a;
   }
 
   /* ── 1920×1080 canvas scaled to any screen ── */
@@ -48,16 +48,16 @@
     width: 1920px; height: 1080px;
     transform-origin: top left;
     background-color: var(--bg);
-    /* Retro grid */
+    /* Tighter, more visible retro grid */
     background-image:
-      linear-gradient(rgba(232,252,102,0.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(232,252,102,0.045) 1px, transparent 1px);
-    background-size: 80px 80px;
-    color: #f5f5f5;
+      linear-gradient(rgba(232,252,102,0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232,252,102,0.07) 1px, transparent 1px);
+    background-size: 60px 60px;
+    color: #f0f0f0;
     overflow: hidden;
   }
 
-  /* Scanline overlay */
+  /* Subtle scanline overlay — lighter than before */
   #screen::after {
     content: '';
     position: absolute;
@@ -66,8 +66,8 @@
       0deg,
       transparent,
       transparent 3px,
-      rgba(0,0,0,0.055) 3px,
-      rgba(0,0,0,0.055) 4px
+      rgba(0,0,0,0.03) 3px,
+      rgba(0,0,0,0.03) 4px
     );
     pointer-events: none;
     z-index: 300;
@@ -79,20 +79,20 @@
   #header {
     position: absolute;
     top: 0; left: 0; right: 0;
-    height: 96px;
+    height: 104px;
     display: flex;
     align-items: center;
-    padding: 0 48px;
-    background: rgba(8,13,30,0.92);
-    border-bottom: 2px solid var(--yellow);
+    padding: 0 52px;
+    background: rgba(6,10,24,0.95);
+    border-bottom: 3px solid var(--yellow);
+    box-shadow: 0 4px 40px rgba(232,252,102,0.12);
     z-index: 10;
-    gap: 0;
   }
 
   #headerLogo {
-    height: 56px;
+    height: 62px;
     flex-shrink: 0;
-    filter: drop-shadow(0 0 12px rgba(232,252,102,0.3));
+    filter: drop-shadow(0 0 14px rgba(232,252,102,0.4));
   }
 
   #headerCenter {
@@ -100,21 +100,23 @@
     text-align: center;
   }
   #headerTitle {
-    font-size: 42px;
+    font-size: 48px;
     font-weight: 900;
-    letter-spacing: 8px;
+    letter-spacing: 9px;
     text-transform: uppercase;
     color: var(--yellow);
     line-height: 1;
-    text-shadow: 0 0 24px rgba(232,252,102,0.45);
+    text-shadow:
+      0 0 20px rgba(232,252,102,0.6),
+      0 0 60px rgba(232,252,102,0.2);
   }
   #headerSub {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 700;
     letter-spacing: 5px;
     text-transform: uppercase;
-    color: rgba(232,252,102,0.45);
-    margin-top: 5px;
+    color: rgba(232,252,102,0.5);
+    margin-top: 6px;
   }
 
   #headerRight {
@@ -122,45 +124,60 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     letter-spacing: 3px;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.45);
   }
   .liveDot {
-    width: 10px; height: 10px;
+    width: 12px; height: 12px;
     border-radius: 50%;
-    background: #19f6ff;
-    box-shadow: 0 0 8px rgba(25,246,255,0.8);
+    background: var(--cyan);
+    box-shadow: 0 0 10px rgba(25,246,255,0.9), 0 0 24px rgba(25,246,255,0.4);
     animation: blink 1.8s ease-in-out infinite;
     flex-shrink: 0;
   }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
 
   /* ════════════════════════════════════════════
      MAIN 3-COLUMN LAYOUT
   ════════════════════════════════════════════ */
   #main {
     position: absolute;
-    top: 96px; left: 0; right: 0; bottom: 0;
+    top: 104px; left: 0; right: 0; bottom: 0;
     display: flex;
   }
 
-  /* ── Shared panel header label ── */
+  /* ── Shared section label ── */
   .secLabel {
-    font-size: 11px;
-    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 19px;
+    font-weight: 800;
     letter-spacing: 4px;
     text-transform: uppercase;
     color: var(--yellow);
     margin-bottom: 14px;
     flex-shrink: 0;
+    text-shadow: 0 0 10px rgba(232,252,102,0.35);
+  }
+  /* Yellow accent bar before label */
+  .secLabel::before {
+    content: '';
+    display: block;
+    width: 5px;
+    height: 22px;
+    background: var(--yellow);
+    border-radius: 3px;
+    box-shadow: 0 0 8px rgba(232,252,102,0.6);
+    flex-shrink: 0;
   }
   .secDivider {
-    height: 1px;
-    background: linear-gradient(90deg, var(--yellow), transparent);
-    margin-bottom: 20px;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(232,252,102,0.5), transparent);
+    margin-bottom: 22px;
     flex-shrink: 0;
   }
 
@@ -168,60 +185,64 @@
      LEFT COLUMN  —  QR + CTA
   ════════════════════════════════════════════ */
   #colLeft {
-    width: 420px;
+    width: 440px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 36px 40px;
+    padding: 36px 44px;
     border-right: 1px solid var(--border);
+    background: rgba(0,0,0,0.18);
     text-align: center;
-    gap: 22px;
+    gap: 24px;
   }
 
   #qrFrame {
-    padding: 12px;
+    padding: 14px;
     background: #fff;
-    border-radius: 16px;
-    border: 3px solid var(--yellow);
+    border-radius: 18px;
+    border: 4px solid var(--yellow);
     box-shadow:
-      0 0 28px rgba(232,252,102,0.25),
-      0 0 60px rgba(232,252,102,0.08);
+      0 0 32px rgba(232,252,102,0.35),
+      0 0 80px rgba(232,252,102,0.12);
   }
   #qrFrame img {
-    width: 220px;
-    height: 220px;
+    width: 210px;
+    height: 210px;
     display: block;
     border-radius: 6px;
   }
 
   #ctaTitle {
-    font-size: 36px;
+    font-size: 38px;
     font-weight: 900;
-    line-height: 1.15;
+    line-height: 1.18;
     color: var(--yellow);
     text-transform: uppercase;
     letter-spacing: 2px;
-    text-shadow: 0 0 18px rgba(232,252,102,0.3);
+    text-shadow:
+      0 0 16px rgba(232,252,102,0.45),
+      0 0 40px rgba(232,252,102,0.15);
   }
 
   .ctaSeparator {
-    width: 56px;
-    height: 3px;
+    width: 64px;
+    height: 4px;
     background: linear-gradient(90deg, var(--cyan), var(--yellow));
     border-radius: 2px;
+    box-shadow: 0 0 10px rgba(25,246,255,0.4);
   }
 
   #ctaPrize {
-    font-size: 17px;
-    color: rgba(255,255,255,0.7);
-    line-height: 1.6;
-    max-width: 340px;
+    font-size: 22px;
+    color: rgba(255,255,255,0.88);
+    line-height: 1.65;
+    max-width: 360px;
   }
   #ctaPrize strong {
     color: #fff;
-    font-weight: 800;
+    font-weight: 900;
   }
 
   /* ════════════════════════════════════════════
@@ -231,7 +252,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 36px 56px;
+    padding: 36px 60px;
     overflow: hidden;
     min-width: 0;
   }
@@ -248,117 +269,122 @@
     border-collapse: collapse;
   }
   table.lbTable thead th {
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 700;
     letter-spacing: 3px;
     text-transform: uppercase;
-    color: rgba(232,252,102,0.55);
-    padding: 0 16px 12px;
-    border-bottom: 1px solid var(--border);
+    color: rgba(232,252,102,0.65);
+    padding: 0 16px 14px;
+    border-bottom: 2px solid rgba(232,252,102,0.2);
   }
-  table.lbTable thead th.name { text-align: left; }
+  table.lbTable thead th.name  { text-align: left; }
   table.lbTable thead th.score { text-align: right; }
-  table.lbTable thead th.rank { text-align: center; width: 80px; }
+  table.lbTable thead th.rank  { text-align: center; width: 90px; }
 
   table.lbTable tbody tr {
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    transition: background 0.2s;
   }
   table.lbTable tbody td {
-    padding: 12px 16px;
-    font-size: 22px;
-    color: rgba(255,255,255,0.8);
+    padding: 13px 16px;
+    font-size: 26px;
+    color: rgba(255,255,255,0.88);
     font-weight: 600;
   }
-  td.rank  { text-align: center; width: 80px; font-weight: 900; font-size: 20px; color: rgba(255,255,255,0.3); }
+  td.rank  { text-align: center; width: 90px; font-weight: 900; font-size: 22px; color: rgba(255,255,255,0.35); }
   td.name  { text-align: left; }
   td.score { text-align: right; font-weight: 800; }
   table.lbTable tbody tr:not(.top-1):not(.top-2):not(.top-3):nth-child(even) {
-    background: rgba(255,255,255,0.02);
+    background: rgba(255,255,255,0.03);
   }
 
   /* ── Top 3 rows ── */
   tr.top-1 {
-    background: rgba(255,215,0,0.09) !important;
-    border-bottom: 1px solid rgba(255,215,0,0.18) !important;
-    border-left: 3px solid var(--gold);
+    background: rgba(255,215,0,0.12) !important;
+    border-bottom: 1px solid rgba(255,215,0,0.22) !important;
+    border-left: 4px solid var(--gold);
   }
-  tr.top-1 td { font-size: 30px; color: #fff; }
-  tr.top-1 td.rank { color: var(--gold); font-size: 26px; text-shadow: 0 0 12px rgba(255,215,0,0.6); }
-  tr.top-1 td.score { color: var(--gold); text-shadow: 0 0 10px rgba(255,215,0,0.4); }
+  tr.top-1 td { font-size: 34px; color: #fff; font-weight: 700; }
+  tr.top-1 td.rank  { color: var(--gold); font-size: 28px; text-shadow: 0 0 14px rgba(255,215,0,0.7); }
+  tr.top-1 td.score { color: var(--gold); text-shadow: 0 0 12px rgba(255,215,0,0.5); font-weight: 900; }
 
   tr.top-2 {
-    background: rgba(192,192,192,0.07) !important;
-    border-bottom: 1px solid rgba(192,192,192,0.15) !important;
-    border-left: 3px solid var(--silver);
+    background: rgba(200,200,200,0.08) !important;
+    border-bottom: 1px solid rgba(200,200,200,0.18) !important;
+    border-left: 4px solid var(--silver);
   }
-  tr.top-2 td { font-size: 26px; color: #fff; }
-  tr.top-2 td.rank { color: var(--silver); font-size: 22px; }
-  tr.top-2 td.score { color: var(--silver); }
+  tr.top-2 td { font-size: 30px; color: #fff; font-weight: 700; }
+  tr.top-2 td.rank  { color: var(--silver); font-size: 25px; }
+  tr.top-2 td.score { color: var(--silver); font-weight: 900; }
 
   tr.top-3 {
-    background: rgba(205,127,50,0.07) !important;
-    border-bottom: 1px solid rgba(205,127,50,0.15) !important;
-    border-left: 3px solid var(--bronze);
+    background: rgba(232,148,74,0.09) !important;
+    border-bottom: 1px solid rgba(232,148,74,0.18) !important;
+    border-left: 4px solid var(--bronze);
   }
-  tr.top-3 td { font-size: 24px; color: #fff; }
-  tr.top-3 td.rank { color: var(--bronze); font-size: 20px; }
-  tr.top-3 td.score { color: var(--bronze); }
+  tr.top-3 td { font-size: 28px; color: #fff; font-weight: 700; }
+  tr.top-3 td.rank  { color: var(--bronze); font-size: 23px; }
+  tr.top-3 td.score { color: var(--bronze); font-weight: 900; }
 
   /* ════════════════════════════════════════════
      RIGHT COLUMN  —  QUEUE
   ════════════════════════════════════════════ */
   #colRight {
-    width: 420px;
+    width: 440px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    padding: 36px 40px;
+    padding: 36px 44px;
     border-left: 1px solid var(--border);
+    background: rgba(0,0,0,0.18);
     overflow: hidden;
   }
 
   .nowPlayingCard {
-    background: rgba(232,252,102,0.07);
-    border: 1px solid rgba(232,252,102,0.2);
-    border-radius: 14px;
-    padding: 18px 22px;
+    background: rgba(232,252,102,0.09);
+    border: 2px solid rgba(232,252,102,0.3);
+    border-radius: 16px;
+    padding: 20px 24px;
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 32px;
     flex-shrink: 0;
+    box-shadow: 0 0 24px rgba(232,252,102,0.08);
   }
   #nowPlayingName {
-    font-size: 44px;
+    font-size: 50px;
     font-weight: 900;
     color: #fff;
     line-height: 1.1;
     word-break: break-word;
-    min-height: 50px;
-    text-shadow: 0 0 16px rgba(255,255,255,0.15);
+    min-height: 56px;
+    text-shadow: 0 0 20px rgba(255,255,255,0.2);
   }
 
   #queueWaitList { flex: 1; overflow: hidden; }
   .queueWaitRow {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 12px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    font-size: 23px;
-    color: rgba(255,255,255,0.85);
+    gap: 16px;
+    padding: 13px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    font-size: 27px;
+    color: rgba(255,255,255,0.9);
+    font-weight: 600;
   }
   .queueWaitRow:last-child { border-bottom: none; }
   .queueWaitPos {
-    width: 32px;
+    width: 36px;
     color: var(--yellow);
-    font-weight: 800;
+    font-weight: 900;
     text-align: center;
     flex-shrink: 0;
+    text-shadow: 0 0 8px rgba(232,252,102,0.5);
   }
   .queueEmpty {
-    color: #444;
-    font-size: 17px;
+    color: rgba(255,255,255,0.3);
+    font-size: 20px;
     font-style: italic;
-    padding-top: 6px;
+    padding-top: 8px;
   }
 
   /* ── Hidden Moving Target LB (keeps JS wiring alive) ── */
