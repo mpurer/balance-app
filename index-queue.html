@@ -23,7 +23,7 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
 #arena{position:fixed;inset:0;overflow:hidden;background:var(--bg);display:flex;align-items:center;justify-content:center}
   canvas#targetCanvas{position:absolute;left:0;top:0;width:100%;height:100%;display:none}
 #dot{position:absolute;width:var(--dot-size);height:var(--dot-size);border-radius:50%;background:#19f6ff;transform:translate(-50%,-50%);box-shadow:0 0 22px rgba(25,246,255,0.9),0 0 44px rgba(25,246,255,0.4);z-index:50;pointer-events:none;display:none}
-  .ui-pill{position:fixed;top:calc(env(safe-area-inset-top,0px) + var(--corner-pad));background:rgba(255,255,255,0.95);padding:20px 32px;border-radius:16px;font-weight:800;font-size:36px;z-index:30;box-shadow:0 8px 32px rgba(0,0,0,0.08);display:none;letter-spacing:-0.5px}
+  .ui-pill{position:fixed;top:calc(env(safe-area-inset-top,0px) + var(--corner-pad));background:rgba(255,255,255,0.95);padding:10px 18px;border-radius:12px;font-weight:800;font-size:20px;z-index:30;box-shadow:0 4px 16px rgba(0,0,0,0.08);display:none;letter-spacing:-0.3px}
   #scoreDisplay{left:calc(env(safe-area-inset-left,0px) + var(--corner-pad))}
   #timerDisplay{right:calc(env(safe-area-inset-right,0px) + var(--corner-pad))}
   .center-btn{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;padding:20px 48px;border-radius:16px;border:0;background:#e8fc66;color:#111;font-weight:800;font-size:20px;box-shadow:0 12px 40px rgba(0,0,0,0.25);cursor:pointer;transition:all 0.2s ease;letter-spacing:0.5px;min-width:240px}
@@ -147,7 +147,9 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
   #instructionsOverlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:70;background:rgba(11,18,38,0.95)}
   #instructionsCard{background:#fff;padding:32px 40px;border-radius:20px;max-width:520px;margin:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center}
   #instructionsCard .instructions-title{font-size:24px;font-weight:800;color:#111;margin-bottom:16px}
-  #instructionsCard .instructions-text{font-size:16px;color:#333;line-height:1.6;margin-bottom:24px}
+  #instructionsCard .instructions-lang-block{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;text-align:left}
+  #instructionsCard .instructions-lang-label{font-size:22px;flex-shrink:0;line-height:1.4}
+  #instructionsCard .instructions-text{font-size:15px;color:#333;line-height:1.6;margin-bottom:0}
   #closeInstructionsBtn{background:#e8fc66;color:#111;border:0;padding:12px 32px;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 6px 20px rgba(0,0,0,0.25)}
   #closeInstructionsBtn:hover{background:#d8f540;transform:scale(1.05)}
   #closeInstructionsBtn:active{transform:scale(0.95)}
@@ -258,7 +260,14 @@ html,body{height:100%;width:100%;margin:0;padding:0;background:var(--bg);font-fa
     <div id="instructionsOverlay">
       <div id="instructionsCard">
         <div class="instructions-title">How to play?</div>
-        <div class="instructions-text" id="instructionsText"></div>
+        <div class="instructions-lang-block">
+          <div class="instructions-lang-label">🇩🇪</div>
+          <div class="instructions-text" id="instructionsTextDe"></div>
+        </div>
+        <div class="instructions-lang-block">
+          <div class="instructions-lang-label">🇬🇧</div>
+          <div class="instructions-text" id="instructionsTextEn"></div>
+        </div>
         <button id="closeInstructionsBtn">Got it!</button>
       </div>
     </div>
@@ -433,7 +442,8 @@ const calibrateBtn = document.getElementById('calibrateBtn');
 const calibrateHint = document.getElementById('calibrateHint');
 const howToPlayBtn = document.getElementById('howToPlayBtn');
 const instructionsOverlay = document.getElementById('instructionsOverlay');
-const instructionsText = document.getElementById('instructionsText');
+const instructionsTextDe = document.getElementById('instructionsTextDe');
+const instructionsTextEn = document.getElementById('instructionsTextEn');
 const closeInstructionsBtn = document.getElementById('closeInstructionsBtn');
 const levelSelectionMenu = document.getElementById('levelSelectionMenu');
 const levelButtons = document.querySelectorAll('.level-btn');
@@ -1176,10 +1186,10 @@ enableBtn.addEventListener('click', async () => {
 
 /* ---------- Level selection ---------- */
 const levelInstructions = {
-  1: "Control the blue ball and keep it steady on the orange center to show your accuracy. Play in standing or plank position and press Start to begin the game!",
-  2: "Control the blue ball and chase the moving target as fast as you can to score big! Play in standing or plank position and press Start to begin the game!",
-  3: "Control the blue ball to dodge incoming obstacles—one hit and the game's over! Play in standing or plank position and press Start to begin the game!",
-  4: "Control the blue ball to touch as many yellow gates as possible in 30 seconds! Each gate touched adds +1 to your score. Play in standing or plank position and press Start to begin the game!"
+  1: { de: "Steuere den blauen Ball und halte ihn ruhig auf dem orangenen Mittelpunkt – zeige deine Präzision! Spiele im Stehen oder in der Plank-Position und drücke Start, um zu beginnen!", en: "Control the blue ball and keep it steady on the orange center to show your accuracy. Play in standing or plank position and press Start to begin the game!" },
+  2: { de: "Steuere den blauen Ball und verfolge das bewegliche Ziel so schnell wie möglich! Spiele im Stehen oder in der Plank-Position und drücke Start, um zu beginnen!", en: "Control the blue ball and chase the moving target as fast as you can to score big! Play in standing or plank position and press Start to begin the game!" },
+  3: { de: "Steuere den blauen Ball und weiche den einkommenden Hindernissen aus – einmal berühren und das Spiel ist vorbei! Spiele im Stehen oder in der Plank-Position und drücke Start, um zu beginnen!", en: "Control the blue ball to dodge incoming obstacles — one hit and the game's over! Play in standing or plank position and press Start to begin the game!" },
+  4: { de: "Steuere den blauen Ball und berühre so viele gelbe Tore wie möglich in 30 Sekunden! Jedes Tor gibt +1 Punkt. Spiele im Stehen oder in der Plank-Position und drücke Start, um zu beginnen!", en: "Control the blue ball to touch as many yellow gates as possible in 30 seconds! Each gate touched adds +1 to your score. Play in standing or plank position and press Start to begin the game!" }
 };
 
 levelButtons.forEach(btn => {
@@ -1191,7 +1201,8 @@ levelButtons.forEach(btn => {
     howToPlayBtn.style.display = 'block';
 
     // Set instructions text for selected level
-    instructionsText.textContent = levelInstructions[currentLevel];
+    instructionsTextDe.textContent = levelInstructions[currentLevel].de;
+    instructionsTextEn.textContent = levelInstructions[currentLevel].en;
   });
 });
 
@@ -1564,7 +1575,8 @@ document.getElementById('queuePlayBtn').addEventListener('click', async () => {
   calibrateBtn.style.display = 'block';
   calibrateHint.style.display = 'block';
   howToPlayBtn.style.display = 'block';
-  instructionsText.textContent = levelInstructions[currentLevel];
+  instructionsTextDe.textContent = levelInstructions[currentLevel].de;
+  instructionsTextEn.textContent = levelInstructions[currentLevel].en;
 });
 
 /* Skip button: skip current, queue subscription auto-updates UI */
