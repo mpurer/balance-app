@@ -307,7 +307,7 @@
   td.rank  { text-align: center; width: 90px; font-weight: 900; font-size: 22px; color: rgba(255,255,255,0.35); }
   td.name  { text-align: left; }
   td.score { text-align: right; font-weight: 800; }
-  table.lbTable tbody tr:not(.top-1):not(.top-2):not(.top-3):nth-child(even) {
+  table.lbTable tbody tr:not(.top-1):not(.top-2):not(.top-3):not(.top-4):not(.top-5):nth-child(even) {
     background: rgba(255,255,255,0.03);
   }
 
@@ -338,6 +338,17 @@
   tr.top-3 td { font-size: 28px; color: #fff; font-weight: 700; }
   tr.top-3 td.rank  { color: var(--bronze); font-size: 23px; }
   tr.top-3 td.score { color: var(--bronze); font-weight: 900; }
+
+  /* ── Top 4–5 rows ── */
+  tr.top-4,
+  tr.top-5 {
+    background: rgba(25,246,255,0.06) !important;
+    border-bottom: 1px solid rgba(25,246,255,0.14) !important;
+    border-left: 4px solid var(--cyan);
+  }
+  tr.top-4 td, tr.top-5 td { font-size: 26px; color: rgba(255,255,255,0.92); font-weight: 700; }
+  tr.top-4 td.rank, tr.top-5 td.rank  { color: var(--cyan); font-size: 22px; }
+  tr.top-4 td.score, tr.top-5 td.score { color: var(--cyan); font-weight: 900; }
 
   /* ════════════════════════════════════════════
      RIGHT COLUMN  —  QUEUE
@@ -432,9 +443,9 @@
       <div id="ctaTitle">Scannen,<br>Spielen &amp;<br>Preise&nbsp;Gewinnen</div>
       <div class="ctaSeparator"></div>
       <div id="ctaPrize">
-        Die <strong class="highlight">Top&nbsp;3</strong> Platzierungen des Tages erhalten
-        <strong class="highlight">1h vor Messeschluss</strong> <strong class="highlight">coole&nbsp;Goodies</strong> von
-        <strong>Gibbon&nbsp;Slacklines</strong>.
+        Ordne dich in die <strong class="highlight">Top&nbsp;5</strong>
+        ein und erhalte ein <strong class="highlight">Goodie</strong> von
+        <strong>Gibbon&nbsp;Slacklines</strong>!
       </div>
     </div>
 
@@ -526,7 +537,7 @@
         snapshot.forEach(doc => {
           const data = doc.data();
           const tr = document.createElement('tr');
-          if (rank <= 3) tr.classList.add('top-' + rank);
+          if (rank <= 5) tr.classList.add('top-' + rank);
           const rankCell = rank <= 3 ? MEDALS[rank - 1] : rank;
           tr.innerHTML = `<td class="rank">${rankCell}</td><td class="name">${escapeHtml(data.playerName)}</td><td class="score">${data.score}</td>`;
           targetBody.appendChild(tr);
