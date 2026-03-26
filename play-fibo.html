@@ -293,32 +293,16 @@ html, body {
 }
 #rotateOverlay.show { display: flex; }
 
-.rotate-arrows {
-  position: relative;
-  width: 120px; height: 120px;
+.rotate-phone-icon {
+  animation: phoneRotate 2.2s ease-in-out infinite;
+  transform-origin: center;
 }
-.rotate-arrows svg {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
+@keyframes phoneRotate {
+  0%   { transform: rotate(0deg); }
+  40%  { transform: rotate(-90deg); }
+  60%  { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
 }
-.rotate-arrow-outer {
-  stroke: var(--yellow); stroke-width: 6; fill: none; stroke-linecap: round;
-  transform-origin: 60px 60px;
-  animation: rotateArrow 2s linear infinite;
-}
-.rotate-arrow-inner {
-  stroke: var(--cyan); stroke-width: 5; fill: none; stroke-linecap: round;
-  transform-origin: 60px 60px;
-  animation: rotateArrow 2s linear infinite reverse;
-  animation-delay: -0.5s;
-}
-@keyframes rotateArrow {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-/* Arrowhead */
-.arrow-tip { fill: var(--yellow); }
-.arrow-tip-inner { fill: var(--cyan); }
 
 #rotateText {
   font-size: 22px; font-weight: 800; color: #fff;
@@ -575,24 +559,14 @@ canvas#targetCanvas {
 
 <!-- ═══ ROTATE OVERLAY ═════════════════════════════════════════ -->
 <div id="rotateOverlay">
-  <div class="rotate-arrows">
-    <!-- Outer ring with arrowhead -->
-    <svg viewBox="0 0 120 120">
-      <path class="rotate-arrow-outer"
-        d="M 60 12 A 48 48 0 1 1 20 80"
-        stroke-dasharray="270 40"
-      />
-      <polygon class="arrow-tip" points="14,90 6,72 26,76" />
-    </svg>
-    <!-- Inner ring with arrowhead -->
-    <svg viewBox="0 0 120 120" style="position:absolute;inset:0">
-      <path class="rotate-arrow-inner"
-        d="M 60 26 A 34 34 0 1 0 28 75"
-        stroke-dasharray="190 30"
-      />
-      <polygon class="arrow-tip-inner" points="34,66 24,82 20,64" />
-    </svg>
-  </div>
+  <svg class="rotate-phone-icon" width="90" height="90" viewBox="0 0 90 90" fill="none">
+    <!-- Phone body -->
+    <rect x="28" y="8" width="34" height="58" rx="6" stroke="#e8fc66" stroke-width="4" fill="none"/>
+    <!-- Home button -->
+    <circle cx="45" cy="57" r="4" fill="#e8fc66" opacity="0.6"/>
+    <!-- Speaker -->
+    <rect x="38" y="15" width="14" height="3" rx="1.5" fill="#e8fc66" opacity="0.5"/>
+  </svg>
   <div id="rotateText">Dreh dein Handy quer!</div>
   <div id="rotateSubtext">Das Spiel läuft im Querformat</div>
 </div>
