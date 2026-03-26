@@ -1,0 +1,1582 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<title>Gibbon Slackboard – FIBO</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyA7BZvLHuIXiYdukRpV7bM52pBBuWzv3rU",
+    authDomain: "gibbon-balance-game.firebaseapp.com",
+    projectId: "gibbon-balance-game",
+    storageBucket: "gibbon-balance-game.firebasestorage.app",
+    messagingSenderId: "435375118778",
+    appId: "1:435375118778:web:5513fc213d8d7fef816583"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+</script>
+
+<style>
+:root {
+  --bg: #0b1226;
+  --yellow: #e8fc66;
+  --cyan: #19f6ff;
+  --card: #fff;
+  --text: #111;
+  --muted: #666;
+  --border: #e0e0e0;
+  --input-bg: #fafafa;
+  --error: #e60000;
+  --dot-size: 38px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%; width: 100%;
+  background: var(--bg);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+  overscroll-behavior: none;
+}
+
+/* ═══════════════════════════════════
+   SCREEN MANAGER
+═══════════════════════════════════ */
+.screen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+.screen.active { display: flex; }
+
+/* portrait screens scroll if needed */
+.screen.portrait-screen {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+/* ═══════════════════════════════════
+   SHARED CARD
+═══════════════════════════════════ */
+.card {
+  width: min(480px, 94%);
+  background: var(--card);
+  border-radius: 24px;
+  padding: 36px 28px 32px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.45);
+  text-align: center;
+  margin: 28px auto 40px;
+}
+
+.card-logo {
+  width: 64px;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--text);
+  margin: 0 0 22px;
+  line-height: 1.25;
+}
+
+/* ═══════════════════════════════════
+   FORM ELEMENTS
+═══════════════════════════════════ */
+.inp {
+  display: block; width: 100%;
+  padding: 15px 16px;
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  font-size: 17px; font-family: inherit;
+  background: var(--input-bg);
+  margin-bottom: 12px;
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+.inp:focus { outline: none; border-color: var(--yellow); background: #fff; }
+
+.btn {
+  display: block; width: 100%;
+  padding: 17px;
+  border-radius: 14px;
+  border: 0;
+  font-size: 18px; font-weight: 800; font-family: inherit;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-primary { background: var(--yellow); color: var(--text); }
+.btn-primary:hover { background: #d8f540; }
+.btn-primary:active { transform: scale(0.97); }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary:disabled:hover { transform: none; background: var(--yellow); }
+
+.error-msg {
+  color: var(--error);
+  font-size: 14px;
+  min-height: 18px;
+  margin-bottom: 6px;
+  text-align: left;
+}
+
+.consent-label {
+  display: flex; align-items: flex-start; gap: 10px;
+  text-align: left;
+  font-size: 14px; color: #444; line-height: 1.45;
+  margin: 10px 0 16px; cursor: pointer;
+}
+.consent-label input[type="checkbox"] {
+  width: 20px; height: 20px; flex-shrink: 0;
+  margin-top: 2px; accent-color: var(--text); cursor: pointer;
+}
+
+.spinner {
+  display: inline-block; width: 18px; height: 18px;
+  border: 3px solid #e0e0e0; border-top-color: #333;
+  border-radius: 50%; animation: spin 0.65s linear infinite;
+  vertical-align: middle; margin-right: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════
+   REGISTRATION SCREEN
+═══════════════════════════════════ */
+#screenReg {}
+
+#regReturningMsg { font-size: 22px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.reg-subtext { font-size: 15px; color: var(--muted); margin: 0 0 20px; }
+
+/* ═══════════════════════════════════
+   WAITING SCREEN
+═══════════════════════════════════ */
+#screenWaiting .card {
+  background: linear-gradient(160deg, #162040 0%, #0d1530 100%);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+}
+
+#waitLogo { filter: brightness(0) invert(1); }
+
+#waitTitle {
+  font-size: 20px; font-weight: 800;
+  color: rgba(255,255,255,0.6);
+  letter-spacing: 3px; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+#waitPosNum {
+  font-size: clamp(80px, 22vw, 110px);
+  font-weight: 900; line-height: 1;
+  background: linear-gradient(135deg, var(--cyan) 0%, var(--yellow) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 4px 0 6px;
+  animation: pulseNum 2.5s ease-in-out infinite;
+}
+@keyframes pulseNum {
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(25,246,255,0.3)); }
+  50% { filter: drop-shadow(0 0 24px rgba(25,246,255,0.7)); }
+}
+
+#waitPosLabel {
+  font-size: 16px; font-weight: 600;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 24px;
+}
+
+#waitMsg {
+  font-size: 15px; color: rgba(255,255,255,0.55);
+  line-height: 1.5; margin-bottom: 24px;
+}
+
+.wait-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.1);
+  margin: 4px 0 20px;
+}
+
+#waitListTitle {
+  font-size: 12px; font-weight: 700; letter-spacing: 3px;
+  text-transform: uppercase; color: rgba(255,255,255,0.35);
+  margin-bottom: 12px; text-align: left;
+}
+
+.wait-entry {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  margin-bottom: 6px;
+  font-size: 15px; font-weight: 600;
+  background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8);
+}
+.wait-entry.me { background: var(--yellow); color: #111; }
+.wait-pos { width: 22px; font-weight: 800; color: rgba(255,255,255,0.4); flex-shrink: 0; }
+.wait-entry.me .wait-pos { color: #111; }
+.wait-name { flex: 1; text-align: left; }
+.wait-you-badge {
+  font-size: 11px; font-weight: 700; color: #111;
+  background: rgba(0,0,0,0.14); padding: 2px 8px; border-radius: 20px;
+}
+
+/* ═══════════════════════════════════
+   READY SCREEN
+═══════════════════════════════════ */
+#screenReady .card {
+  background: linear-gradient(160deg, #111c36 0%, #0d1530 100%);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+}
+
+#readyHero {
+  font-size: clamp(36px, 10vw, 52px);
+  font-weight: 900; line-height: 1.1;
+  color: var(--yellow);
+  text-shadow: 0 0 30px rgba(232,252,102,0.4);
+  margin: 4px 0 28px;
+}
+
+/* SVG countdown ring */
+#readyRingWrap {
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 28px;
+  position: relative;
+}
+#readyRingSvg {
+  width: 140px; height: 140px;
+  transform: rotate(-90deg);
+}
+#readyRingBg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 10; }
+#readyRingFill { fill: none; stroke: var(--yellow); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 1s linear, stroke 0.6s; }
+#readyCountNum {
+  position: absolute;
+  font-size: 40px; font-weight: 900;
+  color: #fff;
+}
+
+#readyStartBtn {
+  font-size: 20px; padding: 20px;
+  box-shadow: 0 12px 40px rgba(232,252,102,0.3);
+  border-radius: 16px;
+  margin-bottom: 16px;
+}
+
+#gyroDeniedMsg {
+  display: none;
+  font-size: 14px; color: rgba(255,200,0,0.9);
+  background: rgba(232,150,0,0.12);
+  border: 1px solid rgba(232,150,0,0.3);
+  border-radius: 10px; padding: 12px 14px;
+  margin-top: 12px; line-height: 1.5;
+}
+
+/* ═══════════════════════════════════
+   ROTATE OVERLAY
+═══════════════════════════════════ */
+#rotateOverlay {
+  position: fixed; inset: 0;
+  display: none;
+  align-items: center; justify-content: center;
+  background: rgba(11,18,38,0.97);
+  z-index: 80;
+  flex-direction: column;
+  gap: 28px;
+}
+#rotateOverlay.show { display: flex; }
+
+.rotate-arrows {
+  position: relative;
+  width: 120px; height: 120px;
+}
+.rotate-arrows svg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+}
+.rotate-arrow-outer {
+  stroke: var(--yellow); stroke-width: 6; fill: none; stroke-linecap: round;
+  transform-origin: 60px 60px;
+  animation: rotateArrow 2s linear infinite;
+}
+.rotate-arrow-inner {
+  stroke: var(--cyan); stroke-width: 5; fill: none; stroke-linecap: round;
+  transform-origin: 60px 60px;
+  animation: rotateArrow 2s linear infinite reverse;
+  animation-delay: -0.5s;
+}
+@keyframes rotateArrow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+/* Arrowhead */
+.arrow-tip { fill: var(--yellow); }
+.arrow-tip-inner { fill: var(--cyan); }
+
+#rotateText {
+  font-size: 22px; font-weight: 800; color: #fff;
+  text-align: center; line-height: 1.35;
+}
+#rotateSubtext {
+  font-size: 14px; color: rgba(255,255,255,0.4);
+  text-align: center;
+}
+
+/* ═══════════════════════════════════
+   GAME SCREEN
+═══════════════════════════════════ */
+#screenGame {
+  background: var(--bg);
+  flex-direction: column;
+  align-items: stretch; justify-content: stretch;
+}
+
+#arena {
+  position: fixed; inset: 0;
+  overflow: hidden;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+}
+
+canvas#targetCanvas {
+  position: absolute; left: 0; top: 0;
+  width: 100%; height: 100%;
+  display: none;
+}
+
+#dot {
+  position: absolute;
+  width: var(--dot-size); height: var(--dot-size);
+  border-radius: 50%;
+  background: var(--cyan);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 22px rgba(25,246,255,0.9), 0 0 44px rgba(25,246,255,0.4);
+  z-index: 50; pointer-events: none; display: none;
+}
+
+.ui-pill {
+  position: fixed;
+  top: calc(env(safe-area-inset-top,0px) + 16px);
+  background: rgba(255,255,255,0.95);
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-weight: 800; font-size: 20px;
+  z-index: 30;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  display: none; letter-spacing: -0.3px;
+}
+#scoreDisplay { left: calc(env(safe-area-inset-left,0px) + 16px); }
+#timerDisplay { right: calc(env(safe-area-inset-right,0px) + 16px); }
+
+/* countdown overlay */
+#countdownOverlay {
+  position: fixed; inset: 0;
+  display: none; align-items: center; justify-content: center;
+  z-index: 60; background: rgba(255,255,255,0.98);
+}
+#countdownContainer { text-align: center; position: relative; }
+#countdownNumber {
+  font-size: 80px; font-weight: 800; color: #111;
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+}
+.countdown-ring {
+  width: 160px; height: 160px; border-radius: 50%;
+  border: 10px solid #e6e6e6; position: relative; overflow: hidden;
+}
+.countdown-fill {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 10px solid var(--yellow);
+  transform-origin: center;
+  transform: rotate(0deg);
+  transition: transform 1s linear;
+}
+
+/* ═══════════════════════════════════
+   GAME OVER SCREEN
+═══════════════════════════════════ */
+#screenGameOver {
+  flex-direction: column;
+  align-items: center; justify-content: flex-start;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+#gameOverCard {
+  width: min(500px, 94%);
+  background: var(--card);
+  border-radius: 24px;
+  padding: 32px 24px 28px;
+  margin: 28px auto 40px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.45);
+  text-align: center;
+}
+
+#gameOverTitle {
+  font-size: 14px; font-weight: 700; letter-spacing: 3px;
+  text-transform: uppercase; color: #aaa;
+  margin-bottom: 10px;
+}
+
+#finalScoreWrap {
+  display: flex; align-items: baseline; justify-content: center;
+  gap: 10px; flex-wrap: wrap; margin-bottom: 6px;
+}
+.score-value {
+  font-size: clamp(48px, 12vw, 68px); font-weight: 900; line-height: 1;
+  background: linear-gradient(135deg, var(--cyan) 0%, var(--yellow) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 10px rgba(25,246,255,0.2));
+}
+.score-label {
+  font-size: 15px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: #999;
+}
+
+#rankDisplay {
+  font-size: 19px; font-weight: 800; color: #111;
+  min-height: 26px; margin: 4px 0 18px;
+}
+
+.go-divider {
+  height: 1px; background: #f0f0f0; margin: 16px 0;
+}
+
+#goLeaderboardTitle {
+  font-size: 12px; font-weight: 700; letter-spacing: 2.5px;
+  text-transform: uppercase; color: #aaa;
+  margin-bottom: 10px; text-align: left;
+}
+
+#goLeaderboardWrap {
+  border-radius: 10px; overflow: hidden;
+  border: 1px solid #eee; max-height: 220px; overflow-y: auto;
+  margin-bottom: 20px;
+}
+#goLeaderboardTable { width: 100%; border-collapse: collapse; font-size: 15px; }
+#goLeaderboardTable thead th {
+  background: var(--yellow); color: #111; padding: 10px 12px;
+  font-weight: 700; text-align: center; position: sticky; top: 0; z-index: 1;
+}
+#goLeaderboardTable thead th.name { text-align: left; }
+#goLeaderboardTable thead th.score-col { text-align: right; }
+#goLeaderboardTable tbody td { padding: 10px 12px; border-bottom: 1px solid #f5f7ff; color: #111; }
+#goLeaderboardTable tbody td.score-col { text-align: right; font-weight: 700; }
+#goLeaderboardTable tbody tr.my-row td { background: var(--yellow) !important; font-weight: 700; }
+#goLeaderboardTable tbody tr:nth-child(even) { background: #fbfdff; }
+
+.go-btn-row {
+  display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+}
+.go-btn-row .btn { flex: 1; min-width: 140px; max-width: 200px; font-size: 16px; padding: 15px; }
+.btn-secondary {
+  background: #f0f0f0; color: #111;
+  border: 0; border-radius: 14px;
+  font-size: 16px; font-weight: 700; font-family: inherit;
+  cursor: pointer; transition: all 0.18s ease;
+  padding: 15px;
+}
+.btn-secondary:hover { background: #e0e0e0; }
+.btn-secondary:active { transform: scale(0.97); }
+
+/* ═══════════════════════════════════
+   SKIPPED SCREEN
+═══════════════════════════════════ */
+#screenSkipped .card {
+  background: linear-gradient(160deg, #1a1230 0%, #0d1530 100%);
+}
+#skippedIcon { font-size: 52px; margin-bottom: 10px; }
+#skippedTitle { font-size: 26px; font-weight: 900; color: #fff; margin-bottom: 10px; }
+#skippedMsg { font-size: 15px; color: rgba(255,255,255,0.55); line-height: 1.5; margin-bottom: 24px; }
+</style>
+</head>
+<body>
+
+<!-- ═══ REGISTRATION SCREEN ════════════════════════════════════ -->
+<div id="screenReg" class="screen portrait-screen active">
+  <div class="card">
+    <img src="gibbon_logo.png" class="card-logo" alt="Gibbon" />
+    <h1 id="regCardTitle" class="card-title">Melde dich an<br>um zu spielen!</h1>
+
+    <!-- Step 1: Email -->
+    <div id="regEmailPhase">
+      <input id="regEmailInput" class="inp" type="email" placeholder="Deine E-Mail-Adresse" autocomplete="email" inputmode="email" />
+      <div id="regEmailError" class="error-msg"></div>
+      <button id="regEmailBtn" class="btn btn-primary">Weiter →</button>
+    </div>
+
+    <!-- Step 2a: Returning user -->
+    <div id="regReturningPhase" style="display:none">
+      <div id="regReturningMsg">Willkommen zurück,<br><strong id="regReturningName"></strong>!</div>
+      <p class="reg-subtext">Bereit für eine Runde?</p>
+      <div id="regAlreadyNote" style="display:none;font-size:14px;color:#10b981;font-weight:600;margin-bottom:12px">Du bist bereits in der Warteschlange!</div>
+      <button id="regReturningBtn" class="btn btn-primary">In die Warteschlange →</button>
+    </div>
+
+    <!-- Step 2b: New user -->
+    <div id="regNewPhase" style="display:none">
+      <input id="regFirstName" class="inp" placeholder="Vorname" autocomplete="given-name" />
+      <input id="regUsername" class="inp" placeholder="Benutzername (auf der Rangliste)" autocomplete="off" />
+      <label class="consent-label">
+        <input type="checkbox" id="regConsent" />
+        <span>Ich stimme dem Empfang des <strong>Gibbon Slacklines Newsletters</strong> zu und akzeptiere die Datenschutzrichtlinie.</span>
+      </label>
+      <div id="regNewError" class="error-msg"></div>
+      <button id="regNewBtn" class="btn btn-primary" disabled>Registrieren &amp; einreihen →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ WAITING SCREEN ═════════════════════════════════════════ -->
+<div id="screenWaiting" class="screen portrait-screen">
+  <div class="card">
+    <img src="gibbon_logo.png" class="card-logo" id="waitLogo" alt="Gibbon" />
+    <div id="waitTitle">Deine Position</div>
+    <div id="waitPosNum">#1</div>
+    <div id="waitPosLabel">in der Warteschlange</div>
+    <div id="waitMsg">Halte dich bereit – du wirst benachrichtigt, wenn du dran bist!</div>
+    <div class="wait-divider"></div>
+    <div id="waitListTitle">Live Warteschlange</div>
+    <div id="waitListEntries"></div>
+  </div>
+</div>
+
+<!-- ═══ READY SCREEN ═══════════════════════════════════════════ -->
+<div id="screenReady" class="screen portrait-screen">
+  <div class="card">
+    <img src="gibbon_logo.png" class="card-logo" style="filter:brightness(0) invert(1)" alt="Gibbon" />
+    <div id="readyHero">Du bist<br>dran! 🎉</div>
+
+    <div id="readyRingWrap">
+      <svg id="readyRingSvg" viewBox="0 0 120 120">
+        <circle id="readyRingBg" cx="60" cy="60" r="52" />
+        <circle id="readyRingFill" cx="60" cy="60" r="52" />
+      </svg>
+      <div id="readyCountNum">60</div>
+    </div>
+
+    <button id="readyStartBtn" class="btn btn-primary">▶ Jetzt spielen!</button>
+
+    <div id="gyroDeniedMsg">
+      Bitte erlaube den Zugriff auf den Bewegungssensor, um spielen zu können.
+      Gehe zu Einstellungen → Safari → Bewegung &amp; Ausrichtung.<br><br>
+      <button id="gyroRetryBtn" class="btn btn-primary" style="font-size:15px;padding:12px">Nochmal versuchen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ROTATE OVERLAY ═════════════════════════════════════════ -->
+<div id="rotateOverlay">
+  <div class="rotate-arrows">
+    <!-- Outer ring with arrowhead -->
+    <svg viewBox="0 0 120 120">
+      <path class="rotate-arrow-outer"
+        d="M 60 12 A 48 48 0 1 1 20 80"
+        stroke-dasharray="270 40"
+      />
+      <polygon class="arrow-tip" points="14,90 6,72 26,76" />
+    </svg>
+    <!-- Inner ring with arrowhead -->
+    <svg viewBox="0 0 120 120" style="position:absolute;inset:0">
+      <path class="rotate-arrow-inner"
+        d="M 60 26 A 34 34 0 1 0 28 75"
+        stroke-dasharray="190 30"
+      />
+      <polygon class="arrow-tip-inner" points="34,66 24,82 20,64" />
+    </svg>
+  </div>
+  <div id="rotateText">Dreh dein Handy quer!</div>
+  <div id="rotateSubtext">Das Spiel läuft im Querformat</div>
+</div>
+
+<!-- ═══ GAME SCREEN ═════════════════════════════════════════════ -->
+<div id="screenGame" class="screen">
+  <div id="arena">
+    <canvas id="targetCanvas"></canvas>
+    <div id="dot" aria-hidden="true"></div>
+    <div id="scoreDisplay" class="ui-pill">Survival: 0</div>
+    <div id="timerDisplay" class="ui-pill">0s</div>
+
+    <!-- Countdown overlay -->
+    <div id="countdownOverlay">
+      <div id="countdownContainer">
+        <div class="countdown-ring">
+          <div class="countdown-fill" id="countdownFill"></div>
+        </div>
+        <div id="countdownNumber">3</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ GAME OVER SCREEN ════════════════════════════════════════ -->
+<div id="screenGameOver" class="screen portrait-screen">
+  <div id="gameOverCard">
+    <div id="gameOverTitle">Dein Ergebnis</div>
+    <div id="finalScoreWrap">
+      <span class="score-value" id="finalScoreVal">0</span>
+      <span class="score-label">Punkte</span>
+    </div>
+    <div id="rankDisplay"></div>
+
+    <div class="go-divider"></div>
+    <div id="goLeaderboardTitle">Rangliste</div>
+    <div id="goLeaderboardWrap">
+      <table id="goLeaderboardTable">
+        <thead><tr><th class="rank" style="width:52px">#</th><th class="name">Spieler</th><th class="score-col">Punkte</th></tr></thead>
+        <tbody id="goLeaderboardBody"></tbody>
+      </table>
+    </div>
+
+    <div class="go-btn-row">
+      <button id="goPlayAgainBtn" class="btn btn-primary">Nochmal →</button>
+      <button id="goQueueBtn" class="btn-secondary">Warteschlange</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SKIPPED SCREEN ══════════════════════════════════════════ -->
+<div id="screenSkipped" class="screen portrait-screen">
+  <div class="card">
+    <div id="skippedIcon">⏭️</div>
+    <div id="skippedTitle">Zeit abgelaufen</div>
+    <div id="skippedMsg" id="skippedMsg">Deine Zeit ist abgelaufen. Du kannst dich erneut anmelden und in die Warteschlange einreihen.</div>
+    <button id="skippedRejoinBtn" class="btn btn-primary">Erneut anmelden →</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════════════════════════ */
+const DOT_RADIUS = 18;
+const MAX_TILT = 30;
+const SURVIVAL_SCORE_MULT = 10;
+const SURVIVAL_MAX_OBS = 40;
+const SURVIVAL_BASE_SPEED = 88;
+const SURVIVAL_SPEED_GAIN = 85;
+const SURVIVAL_ROT_GAIN = 0.52;
+const SURVIVAL_LEN_MIN = 90;
+const SURVIVAL_LEN_MAX = 160;
+const SURVIVAL_BG = '#0d1024';
+const SURVIVAL_COLORS = ['#ff5fad','#ff9f43','#7eff6b','#9b7bff','#ffde59'];
+const SURVIVAL_LINE_COLOR = '#f26bff';
+const SURVIVAL_SEED = 123456;
+const READY_TIMEOUT_SECS = 60;
+
+/* ═══════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════ */
+let currentPlayer = null;  // { email, firstName, username }
+let currentQueueDocId = null;
+let ownDocUnsub = null;
+let posUnsub = null;
+let readyTimerInterval = null;
+let readySecsLeft = READY_TIMEOUT_SECS;
+const RING_CIRCUM = 2 * Math.PI * 52; // matches SVG r=52
+
+// Game state
+const arena = document.getElementById('arena');
+const canvas = document.getElementById('targetCanvas');
+const ctx = canvas.getContext('2d');
+const dotEl = document.getElementById('dot');
+const scoreDisplay = document.getElementById('scoreDisplay');
+const timerDisplay = document.getElementById('timerDisplay');
+const countdownOverlay = document.getElementById('countdownOverlay');
+const countdownNumber = document.getElementById('countdownNumber');
+const countdownFill = document.getElementById('countdownFill');
+
+let arenaRect = {};
+function sizeCanvas(){
+  arenaRect = arena.getBoundingClientRect();
+  canvas.width = Math.round(arenaRect.width);
+  canvas.height = Math.round(arenaRect.height);
+}
+
+let dotPos = { x: 0, y: 0 };
+let dotPos0 = { x: 0, y: 0 };
+let beta0 = 0, gamma0 = 0;
+let lastBeta = 0, lastGamma = 0;
+let score = 0;
+let lastTime = 0;
+let gameActive = false;
+let gyroListening = false;
+let currentAttempt = 0;
+let survival = { rng: null, time: 0, shapes: [], lines: [], circleSpawn: 0, lineSpawn: 0 };
+
+const isIpad = navigator.userAgent.includes('iPad') ||
+               (navigator.userAgent.includes('Macintosh') && navigator.maxTouchPoints > 1);
+
+/* ═══════════════════════════════════════════════════════════════
+   SCREEN MANAGEMENT
+═══════════════════════════════════════════════════════════════ */
+const SCREENS = ['screenReg','screenWaiting','screenReady','screenGame','screenGameOver','screenSkipped'];
+
+function showScreen(id){
+  SCREENS.forEach(s => {
+    const el = document.getElementById(s);
+    el.classList.toggle('active', s === id);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════════ */
+function clamp(v,a,b){ return Math.min(Math.max(v,a),b); }
+function lerp(a,b,t){ return a + (b-a)*t; }
+function mulberry32(a){ return function(){ let t=a+=0x6D2B79F5; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return((t^t>>>14)>>>0)/4294967296; }; }
+function escHtml(s){ return String(s||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+
+/* ═══════════════════════════════════════════════════════════════
+   FIREBASE HELPERS
+═══════════════════════════════════════════════════════════════ */
+async function lookupPlayer(email){
+  try{
+    const snap = await db.collection('registrations').where('email','==',email.toLowerCase().trim()).limit(1).get();
+    if(snap.empty) return null;
+    return { docId: snap.docs[0].id, ...snap.docs[0].data() };
+  }catch(e){ console.error('lookupPlayer:',e); return null; }
+}
+
+async function checkUsernameAvailable(username){
+  try{
+    const snap = await db.collection('registrations').where('username','==',username.trim()).limit(1).get();
+    return snap.empty;
+  }catch(e){ return true; }
+}
+
+async function registerNewPlayer(firstName, email, username){
+  const doc = {
+    firstName: firstName.trim(),
+    email: email.toLowerCase().trim(),
+    username: username.trim(),
+    newsletterConsent: true,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    lastPlayedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    gamesPlayed: 0
+  };
+  await db.collection('registrations').add(doc);
+}
+
+async function recordPlay(email){
+  try{
+    const snap = await db.collection('registrations').where('email','==',email.toLowerCase().trim()).limit(1).get();
+    if(!snap.empty){
+      await snap.docs[0].ref.update({
+        lastPlayedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        gamesPlayed: firebase.firestore.FieldValue.increment(1)
+      });
+    }
+  }catch(e){}
+}
+
+async function saveFirebaseScore(name, sc){
+  try{
+    const ref = await db.collection('leaderboardFiboSurvival').add({
+      playerName: String(name||'Player').trim(),
+      score: Math.floor(sc),
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    return ref.id;
+  }catch(e){ console.error('saveFirebaseScore:',e); return null; }
+}
+
+async function getPlayerRank(sc){
+  try{
+    const snap = await db.collection('leaderboardFiboSurvival').where('score','>',Math.floor(sc)).get();
+    return snap.size + 1;
+  }catch(e){ return null; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   QUEUE HELPERS
+═══════════════════════════════════════════════════════════════ */
+async function findExistingQueueDoc(email){
+  try{
+    const snap = await db.collection('queueFibo')
+      .where('email','==',email.toLowerCase().trim())
+      .where('status','in',['waiting','ready'])
+      .limit(1).get();
+    if(snap.empty) return null;
+    return { docId: snap.docs[0].id, ...snap.docs[0].data() };
+  }catch(e){ console.error('findExistingQueueDoc:',e); return null; }
+}
+
+async function joinQueue(player){
+  currentPlayer = player;
+
+  // Check if player is already in queue (page refresh)
+  const existing = await findExistingQueueDoc(player.email);
+  if(existing){
+    currentQueueDocId = existing.docId;
+  } else {
+    const doc = {
+      username: player.username,
+      firstName: player.firstName,
+      email: player.email.toLowerCase().trim(),
+      status: 'waiting',
+      joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      order: Date.now()
+    };
+    const ref = await db.collection('queueFibo').add(doc);
+    currentQueueDocId = ref.id;
+  }
+
+  subscribeToOwnDoc();
+  subscribeToQueuePosition();
+
+  // Try to advance — if nobody is playing/ready yet, this player becomes ready
+  await advanceQueue();
+}
+
+async function advanceQueue(){
+  try{
+    // Guard: check if someone is already ready or playing
+    const activeSnap = await db.collection('queueFibo')
+      .where('status','in',['ready','playing'])
+      .limit(1).get();
+    if(!activeSnap.empty) return; // someone is already active
+
+    // Find first waiting player
+    const waitSnap = await db.collection('queueFibo')
+      .where('status','==','waiting')
+      .limit(20).get();
+    if(waitSnap.empty) return;
+
+    const entries = [];
+    waitSnap.forEach(doc => entries.push({ docId: doc.id, ...doc.data() }));
+    entries.sort((a,b) => (a.order||0) - (b.order||0));
+
+    await db.collection('queueFibo').doc(entries[0].docId).update({
+      status: 'ready',
+      readyAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }catch(e){ console.error('advanceQueue:',e); }
+}
+
+function subscribeToOwnDoc(){
+  if(ownDocUnsub){ ownDocUnsub(); ownDocUnsub = null; }
+  if(!currentQueueDocId) return;
+
+  ownDocUnsub = db.collection('queueFibo').doc(currentQueueDocId)
+    .onSnapshot(snap => {
+      if(!snap.exists) return;
+      const data = snap.data();
+      const status = data.status;
+
+      if(status === 'ready'){
+        // Only transition to ready screen if we're on waiting screen
+        const waitingVisible = document.getElementById('screenWaiting').classList.contains('active');
+        const regVisible = document.getElementById('screenReg').classList.contains('active');
+        if(waitingVisible || regVisible){
+          showScreen('screenReady');
+          startReadyCountdown();
+        }
+      } else if(status === 'skipped'){
+        // Skipped by staff or timed out externally
+        stopReadyCountdown();
+        if(gameActive){ gameActive = false; }
+        showScreen('screenSkipped');
+        document.getElementById('skippedMsg').textContent = 'Du wurdest übersprungen. Du kannst dich erneut einreihen!';
+      }
+    }, err => { console.error('ownDoc snapshot:', err); });
+}
+
+function subscribeToQueuePosition(){
+  if(posUnsub){ posUnsub(); posUnsub = null; }
+  posUnsub = db.collection('queueFibo')
+    .where('status','==','waiting')
+    .limit(20)
+    .onSnapshot(snap => {
+      const entries = [];
+      snap.forEach(doc => entries.push({ docId: doc.id, ...doc.data() }));
+      entries.sort((a,b) => (a.order||0) - (b.order||0));
+      updateWaitingUI(entries);
+    }, err => { console.error('posSnapshot:', err); });
+}
+
+function updateWaitingUI(entries){
+  const myIdx = entries.findIndex(e => e.docId === currentQueueDocId);
+  const pos = myIdx + 1;
+
+  const posEl = document.getElementById('waitPosNum');
+  const labelEl = document.getElementById('waitPosLabel');
+  const msgEl = document.getElementById('waitMsg');
+
+  if(myIdx === -1){
+    posEl.textContent = '–';
+    labelEl.textContent = '';
+    msgEl.textContent = '';
+  } else {
+    posEl.textContent = '#' + pos;
+    labelEl.textContent = pos === 1 ? 'Du bist als Nächstes dran!' : 'in der Warteschlange';
+    msgEl.textContent = pos === 1
+      ? 'Mach dich bereit – gleich bist du dran!'
+      : 'Warte auf deinen Aufruf. Bleib in der Nähe!';
+  }
+
+  const listEl = document.getElementById('waitListEntries');
+  listEl.innerHTML = '';
+  entries.slice(0, 6).forEach((e, i) => {
+    const isMe = e.docId === currentQueueDocId;
+    const div = document.createElement('div');
+    div.className = 'wait-entry' + (isMe ? ' me' : '');
+    div.innerHTML = `<span class="wait-pos">${i+1}</span><span class="wait-name">${escHtml(e.username||e.firstName||'?')}</span>${isMe ? '<span class="wait-you-badge">Du</span>' : ''}`;
+    listEl.appendChild(div);
+  });
+  if(entries.length > 6){
+    const more = document.createElement('div');
+    more.style.cssText = 'text-align:center;font-size:13px;color:rgba(255,255,255,0.3);padding:8px';
+    more.textContent = `+${entries.length - 6} weitere`;
+    listEl.appendChild(more);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   READY COUNTDOWN (60s SVG ring)
+═══════════════════════════════════════════════════════════════ */
+function startReadyCountdown(){
+  stopReadyCountdown();
+  readySecsLeft = READY_TIMEOUT_SECS;
+  updateReadyRing();
+
+  readyTimerInterval = setInterval(() => {
+    readySecsLeft--;
+    updateReadyRing();
+    if(readySecsLeft <= 0){
+      stopReadyCountdown();
+      handleTimeout();
+    }
+  }, 1000);
+}
+
+function stopReadyCountdown(){
+  if(readyTimerInterval){ clearInterval(readyTimerInterval); readyTimerInterval = null; }
+}
+
+function updateReadyRing(){
+  const pct = readySecsLeft / READY_TIMEOUT_SECS;
+  const fillEl = document.getElementById('readyRingFill');
+  const numEl = document.getElementById('readyCountNum');
+
+  const dashOffset = RING_CIRCUM * (1 - pct);
+  fillEl.style.strokeDasharray = RING_CIRCUM;
+  fillEl.style.strokeDashoffset = dashOffset;
+
+  // Color: yellow → orange → red in final 15s
+  if(readySecsLeft <= 15){
+    const t = readySecsLeft / 15;
+    fillEl.style.stroke = `hsl(${Math.round(t * 45)}deg, 100%, 55%)`;
+  } else {
+    fillEl.style.stroke = 'var(--yellow)';
+  }
+
+  numEl.textContent = readySecsLeft;
+}
+
+async function handleTimeout(){
+  try{
+    await db.collection('queueFibo').doc(currentQueueDocId).update({ status: 'skipped' });
+  }catch(e){}
+  await advanceQueue();
+  showScreen('screenSkipped');
+  document.getElementById('skippedMsg').textContent = 'Deine Zeit von 60 Sekunden ist abgelaufen. Reihe dich erneut ein!';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GYRO + GAME START
+═══════════════════════════════════════════════════════════════ */
+document.getElementById('readyStartBtn').addEventListener('click', async () => {
+  const deniedMsg = document.getElementById('gyroDeniedMsg');
+  deniedMsg.style.display = 'none';
+
+  // Request gyro permission on iOS
+  if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+    let result;
+    try{ result = await DeviceOrientationEvent.requestPermission(); }catch(err){ result = 'denied'; }
+    if(result !== 'granted'){
+      deniedMsg.style.display = 'block';
+      return;
+    }
+  }
+
+  if(!gyroListening){
+    window.addEventListener('deviceorientation', handleOrientation);
+    window.addEventListener('deviceorientation', trackRaw);
+    gyroListening = true;
+  }
+
+  stopReadyCountdown();
+
+  // Mark as playing
+  try{
+    await db.collection('queueFibo').doc(currentQueueDocId).update({ status: 'playing' });
+  }catch(e){ console.error('markPlaying:',e); }
+
+  // Check orientation
+  const isLandscape = window.innerWidth >= window.innerHeight;
+  if(isLandscape){
+    beginGame();
+  } else {
+    document.getElementById('rotateOverlay').classList.add('show');
+    watchForLandscape();
+  }
+});
+
+document.getElementById('gyroRetryBtn').addEventListener('click', () => {
+  document.getElementById('readyStartBtn').click();
+});
+
+function watchForLandscape(){
+  function check(){
+    const isLandscape = window.innerWidth >= window.innerHeight;
+    if(isLandscape){
+      document.getElementById('rotateOverlay').classList.remove('show');
+      beginGame();
+    }
+  }
+  window.addEventListener('orientationchange', () => setTimeout(check, 120));
+  window.addEventListener('resize', check);
+}
+
+function beginGame(){
+  showScreen('screenGame');
+  sizeCanvas();
+
+  // Calibrate
+  beta0 = lastBeta ?? 0;
+  gamma0 = lastGamma ?? 0;
+  dotPos0 = { x: arenaRect.width/2, y: arenaRect.height/2 };
+  dotPos = {...dotPos0};
+  dotEl.style.left = dotPos.x + 'px';
+  dotEl.style.top = dotPos.y + 'px';
+
+  // Init survival
+  resetSurvival();
+  drawSurvival();
+
+  // Hide game elements during countdown
+  canvas.style.display = 'none';
+  dotEl.style.display = 'none';
+  scoreDisplay.style.display = 'none';
+  timerDisplay.style.display = 'none';
+
+  startCountdown(() => {
+    score = 0;
+    lastTime = performance.now();
+    gameActive = true;
+    resetSurvival();
+    scoreDisplay.textContent = 'Survival: 0';
+    timerDisplay.textContent = '0s';
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COUNTDOWN
+═══════════════════════════════════════════════════════════════ */
+function startCountdown(callback){
+  countdownOverlay.style.display = 'flex';
+  let count = 3;
+
+  function tick(){
+    countdownNumber.textContent = count;
+    countdownFill.style.transform = 'rotate(360deg)';
+    countdownFill.style.transition = 'transform 1s linear';
+    setTimeout(() => {
+      countdownFill.style.transition = 'none';
+      countdownFill.style.transform = 'rotate(0deg)';
+    }, 1000);
+
+    if(count === 0){
+      countdownNumber.textContent = 'GO!';
+      countdownFill.style.display = 'none';
+      setTimeout(() => {
+        countdownOverlay.style.display = 'none';
+        countdownFill.style.display = 'block';
+        countdownFill.style.transform = 'rotate(0deg)';
+        countdownFill.style.transition = 'none';
+        canvas.style.display = 'block';
+        dotEl.style.display = 'block';
+        scoreDisplay.style.display = 'block';
+        timerDisplay.style.display = 'block';
+        callback();
+      }, 700);
+      return;
+    }
+    count--;
+    setTimeout(tick, 1000);
+  }
+  tick();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SURVIVAL GAME LOGIC
+═══════════════════════════════════════════════════════════════ */
+function resetSurvival(){
+  survival.rng = mulberry32(SURVIVAL_SEED);
+  survival.time = 0;
+  survival.shapes = [];
+  survival.lines = [];
+  survival.circleSpawn = 0;
+  survival.lineSpawn = 0;
+}
+
+function spawnShape(){
+  if(!survival.rng) return;
+  const margin = 60;
+  const side = Math.floor(survival.rng() * 4);
+  let x=0, y=0;
+  if(side === 0){ x = -margin; y = lerp(-margin, canvas.height+margin, survival.rng()); }
+  else if(side === 1){ x = canvas.width+margin; y = lerp(-margin, canvas.height+margin, survival.rng()); }
+  else if(side === 2){ x = lerp(-margin, canvas.width+margin, survival.rng()); y = -margin; }
+  else { x = lerp(-margin, canvas.width+margin, survival.rng()); y = canvas.height+margin; }
+
+  const size = lerp(18, 36, survival.rng());
+  const angleToCenter = Math.atan2(canvas.height/2 - y, canvas.width/2 - x);
+  const spread = (survival.rng()-0.5) * 0.7;
+  const difficulty = 1 + survival.time / 220;
+  const speed = SURVIVAL_BASE_SPEED + SURVIVAL_SPEED_GAIN * Math.log1p(difficulty);
+  const vx = Math.cos(angleToCenter + spread) * speed;
+  const vy = Math.sin(angleToCenter + spread) * speed;
+  const shapeTypeRoll = survival.rng();
+  const type = shapeTypeRoll < 0.33 ? 'circle' : shapeTypeRoll < 0.66 ? 'square' : 'triangle';
+  const color = SURVIVAL_COLORS[Math.floor(survival.rng()*SURVIVAL_COLORS.length)];
+  const rot = survival.rng() * Math.PI * 2;
+  const rotVel = (survival.rng()*1.2 - 0.6) * SURVIVAL_ROT_GAIN * difficulty;
+  survival.shapes.push({ x, y, r: size, vx, vy, type, color, rot, rotVel });
+}
+
+function spawnLine(){
+  if(!survival.rng) return;
+  const side = Math.floor(survival.rng()*4);
+  const margin = 80;
+  const length = lerp(SURVIVAL_LEN_MIN, SURVIVAL_LEN_MAX, survival.rng());
+  let cx=0, cy=0, vx=0, vy=0;
+  const difficulty = 1 + survival.time / 220;
+  const driftSpeed = SURVIVAL_BASE_SPEED * 0.7 + SURVIVAL_SPEED_GAIN * 0.5 * Math.log1p(difficulty);
+  if(side === 0){ cx = -margin; cy = lerp(-margin, canvas.height+margin, survival.rng()); vx = driftSpeed; vy = (survival.rng()-0.5)*driftSpeed*0.25; }
+  else if(side === 1){ cx = canvas.width+margin; cy = lerp(-margin, canvas.height+margin, survival.rng()); vx = -driftSpeed; vy = (survival.rng()-0.5)*driftSpeed*0.25; }
+  else if(side === 2){ cx = lerp(-margin, canvas.width+margin, survival.rng()); cy = -margin; vy = driftSpeed; vx = (survival.rng()-0.5)*driftSpeed*0.25; }
+  else { cx = lerp(-margin, canvas.width+margin, survival.rng()); cy = canvas.height+margin; vy = -driftSpeed; vx = (survival.rng()-0.5)*driftSpeed*0.25; }
+  const angleBase = Math.atan2(vy, vx);
+  const angle = angleBase + (survival.rng()-0.5) * 0.5;
+  const angVel = SURVIVAL_ROT_GAIN * difficulty * (survival.rng() > 0.5 ? 1 : -1);
+  survival.lines.push({ cx, cy, length, angle, angVel, vx, vy });
+}
+
+function pointToSegmentDist(px, py, x1, y1, x2, y2){
+  const A=px-x1, B=py-y1, C=x2-x1, D=y2-y1;
+  const dot=A*C+B*D, lenSq=C*C+D*D;
+  const t=lenSq ? clamp(dot/lenSq,0,1) : 0;
+  return Math.hypot(px-(x1+C*t), py-(y1+D*t));
+}
+
+function updateSurvival(dt){
+  survival.time += dt;
+  const difficulty = 1 + survival.time / 210;
+  const totalObs = survival.shapes.length + survival.lines.length;
+
+  if(survival.time >= 2){
+    const allowExtra = survival.time >= 5 || totalObs === 0;
+    const circleInterval = 2.9 / Math.pow(difficulty, 0.58);
+    const canSpawnCircle = (survival.time < 5 && totalObs < 1) ||
+                           (survival.time >= 5 && survival.time < 20 && totalObs < 5) ||
+                           survival.time >= 20;
+    survival.circleSpawn -= dt;
+    if(survival.circleSpawn <= 0 && totalObs < SURVIVAL_MAX_OBS && allowExtra && canSpawnCircle){
+      spawnShape(); survival.circleSpawn = circleInterval;
+    }
+    if(survival.time >= 30){
+      const lineInterval = 5.6 / Math.pow(difficulty, 0.54);
+      survival.lineSpawn -= dt;
+      if(survival.lineSpawn <= 0 && totalObs < SURVIVAL_MAX_OBS && allowExtra){
+        spawnLine(); survival.lineSpawn = lineInterval;
+      }
+    }
+  }
+
+  survival.shapes.forEach(c => {
+    c.x += c.vx * dt; c.y += c.vy * dt; c.rot += c.rotVel * dt;
+    const m = c.r;
+    if(c.x < m){ c.x=m; c.vx=Math.abs(c.vx); }
+    if(c.x > canvas.width-m){ c.x=canvas.width-m; c.vx=-Math.abs(c.vx); }
+    if(c.y < m){ c.y=m; c.vy=Math.abs(c.vy); }
+    if(c.y > canvas.height-m){ c.y=canvas.height-m; c.vy=-Math.abs(c.vy); }
+  });
+  survival.lines.forEach(l => {
+    l.cx += l.vx*dt; l.cy += l.vy*dt; l.angle += l.angVel*dt;
+    const m=40;
+    if(l.cx<m){ l.cx=m; l.vx=Math.abs(l.vx); }
+    if(l.cx>canvas.width-m){ l.cx=canvas.width-m; l.vx=-Math.abs(l.vx); }
+    if(l.cy<m){ l.cy=m; l.vy=Math.abs(l.vy); }
+    if(l.cy>canvas.height-m){ l.cy=canvas.height-m; l.vy=-Math.abs(l.vy); }
+  });
+
+  const px=dotPos.x, py=dotPos.y;
+  for(const c of survival.shapes){
+    const hitR = c.type==='circle' ? c.r : c.r*1.1;
+    if(Math.hypot(px-c.x, py-c.y) <= hitR+DOT_RADIUS){ endGame(); return; }
+  }
+  for(const l of survival.lines){
+    const half=l.length/2;
+    const x1=l.cx+Math.cos(l.angle)*(-half), y1=l.cy+Math.sin(l.angle)*(-half);
+    const x2=l.cx+Math.cos(l.angle)*half,  y2=l.cy+Math.sin(l.angle)*half;
+    if(pointToSegmentDist(px,py,x1,y1,x2,y2) <= DOT_RADIUS+6){ endGame(); return; }
+  }
+
+  score = survival.time * SURVIVAL_SCORE_MULT;
+  scoreDisplay.textContent = 'Survival: ' + Math.floor(score);
+  timerDisplay.textContent = Math.floor(survival.time) + 's';
+}
+
+function drawSurvival(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = SURVIVAL_BG;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  survival.shapes.forEach(c => {
+    ctx.save(); ctx.translate(c.x,c.y); ctx.rotate(c.rot);
+    ctx.fillStyle=c.color; ctx.shadowColor=c.color; ctx.shadowBlur=20;
+    if(c.type==='circle'){ ctx.beginPath(); ctx.arc(0,0,c.r,0,Math.PI*2); ctx.fill(); }
+    else if(c.type==='square'){ const s=c.r*1.6; ctx.fillRect(-s/2,-s/2,s,s); }
+    else { const s=c.r*1.9; ctx.beginPath(); ctx.moveTo(0,-s/2); ctx.lineTo(-s/2,s/2); ctx.lineTo(s/2,s/2); ctx.closePath(); ctx.fill(); }
+    ctx.restore();
+  });
+  survival.lines.forEach(l => {
+    const half=l.length/2;
+    ctx.strokeStyle=SURVIVAL_LINE_COLOR; ctx.lineWidth=12;
+    ctx.shadowColor=SURVIVAL_LINE_COLOR; ctx.shadowBlur=18; ctx.lineCap='round';
+    ctx.beginPath();
+    ctx.moveTo(l.cx+Math.cos(l.angle)*(-half), l.cy+Math.sin(l.angle)*(-half));
+    ctx.lineTo(l.cx+Math.cos(l.angle)*half,    l.cy+Math.sin(l.angle)*half);
+    ctx.stroke();
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GAME LOOP
+═══════════════════════════════════════════════════════════════ */
+function updateLoop(){
+  const now = performance.now();
+  const dt = lastTime ? (now-lastTime)/1000 : 0;
+  lastTime = now;
+  if(gameActive){ drawSurvival(); updateSurvival(dt); }
+  requestAnimationFrame(updateLoop);
+}
+updateLoop();
+
+/* ═══════════════════════════════════════════════════════════════
+   ORIENTATION / GYRO
+═══════════════════════════════════════════════════════════════ */
+function mapOrientationToXY(beta, gamma){
+  const angle = screen.orientation?.angle ?? window.orientation ?? 0;
+  let dx=0, dy=0;
+  if(isIpad){
+    switch(angle){
+      case 90:  dx=gamma;  dy=-beta; break;
+      case -90: case 270: dx=-gamma; dy=beta; break;
+      case 180: dx=-beta;  dy=gamma; break;
+      default:  dx=beta;   dy=-gamma;
+    }
+  } else {
+    switch(angle){
+      case 90:  dx=beta;   dy=-gamma; break;
+      case -90: case 270: dx=-beta;  dy=gamma; break;
+      case 180: dx=-gamma; dy=-beta;  break;
+      default:  dx=gamma;  dy=beta;
+    }
+  }
+  return {dx, dy};
+}
+
+function handleOrientation(e){
+  if(!gameActive) return;
+  const relBeta  = (typeof e.beta  === 'number' ? e.beta  : 0) - beta0;
+  const relGamma = (typeof e.gamma === 'number' ? e.gamma : 0) - gamma0;
+  const {dx, dy} = mapOrientationToXY(relBeta, relGamma);
+  const scaleX = arenaRect.width  / MAX_TILT;
+  const scaleY = arenaRect.height / MAX_TILT;
+  dotPos.x = clamp(dotPos0.x + dx*scaleX, DOT_RADIUS, arenaRect.width -DOT_RADIUS);
+  dotPos.y = clamp(dotPos0.y + dy*scaleY, DOT_RADIUS, arenaRect.height-DOT_RADIUS);
+  dotEl.style.left = Math.round(dotPos.x) + 'px';
+  dotEl.style.top  = Math.round(dotPos.y) + 'px';
+}
+
+function trackRaw(e){
+  lastBeta  = typeof e.beta  === 'number' ? e.beta  : lastBeta;
+  lastGamma = typeof e.gamma === 'number' ? e.gamma : lastGamma;
+}
+window.addEventListener('deviceorientation', trackRaw);
+
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => { sizeCanvas(); }, 120);
+});
+window.addEventListener('resize', () => { sizeCanvas(); });
+
+/* ═══════════════════════════════════════════════════════════════
+   END GAME
+═══════════════════════════════════════════════════════════════ */
+async function endGame(){
+  if(!gameActive) return;
+  gameActive = false;
+
+  fireConfetti();
+
+  canvas.style.display = 'none';
+  dotEl.style.display = 'none';
+  scoreDisplay.style.display = 'none';
+  timerDisplay.style.display = 'none';
+
+  const finalScore = Math.floor(score);
+
+  // Show score
+  document.getElementById('finalScoreVal').textContent = finalScore;
+  document.getElementById('rankDisplay').textContent = '';
+  document.getElementById('goLeaderboardBody').innerHTML = '';
+  showScreen('screenGameOver');
+
+  // Save score
+  let newDocId = null;
+  if(currentPlayer){
+    newDocId = await saveFirebaseScore(currentPlayer.username, finalScore);
+    recordPlay(currentPlayer.email);
+    const rank = await getPlayerRank(finalScore);
+    if(rank !== null){
+      const suffix = rank===1?'st':rank===2?'nd':rank===3?'rd':'th';
+      document.getElementById('rankDisplay').textContent = `Platz ${rank} in der Rangliste`;
+    }
+  }
+
+  // Mark done
+  if(currentQueueDocId){
+    try{
+      await db.collection('queueFibo').doc(currentQueueDocId).update({ status: 'done' });
+    }catch(e){}
+  }
+
+  // Advance queue
+  await advanceQueue();
+
+  // Render leaderboard
+  await renderGameOverLeaderboard(newDocId);
+}
+
+async function renderGameOverLeaderboard(highlightDocId){
+  const body = document.getElementById('goLeaderboardBody');
+  body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:14px;color:#999">Lade Rangliste…</td></tr>`;
+  try{
+    const snap = await db.collection('leaderboardFiboSurvival')
+      .orderBy('score','desc').orderBy('timestamp','desc').limit(50).get();
+    body.innerHTML = '';
+    if(snap.empty){
+      body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:14px;color:#999">Noch keine Einträge.</td></tr>`;
+      return;
+    }
+    let rank = 1;
+    snap.forEach(doc => {
+      const d = doc.data();
+      const tr = document.createElement('tr');
+      if(doc.id === highlightDocId) tr.className = 'my-row';
+      tr.dataset.docid = doc.id;
+      tr.innerHTML = `<td style="text-align:center;width:52px">${rank}</td><td style="text-align:left">${escHtml(d.playerName)}</td><td class="score-col">${d.score}</td>`;
+      body.appendChild(tr);
+      rank++;
+    });
+    // Scroll to own row
+    if(highlightDocId){
+      const myRow = body.querySelector('.my-row');
+      if(myRow){ myRow.scrollIntoView({ block:'nearest', behavior:'smooth' }); }
+    }
+  }catch(e){
+    body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:14px;color:#e60000">Fehler beim Laden.</td></tr>`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CONFETTI
+═══════════════════════════════════════════════════════════════ */
+function fireConfetti(){
+  const end = Date.now() + 2200;
+  (function frame(){
+    confetti({ particleCount:6, startVelocity:45, spread:80, origin:{x:0.5,y:0}, angle:90 });
+    if(Date.now() < end) requestAnimationFrame(frame);
+  })();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GAME OVER BUTTONS
+═══════════════════════════════════════════════════════════════ */
+document.getElementById('goPlayAgainBtn').addEventListener('click', async () => {
+  currentAttempt++;
+  // Mark as playing again
+  if(currentQueueDocId){
+    try{
+      await db.collection('queueFibo').doc(currentQueueDocId).update({ status: 'playing' });
+    }catch(e){}
+  }
+  beginGame();
+});
+
+document.getElementById('goQueueBtn').addEventListener('click', () => {
+  // Go back to waiting screen
+  showScreen('screenWaiting');
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   SKIPPED SCREEN — REJOIN
+═══════════════════════════════════════════════════════════════ */
+document.getElementById('skippedRejoinBtn').addEventListener('click', () => {
+  // Reset state
+  if(ownDocUnsub){ ownDocUnsub(); ownDocUnsub = null; }
+  if(posUnsub){ posUnsub(); posUnsub = null; }
+  currentQueueDocId = null;
+  // Go back to registration
+  resetRegistration();
+  showScreen('screenReg');
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   REGISTRATION LOGIC
+═══════════════════════════════════════════════════════════════ */
+let regEmail = '';
+let regUsername = '';
+
+function resetRegistration(){
+  document.getElementById('regCardTitle').textContent = 'Melde dich an\num zu spielen!';
+  document.getElementById('regEmailInput').value = '';
+  document.getElementById('regFirstName').value = '';
+  document.getElementById('regUsername').value = '';
+  document.getElementById('regConsent').checked = false;
+  document.getElementById('regEmailError').textContent = '';
+  document.getElementById('regNewError').textContent = '';
+  document.getElementById('regNewBtn').disabled = true;
+  showRegPhase('email');
+}
+
+function showRegPhase(name){
+  document.getElementById('regEmailPhase').style.display    = name==='email'    ? 'block' : 'none';
+  document.getElementById('regReturningPhase').style.display = name==='returning' ? 'block' : 'none';
+  document.getElementById('regNewPhase').style.display      = name==='new'      ? 'block' : 'none';
+}
+
+// Phase 1: Email
+document.getElementById('regEmailBtn').addEventListener('click', async () => {
+  const email = document.getElementById('regEmailInput').value.trim();
+  const errEl = document.getElementById('regEmailError');
+  errEl.textContent = '';
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    errEl.textContent = 'Bitte gib eine gültige E-Mail-Adresse ein.';
+    return;
+  }
+  const btn = document.getElementById('regEmailBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Prüfen…';
+
+  regEmail = email;
+  const player = await lookupPlayer(email);
+
+  btn.disabled = false;
+  btn.textContent = 'Weiter →';
+
+  if(player){
+    regUsername = player.username;
+    document.getElementById('regReturningName').textContent = player.firstName || player.username;
+    // Check if already in queueFibo
+    const existing = await findExistingQueueDoc(email);
+    const alreadyEl = document.getElementById('regAlreadyNote');
+    const joinBtn = document.getElementById('regReturningBtn');
+    if(existing){
+      alreadyEl.style.display = 'block';
+      joinBtn.textContent = 'Meine Position anzeigen →';
+    } else {
+      alreadyEl.style.display = 'none';
+      joinBtn.textContent = 'In die Warteschlange →';
+    }
+    showRegPhase('returning');
+    document.getElementById('regCardTitle').textContent = '';
+  } else {
+    showRegPhase('new');
+  }
+});
+
+document.getElementById('regEmailInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter') document.getElementById('regEmailBtn').click();
+});
+
+// Phase 2a: Returning
+document.getElementById('regReturningBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('regReturningBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Einreihen…';
+
+  const existing = await findExistingQueueDoc(regEmail);
+  if(existing){
+    currentQueueDocId = existing.docId;
+    currentPlayer = { email: regEmail, firstName: existing.firstName||'', username: existing.username||regUsername };
+    subscribeToOwnDoc();
+    subscribeToQueuePosition();
+    showScreen('screenWaiting');
+  } else {
+    try{
+      await joinQueue({ email: regEmail, firstName: '', username: regUsername });
+      showScreen('screenWaiting');
+    }catch(e){
+      btn.disabled = false; btn.textContent = 'In die Warteschlange →';
+    }
+  }
+});
+
+// Phase 2b: New user
+const regFirstNameEl  = document.getElementById('regFirstName');
+const regUsernameEl   = document.getElementById('regUsername');
+const regConsentEl    = document.getElementById('regConsent');
+const regNewBtnEl     = document.getElementById('regNewBtn');
+
+function updateRegNewBtn(){
+  regNewBtnEl.disabled = !(regFirstNameEl.value.trim() && regUsernameEl.value.trim() && regConsentEl.checked);
+}
+regFirstNameEl.addEventListener('input', updateRegNewBtn);
+regUsernameEl.addEventListener('input', updateRegNewBtn);
+regConsentEl.addEventListener('change', updateRegNewBtn);
+
+regNewBtnEl.addEventListener('click', async () => {
+  const errEl = document.getElementById('regNewError');
+  errEl.textContent = '';
+  const firstName = regFirstNameEl.value.trim();
+  const username  = regUsernameEl.value.trim();
+  if(!firstName){ errEl.textContent = 'Bitte gib deinen Vornamen ein.'; return; }
+  if(!username){  errEl.textContent = 'Bitte wähle einen Benutzernamen.'; return; }
+  if(username.length < 2){ errEl.textContent = 'Benutzername muss mindestens 2 Zeichen lang sein.'; return; }
+
+  regNewBtnEl.disabled = true;
+  regNewBtnEl.innerHTML = '<span class="spinner"></span>Prüfe Benutzernamen…';
+
+  const available = await checkUsernameAvailable(username);
+  if(!available){
+    errEl.textContent = 'Dieser Benutzername ist bereits vergeben.';
+    regNewBtnEl.disabled = false; regNewBtnEl.textContent = 'Registrieren & einreihen →';
+    updateRegNewBtn(); return;
+  }
+
+  regNewBtnEl.innerHTML = '<span class="spinner"></span>Registrieren…';
+  try{
+    await registerNewPlayer(firstName, regEmail, username);
+    regUsername = username;
+    await joinQueue({ email: regEmail, firstName, username });
+    showScreen('screenWaiting');
+  }catch(e){
+    errEl.textContent = 'Fehler beim Registrieren. Bitte versuche es erneut.';
+    regNewBtnEl.disabled = false; regNewBtnEl.textContent = 'Registrieren & einreihen →';
+    updateRegNewBtn();
+  }
+});
+</script>
+</body>
+</html>

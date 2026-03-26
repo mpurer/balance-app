@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<title>Slackboard FIBO – Live Rangliste</title>
+
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyA7BZvLHuIXiYdukRpV7bM52pBBuWzv3rU",
+    authDomain: "gibbon-balance-game.firebaseapp.com",
+    projectId: "gibbon-balance-game",
+    storageBucket: "gibbon-balance-game.firebasestorage.app",
+    messagingSenderId: "435375118778",
+    appId: "1:435375118778:web:5513fc213d8d7fef816583"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+</script>
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+  }
+
+  :root {
+    --yellow:  #e8fc66;
+    --cyan:    #19f6ff;
+    --bg:      #12203d;
+    --panel:   rgba(255,255,255,0.055);
+    --border:  rgba(232,252,102,0.28);
+    --gold:    #ffd700;
+    --silver:  #c8c8c8;
+    --bronze:  #e8944a;
+  }
+
+  /* ── 1920×1080 canvas scaled to any screen ── */
+  #screen {
+    position: absolute;
+    top: 0; left: 0;
+    width: 1920px; height: 1080px;
+    transform-origin: top left;
+    background-color: var(--bg);
+    color: #f0f0f0;
+    overflow: hidden;
+  }
+
+  /* Subtle scanline overlay */
+  #screen::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.03) 3px,rgba(0,0,0,0.03) 4px);
+    pointer-events: none; z-index: 300;
+  }
+
+  /* ════════════════════════════════════════════
+     HEADER
+  ════════════════════════════════════════════ */
+  #header {
+    position: absolute; top: 0; left: 0; right: 0; height: 104px;
+    display: flex; align-items: center; padding: 0 52px;
+    background: rgba(6,10,24,0.95);
+    border-bottom: 3px solid var(--yellow);
+    box-shadow: 0 4px 40px rgba(232,252,102,0.12);
+    z-index: 10;
+  }
+
+  #headerLogo { height: 62px; flex-shrink: 0; filter: drop-shadow(0 0 14px rgba(232,252,102,0.4)); }
+
+  #headerCenter { flex: 1; text-align: center; }
+  #headerTitle {
+    font-size: 48px; font-weight: 900; letter-spacing: 9px;
+    text-transform: uppercase; color: var(--yellow); line-height: 1;
+    text-shadow: 0 0 20px rgba(232,252,102,0.6), 0 0 60px rgba(232,252,102,0.2);
+  }
+  #headerSub {
+    font-size: 15px; font-weight: 700; letter-spacing: 5px;
+    text-transform: uppercase; color: rgba(232,252,102,0.5); margin-top: 6px;
+  }
+
+  #headerRight {
+    flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+    font-size: 16px; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: rgba(255,255,255,0.45);
+  }
+  .liveDot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 10px rgba(25,246,255,0.9), 0 0 24px rgba(25,246,255,0.4);
+    animation: blink 1.8s ease-in-out infinite; flex-shrink: 0;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+  /* ════════════════════════════════════════════
+     MAIN 3-COLUMN LAYOUT
+  ════════════════════════════════════════════ */
+  #main {
+    position: absolute;
+    top: 104px; left: 0; right: 0; bottom: 0;
+    display: flex;
+  }
+
+  .secLabel {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 24px; font-weight: 800; letter-spacing: 4px;
+    text-transform: uppercase; color: var(--yellow);
+    margin-bottom: 14px; flex-shrink: 0;
+    text-shadow: 0 0 10px rgba(232,252,102,0.35);
+  }
+  .secLabel::before {
+    content: ''; display: block; width: 5px; height: 22px;
+    background: var(--yellow); border-radius: 3px;
+    box-shadow: 0 0 8px rgba(232,252,102,0.6); flex-shrink: 0;
+  }
+  .secDivider {
+    height: 2px;
+    background: linear-gradient(90deg, rgba(232,252,102,0.5), transparent);
+    margin-bottom: 22px; flex-shrink: 0;
+  }
+
+  /* ════════════════════════════════════════════
+     LEFT COLUMN  —  QR + CTA
+  ════════════════════════════════════════════ */
+  #colLeft {
+    width: 440px; flex-shrink: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 36px 44px;
+    border-right: 1px solid var(--border);
+    background: rgba(0,0,0,0.18);
+    text-align: center; gap: 24px;
+  }
+
+  #qrFrame {
+    padding: 14px; background: #fff; border-radius: 18px;
+    border: 4px solid var(--yellow);
+    box-shadow: 0 0 32px rgba(232,252,102,0.35), 0 0 80px rgba(232,252,102,0.12);
+  }
+  #qrFrame img { width: 210px; height: 210px; display: block; border-radius: 6px; }
+
+  #ctaTitle {
+    font-size: 38px; font-weight: 900; line-height: 1.18;
+    color: var(--yellow); text-transform: uppercase; letter-spacing: 2px;
+    text-shadow: 0 0 16px rgba(232,252,102,0.45), 0 0 40px rgba(232,252,102,0.15);
+  }
+
+  .ctaSeparator {
+    width: 64px; height: 4px;
+    background: linear-gradient(90deg, var(--cyan), var(--yellow));
+    border-radius: 2px; box-shadow: 0 0 10px rgba(25,246,255,0.4);
+  }
+
+  #ctaPrize {
+    font-size: 26px; font-weight: 800; line-height: 1.55;
+    max-width: 370px;
+    background: var(--yellow); color: #111;
+    padding: 18px 22px; border-radius: 6px;
+    border: 3px solid #111; box-shadow: 5px 5px 0px #111;
+    transform: rotate(-2deg); text-align: left;
+  }
+  #ctaPrize strong { color: #000; font-weight: 900; }
+  #ctaPrize strong.highlight {
+    display: inline-block; background: #2a3a5c; color: var(--yellow);
+    padding: 2px 10px; border-radius: 4px; font-weight: 900; letter-spacing: 0.5px;
+  }
+
+  /* ════════════════════════════════════════════
+     CENTER COLUMN  —  LEADERBOARD
+  ════════════════════════════════════════════ */
+  #colCenter {
+    flex: 1; display: flex; flex-direction: column;
+    padding: 36px 60px; overflow: hidden; min-width: 0;
+  }
+
+  #lbWrapper { flex: 1; overflow-y: auto; scrollbar-width: none; }
+  #lbWrapper::-webkit-scrollbar { display: none; }
+
+  table.lbTable { width: 100%; border-collapse: collapse; }
+  table.lbTable thead th {
+    font-size: 19px; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: rgba(232,252,102,0.65);
+    padding: 0 16px 14px;
+    border-bottom: 2px solid rgba(232,252,102,0.2);
+  }
+  table.lbTable thead th.name  { text-align: left; }
+  table.lbTable thead th.score { text-align: right; }
+  table.lbTable thead th.rank  { text-align: center; width: 90px; }
+
+  table.lbTable tbody tr { border-bottom: 1px solid rgba(255,255,255,0.06); }
+  table.lbTable tbody td { padding: 13px 16px; font-size: 26px; color: rgba(255,255,255,0.88); font-weight: 600; }
+  td.rank  { text-align: center; width: 90px; font-weight: 900; font-size: 22px; color: rgba(255,255,255,0.35); }
+  td.name  { text-align: left; }
+  td.score { text-align: right; font-weight: 800; }
+  table.lbTable tbody tr:not(.top-1):not(.top-2):not(.top-3):not(.top-4):not(.top-5):nth-child(even) {
+    background: rgba(255,255,255,0.03);
+  }
+
+  /* Top 3 rows */
+  tr.top-1 { background: rgba(255,215,0,0.12) !important; border-bottom: 1px solid rgba(255,215,0,0.22) !important; border-left: 4px solid var(--gold); }
+  tr.top-1 td { font-size: 34px; color: #fff; font-weight: 700; }
+  tr.top-1 td.rank  { color: var(--gold); font-size: 28px; text-shadow: 0 0 14px rgba(255,215,0,0.7); }
+  tr.top-1 td.score { color: var(--gold); text-shadow: 0 0 12px rgba(255,215,0,0.5); font-weight: 900; }
+
+  tr.top-2 { background: rgba(200,200,200,0.08) !important; border-bottom: 1px solid rgba(200,200,200,0.18) !important; border-left: 4px solid var(--silver); }
+  tr.top-2 td { font-size: 30px; color: #fff; font-weight: 700; }
+  tr.top-2 td.rank  { color: var(--silver); font-size: 25px; }
+  tr.top-2 td.score { color: var(--silver); font-weight: 900; }
+
+  tr.top-3 { background: rgba(232,148,74,0.09) !important; border-bottom: 1px solid rgba(232,148,74,0.18) !important; border-left: 4px solid var(--bronze); }
+  tr.top-3 td { font-size: 28px; color: #fff; font-weight: 700; }
+  tr.top-3 td.rank  { color: var(--bronze); font-size: 23px; }
+  tr.top-3 td.score { color: var(--bronze); font-weight: 900; }
+
+  /* Top 4–5 rows */
+  tr.top-4, tr.top-5 { background: rgba(25,246,255,0.06) !important; border-bottom: 1px solid rgba(25,246,255,0.14) !important; border-left: 4px solid var(--cyan); }
+  tr.top-4 td, tr.top-5 td { font-size: 26px; color: rgba(255,255,255,0.92); font-weight: 700; }
+  tr.top-4 td.rank, tr.top-5 td.rank   { color: var(--cyan); font-size: 22px; }
+  tr.top-4 td.score, tr.top-5 td.score { color: var(--cyan); font-weight: 900; }
+
+  /* ════════════════════════════════════════════
+     RIGHT COLUMN  —  QUEUE
+  ════════════════════════════════════════════ */
+  #colRight {
+    width: 440px; flex-shrink: 0;
+    display: flex; flex-direction: column;
+    padding: 36px 44px;
+    border-left: 1px solid var(--border);
+    background: rgba(0,0,0,0.18);
+    overflow: hidden;
+  }
+
+  .nowPlayingCard {
+    background: rgba(232,252,102,0.09);
+    border: 2px solid rgba(232,252,102,0.3);
+    border-radius: 16px;
+    padding: 20px 24px;
+    text-align: center;
+    margin-bottom: 32px;
+    flex-shrink: 0;
+    box-shadow: 0 0 24px rgba(232,252,102,0.08);
+    position: relative;
+  }
+  #nowPlayingName {
+    font-size: 50px; font-weight: 900; color: #fff; line-height: 1.1;
+    word-break: break-word; min-height: 56px;
+    text-shadow: 0 0 20px rgba(255,255,255,0.2);
+  }
+
+  /* Skip button */
+  #skipBtn {
+    display: none;
+    margin-top: 14px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 1.5px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.5);
+    font-size: 15px; font-weight: 700; font-family: inherit;
+    cursor: pointer; letter-spacing: 1px;
+    transition: all 0.18s;
+  }
+  #skipBtn:hover { background: rgba(255,80,80,0.18); border-color: rgba(255,80,80,0.5); color: #fff; }
+  #skipBtn:active { transform: scale(0.97); }
+
+  #queueWaitList { flex: 1; overflow: hidden; }
+  .queueWaitRow {
+    display: flex; align-items: center; gap: 16px;
+    padding: 13px 0; border-bottom: 1px solid rgba(255,255,255,0.07);
+    font-size: 27px; color: rgba(255,255,255,0.9); font-weight: 600;
+  }
+  .queueWaitRow:last-child { border-bottom: none; }
+  .queueWaitPos {
+    width: 36px; color: var(--yellow); font-weight: 900;
+    text-align: center; flex-shrink: 0;
+    text-shadow: 0 0 8px rgba(232,252,102,0.5);
+  }
+  .queueEmpty {
+    color: rgba(255,255,255,0.3); font-size: 20px;
+    font-style: italic; padding-top: 8px;
+  }
+
+  /* Now playing status label */
+  #nowPlayingStatus {
+    font-size: 12px; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: rgba(232,252,102,0.6);
+    margin-bottom: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div id="screen">
+
+  <!-- ═══ HEADER ══════════════════════════════════════════════════════ -->
+  <div id="header">
+    <img src="gibbon_logo.png" id="headerLogo" alt="Gibbon" />
+    <div id="headerCenter">
+      <div id="headerTitle">Slackboard Survival</div>
+      <div id="headerSub">Live Rangliste · FIBO · Gibbon Slacklines</div>
+    </div>
+    <div id="headerRight">
+      <span class="liveDot"></span>
+      Live
+    </div>
+  </div>
+
+  <!-- ═══ MAIN LAYOUT ══════════════════════════════════════════════════ -->
+  <div id="main">
+
+    <!-- LEFT: QR + CTA ────────────────────────────────────────────── -->
+    <div id="colLeft">
+      <div id="qrFrame">
+        <img src="QR_fibo.png" alt="QR Code – Spiel jetzt!" id="qrImg" />
+      </div>
+      <div id="ctaTitle">Scannen,<br>Spielen &amp;<br>Gewinnen!</div>
+      <div class="ctaSeparator"></div>
+      <div id="ctaPrize">
+        Ordne dich in die <strong class="highlight">Top&nbsp;5</strong>
+        ein und erhalte ein <strong class="highlight">Goodie</strong> von
+        <strong>Gibbon&nbsp;Slacklines</strong>!
+      </div>
+    </div>
+
+    <!-- CENTER: LEADERBOARD ──────────────────────────────────────── -->
+    <div id="colCenter">
+      <div class="secLabel">🏆 &nbsp;Rangliste</div>
+      <div class="secDivider"></div>
+      <div id="lbWrapper">
+        <table class="lbTable" aria-label="Slackboard Survival Rangliste">
+          <thead>
+            <tr>
+              <th class="rank">#</th>
+              <th class="name">Spieler</th>
+              <th class="score">Punkte</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardBody">
+            <tr><td colspan="3" style="text-align:center;padding:28px;color:#444;font-style:italic">Lade Rangliste…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT: QUEUE ─────────────────────────────────────────────── -->
+    <div id="colRight">
+      <div class="secLabel">🎮 &nbsp;Jetzt am Spielen</div>
+      <div class="nowPlayingCard">
+        <div id="nowPlayingStatus">JETZT</div>
+        <div id="nowPlayingName">—</div>
+        <button id="skipBtn" onclick="skipCurrentPlayer()">⏭ Überspringen</button>
+      </div>
+      <div class="secLabel">Warteschlange</div>
+      <div class="secDivider"></div>
+      <div id="queueWaitList">
+        <div class="queueEmpty">Niemand wartet gerade</div>
+      </div>
+    </div>
+
+  </div><!-- /#main -->
+
+</div><!-- /#screen -->
+
+<script>
+  // ── Scale #screen to fill viewport ──────────────────────────────
+  function scaleScreen(){
+    const s = document.getElementById('screen');
+    const scale = Math.min(window.innerWidth/1920, window.innerHeight/1080);
+    s.style.transform = `scale(${scale})`;
+    s.style.left = Math.round((window.innerWidth  - 1920*scale)/2) + 'px';
+    s.style.top  = Math.round((window.innerHeight - 1080*scale)/2) + 'px';
+  }
+  window.addEventListener('resize', scaleScreen);
+  scaleScreen();
+
+  // ── Elements ────────────────────────────────────────────────────
+  const leaderboardBody = document.getElementById('leaderboardBody');
+  const nowPlayingName  = document.getElementById('nowPlayingName');
+  const nowPlayingStatus = document.getElementById('nowPlayingStatus');
+  const skipBtn         = document.getElementById('skipBtn');
+  const queueWaitList   = document.getElementById('queueWaitList');
+
+  // Track current active doc for skip
+  let currentActiveDocId = null;
+
+  // ── Helpers ─────────────────────────────────────────────────────
+  function escapeHtml(s){
+    return String(s||'').replace(/[&<>"']/g, ch =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])
+    );
+  }
+
+  const MEDALS = ['🥇','🥈','🥉'];
+
+  // ── Leaderboard subscription ─────────────────────────────────────
+  function subscribeToLeaderboard(){
+    db.collection('leaderboardFiboSurvival')
+      .orderBy('score','desc')
+      .orderBy('timestamp','desc')
+      .limit(500)
+      .onSnapshot(snapshot => {
+        leaderboardBody.innerHTML = '';
+        if(snapshot.empty){
+          leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:28px;color:#444;font-style:italic">Noch keine Einträge.</td></tr>`;
+          return;
+        }
+        let rank = 1;
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const tr = document.createElement('tr');
+          if(rank <= 5) tr.classList.add('top-' + rank);
+          const rankCell = rank <= 3 ? MEDALS[rank-1] : rank;
+          tr.innerHTML = `<td class="rank">${rankCell}</td><td class="name">${escapeHtml(data.playerName)}</td><td class="score">${data.score}</td>`;
+          leaderboardBody.appendChild(tr);
+          rank++;
+        });
+      }, err => {
+        console.error('Leaderboard error:', err);
+        leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:28px;color:#e60000">Fehler beim Laden.</td></tr>`;
+      });
+  }
+
+  // ── Queue subscriptions ──────────────────────────────────────────
+  function subscribeToQueue(){
+    // Now playing / ready
+    db.collection('queueFibo')
+      .where('status','in',['playing','ready'])
+      .limit(1)
+      .onSnapshot(snap => {
+        if(snap.empty){
+          nowPlayingName.textContent = '—';
+          nowPlayingStatus.textContent = 'JETZT';
+          skipBtn.style.display = 'none';
+          currentActiveDocId = null;
+        } else {
+          const d = snap.docs[0].data();
+          currentActiveDocId = snap.docs[0].id;
+          nowPlayingName.textContent = d.username || d.firstName || '—';
+          nowPlayingStatus.textContent = d.status === 'ready' ? 'BEREIT' : 'JETZT';
+          skipBtn.style.display = 'block';
+        }
+      }, err => { console.error('Queue playing snapshot:', err); });
+
+    // Waiting list
+    db.collection('queueFibo')
+      .where('status','==','waiting')
+      .limit(20)
+      .onSnapshot(snap => {
+        queueWaitList.innerHTML = '';
+        if(snap.empty){
+          queueWaitList.innerHTML = '<div class="queueEmpty">Niemand wartet gerade</div>';
+          return;
+        }
+        const entries = [];
+        snap.forEach(doc => entries.push(doc.data()));
+        entries.sort((a,b) => (a.order||0) - (b.order||0));
+        entries.slice(0,10).forEach((d,i) => {
+          const row = document.createElement('div');
+          row.className = 'queueWaitRow';
+          row.innerHTML = `<span class="queueWaitPos">${i+1}</span><span>${escapeHtml(d.username||d.firstName||'?')}</span>`;
+          queueWaitList.appendChild(row);
+        });
+      }, err => { console.error('Queue waiting snapshot:', err); });
+  }
+
+  // ── Skip current player (staff button) ──────────────────────────
+  async function skipCurrentPlayer(){
+    if(!currentActiveDocId) return;
+    if(!confirm('Diesen Spieler überspringen?')) return;
+
+    try{
+      await db.collection('queueFibo').doc(currentActiveDocId).update({ status: 'skipped' });
+      await advanceQueue();
+    }catch(e){ console.error('skipCurrentPlayer:', e); }
+  }
+
+  async function advanceQueue(){
+    try{
+      // Guard: check if someone is already ready or playing after the skip
+      const activeSnap = await db.collection('queueFibo')
+        .where('status','in',['ready','playing']).limit(1).get();
+      if(!activeSnap.empty) return;
+
+      const waitSnap = await db.collection('queueFibo')
+        .where('status','==','waiting').limit(20).get();
+      if(waitSnap.empty) return;
+
+      const entries = [];
+      waitSnap.forEach(doc => entries.push({ docId: doc.id, ...doc.data() }));
+      entries.sort((a,b) => (a.order||0) - (b.order||0));
+
+      await db.collection('queueFibo').doc(entries[0].docId).update({
+        status: 'ready',
+        readyAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }catch(e){ console.error('advanceQueue:', e); }
+  }
+
+  // ── QR code fallback (show placeholder if image missing) ────────
+  document.getElementById('qrImg').addEventListener('error', function(){
+    this.style.display = 'none';
+    this.parentElement.innerHTML = '<div style="width:210px;height:210px;display:flex;align-items:center;justify-content:center;background:#f0f0f0;border-radius:6px;font-size:13px;color:#999;text-align:center;padding:20px">QR_fibo.png<br>hier platzieren</div>';
+  });
+
+  // ── Init ─────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    subscribeToLeaderboard();
+    subscribeToQueue();
+  });
+</script>
+</body>
+</html>
