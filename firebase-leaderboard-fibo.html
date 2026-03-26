@@ -402,7 +402,6 @@
   function subscribeToLeaderboard(){
     db.collection('leaderboardFiboSurvival')
       .orderBy('score','desc')
-      .orderBy('timestamp','desc')
       .limit(500)
       .onSnapshot(snapshot => {
         leaderboardBody.innerHTML = '';

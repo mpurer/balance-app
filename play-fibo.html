@@ -1347,7 +1347,7 @@ async function renderGameOverLeaderboard(highlightDocId){
   body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:14px;color:#999">Lade Rangliste…</td></tr>`;
   try{
     const snap = await db.collection('leaderboardFiboSurvival')
-      .orderBy('score','desc').orderBy('timestamp','desc').limit(50).get();
+      .orderBy('score','desc').limit(50).get();
     body.innerHTML = '';
     if(snap.empty){
       body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:14px;color:#999">Noch keine Einträge.</td></tr>`;
