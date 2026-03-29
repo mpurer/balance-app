@@ -13,12 +13,15 @@ balance-app/
 ├── signup.html                      # Queue mode: players' phones; register + join queue via QR code
 ├── firebase-leaderboard.html        # TV display: live leaderboard (standard mode)
 ├── firebase-leaderboard-queue.html  # TV display: live leaderboard + queue panel (queue mode)
+├── play-fibo.html                   # FIBO mode: players' phones; register + queue + play all-in-one
+├── firebase-leaderboard-fibo.html   # TV display: live leaderboard + queue + staff Skip button (FIBO mode)
 ├── export.html                      # Admin: load registrations from Firestore, download CSV
 ├── gibbon_logo.png
-└── QR_balance_app.png
+├── QR_balance_app.png
+└── QR_fibo.png                      # QR code pointing to play-fibo.html (must be added manually)
 ```
 
-## Two Operating Modes
+## Three Operating Modes
 
 ### Standard Mode (index.html + firebase-leaderboard.html)
 Players register on the game device itself. Staff opens `index.html` on the game device and `firebase-leaderboard.html` on the TV.
@@ -26,7 +29,10 @@ Players register on the game device itself. Staff opens `index.html` on the game
 ### Queue Mode (index-queue.html + signup.html + firebase-leaderboard-queue.html)
 Players sign up on their own phones by scanning a QR code pointing to `signup.html`. They join a live waiting list. Staff opens `index-queue.html` on the game device — it auto-loads the next player and shows Skip / Bump-to-Front controls. The TV shows `firebase-leaderboard-queue.html` which includes a queue panel beside the leaderboards.
 
-**Switching modes = opening a different file on the game device. `index.html` is never modified.**
+### FIBO Mode (play-fibo.html + firebase-leaderboard-fibo.html)
+Designed for trade fairs with a physical balance board. Players scan a QR code, register and join the waiting list **on their own phone**, then play the game on their own phone when their turn comes. No dedicated game device needed. Only Survival Arena (Level 3) is available. The TV shows `firebase-leaderboard-fibo.html` which has a staff Skip button.
+
+**Switching modes = opening a different file. `index.html` is never modified.**
 
 ## Architecture
 
@@ -85,17 +91,23 @@ pendingQueueEntries  // sorted waiting list from onSnapshot
 | `leaderboardSurvival` | Game files, TV display | `playerName, score, timestamp` |
 | `leaderboardLevel1` | Game files | `playerName, score, timestamp` |
 | `leaderboardReactionGates` | Game files | `playerName, score, timestamp` |
-| `registrations` | Both game files, export.html | `firstName, email, username, newsletterConsent, createdAt, lastPlayedAt, gamesPlayed` |
+| `leaderboardFiboSurvival` | play-fibo.html, firebase-leaderboard-fibo.html | `playerName, score, timestamp` |
+| `registrations` | All game files, export.html | `firstName, email, username, newsletterConsent, createdAt, lastPlayedAt, gamesPlayed` |
 | `queue` | Queue mode files | `username, firstName, email, status, joinedAt, order` |
+| `queueFibo` | FIBO mode files | `username, firstName, email, status, joinedAt, order, readyAt` |
 
-### Queue Collection — `status` values
+### Queue Collection — `status` values (both `queue` and `queueFibo`)
 - `waiting` — in the waiting list
-- `playing` — currently on the game device (shown as "Now Playing" on TV)
+- `ready` — it's their turn; 60s countdown started (`queueFibo` only)
+- `playing` — currently playing
 - `done` — finished playing
-- `skipped` — skipped by staff
+- `skipped` — timed out or skipped by staff
 
 ### Queue Ordering
 `order` is a float set to `Date.now()` on join. FIFO natural sort. Bump to front sets `order = currentMinOrder - 1000`. **All queue queries use client-side sort** (no `orderBy` in Firestore) to avoid needing a composite index.
+
+### Composite Index Note
+Leaderboard queries that use two `orderBy` fields (e.g. `orderBy('score').orderBy('timestamp')`) require a composite index in Firestore. **Only use a single `orderBy('score','desc')`** on new collections to avoid this — the `leaderboardFiboSurvival` queries are intentionally single-field for this reason.
 
 ## Registration Flow (both game modes)
 
@@ -136,6 +148,14 @@ Enable Gyro → Queue Screen → [Play] → Level Select → Start → 3-2-1-GO 
                            → [Skip] → next player shown
 ```
 
+**FIBO mode (play-fibo.html — all on player's own phone):**
+```
+Registration → Waiting (live position) → "Du bist dran!" (60s countdown)
+  → tap Start → [iOS gyro permission popup] → [rotate overlay if portrait]
+  → 3-2-1-GO → Survival Game → Game Over (score + leaderboard)
+  → play again OR back to Waiting
+```
+
 ## Conventions & Patterns
 
 - All game logic is in one `<script>` block at the bottom of `index.html` / `index-queue.html`
@@ -145,10 +165,26 @@ Enable Gyro → Queue Screen → [Play] → Level Select → Start → 3-2-1-GO 
 - `mulberry32` seeded RNG is used for survival obstacles (deterministic patterns)
 - Confetti on game end via `canvas-confetti` CDN
 
+## FIBO Mode — Key Functions (play-fibo.html)
+
+| Function | Purpose |
+|---|---|
+| `joinQueue(player)` | Creates `queueFibo` doc (or reattaches if page refreshed); calls `advanceQueue()` |
+| `subscribeToOwnDoc()` | `onSnapshot` on player's own doc; reacts to `ready` / `skipped` status changes |
+| `subscribeToQueuePosition()` | `onSnapshot` on all `waiting` docs; updates live position display |
+| `advanceQueue()` | Guards for existing active player, then sets next `waiting` player to `ready` |
+| `startReadyCountdown()` | 60s SVG ring countdown; calls `handleTimeout()` on expiry |
+| `handleTimeout()` | Sets own doc to `skipped`, calls `advanceQueue()`, shows skipped screen |
+| `beginGame()` | Calibrates gyro, resets survival state, runs 3-2-1-GO countdown, starts game loop |
+| `endGame()` | Saves score to `leaderboardFiboSurvival`, marks doc `done`, calls `advanceQueue()` |
+
 ## Things to Watch Out For
 
 - **No build step** — edit HTML files directly
-- `firebase-leaderboard.html` and `firebase-leaderboard-queue.html` each have their own copy of the Firebase config
+- Every HTML file has its own copy of the Firebase config — keep them in sync if credentials change
 - Screen orientation (portrait vs landscape, 0/90/180/270) affects tilt axis mapping — test gyro changes on device
-- Firestore queries on `queue` must **not** use `orderBy` on a field different from the `where` field, or a composite index is required (which we avoid by sorting client-side)
-- `index.html` must never be modified as part of queue mode work — it is the fallback
+- Firestore queries on `queue` / `queueFibo` must **not** use `orderBy` on a field different from the `where` field, or a composite index is required (which we avoid by sorting client-side)
+- `index.html` must never be modified as part of queue or FIBO mode work — it is the fallback
+- `play-fibo.html` and `index-queue.html` share the same survival game constants and logic — if you change game balance, update both files
+- `queueFibo` uses an extra `ready` status (not present in `queue`) — don't confuse the two collections
+- `QR_fibo.png` must be placed in the project root manually; `firebase-leaderboard-fibo.html` shows a placeholder if it's missing
