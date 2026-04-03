@@ -867,6 +867,7 @@ function subscribeToOwnDoc(){
         if(waitingVisible || regVisible){
           showScreen('screenReady');
           startReadyCountdown();
+          checkOrientation();
         }
       } else if(status === 'skipped'){
         // Skipped by staff or timed out externally
@@ -1009,30 +1010,19 @@ document.getElementById('readyStartBtn').addEventListener('click', async () => {
     await db.collection('queueFibo').doc(currentQueueDocId).update({ status: 'playing' });
   }catch(e){ console.error('markPlaying:',e); }
 
-  // Check orientation
-  const isLandscape = window.innerWidth >= window.innerHeight;
-  if(isLandscape){
-    beginGame();
-  } else {
-    document.getElementById('rotateOverlay').classList.add('show');
-    watchForLandscape();
-  }
+  beginGame();
 });
 
 document.getElementById('gyroRetryBtn').addEventListener('click', () => {
   document.getElementById('readyStartBtn').click();
 });
 
-function watchForLandscape(){
-  function check(){
-    const isLandscape = window.innerWidth >= window.innerHeight;
-    if(isLandscape){
-      document.getElementById('rotateOverlay').classList.remove('show');
-      beginGame();
-    }
-  }
-  window.addEventListener('orientationchange', () => setTimeout(check, 120));
-  window.addEventListener('resize', check);
+function checkOrientation(){
+  const onReadyOrGame =
+    document.getElementById('screenReady').classList.contains('active') ||
+    document.getElementById('screenGame').classList.contains('active');
+  const isPortrait = window.innerWidth < window.innerHeight;
+  document.getElementById('rotateOverlay').classList.toggle('show', onReadyOrGame && isPortrait);
 }
 
 function beginGame(){
@@ -1304,9 +1294,9 @@ function trackRaw(e){
 window.addEventListener('deviceorientation', trackRaw);
 
 window.addEventListener('orientationchange', () => {
-  setTimeout(() => { sizeCanvas(); }, 120);
+  setTimeout(() => { sizeCanvas(); checkOrientation(); }, 120);
 });
-window.addEventListener('resize', () => { sizeCanvas(); });
+window.addEventListener('resize', () => { sizeCanvas(); checkOrientation(); });
 
 /* ═══════════════════════════════════════════════════════════════
    END GAME
