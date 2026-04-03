@@ -631,6 +631,18 @@ canvas#targetCanvas {
   </div>
 </div>
 
+<!-- ═══ MAX ATTEMPTS SCREEN ══════════════════════════════════════ -->
+<div id="screenMaxAttempts" class="screen portrait-screen">
+  <div class="card">
+    <div id="maxAttemptsIcon" style="font-size:52px;margin-bottom:8px">🎮</div>
+    <div id="maxAttemptsTitle" style="font-size:22px;font-weight:900;margin-bottom:10px">Versuche aufgebraucht!</div>
+    <div style="font-size:15px;color:#555;margin-bottom:18px">Du hast deine 3 Versuche gespielt.</div>
+    <div style="font-size:15px;margin-bottom:6px;color:#888;font-weight:700;letter-spacing:1px;text-transform:uppercase">Bestes Ergebnis</div>
+    <div id="maxBestScore" style="font-size:48px;font-weight:900;line-height:1;background:linear-gradient(135deg,var(--cyan) 0%,var(--yellow) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:22px">0</div>
+    <button id="maxRejoinBtn" class="btn btn-primary">Erneut anmelden →</button>
+  </div>
+</div>
+
 <!-- ═══ SKIPPED SCREEN ══════════════════════════════════════════ -->
 <div id="screenSkipped" class="screen portrait-screen">
   <div class="card">
@@ -702,6 +714,8 @@ let lastTime = 0;
 let gameActive = false;
 let gyroListening = false;
 let currentAttempt = 0;
+let sessionAttemptsUsed = 0;
+let sessionBestScore = 0;
 let survival = { rng: null, time: 0, shapes: [], lines: [], circleSpawn: 0, lineSpawn: 0 };
 
 const isIpad = navigator.userAgent.includes('iPad') ||
@@ -710,7 +724,7 @@ const isIpad = navigator.userAgent.includes('iPad') ||
 /* ═══════════════════════════════════════════════════════════════
    SCREEN MANAGEMENT
 ═══════════════════════════════════════════════════════════════ */
-const SCREENS = ['screenReg','screenWaiting','screenReady','screenGame','screenGameOver','screenSkipped'];
+const SCREENS = ['screenReg','screenWaiting','screenReady','screenGame','screenGameOver','screenMaxAttempts','screenSkipped'];
 
 function showScreen(id){
   SCREENS.forEach(s => {
@@ -804,6 +818,8 @@ async function findExistingQueueDoc(email){
 
 async function joinQueue(player){
   currentPlayer = player;
+  sessionAttemptsUsed = 0;
+  sessionBestScore = 0;
 
   // Check if player is already in queue (page refresh)
   const existing = await findExistingQueueDoc(player.email);
@@ -816,7 +832,8 @@ async function joinQueue(player){
       email: player.email.toLowerCase().trim(),
       status: 'waiting',
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      order: Date.now()
+      order: Date.now(),
+      attemptsUsed: 0
     };
     const ref = await db.collection('queueFibo').add(doc);
     currentQueueDocId = ref.id;
@@ -1336,6 +1353,28 @@ async function endGame(){
     }
   }
 
+  // Track attempts
+  sessionAttemptsUsed++;
+  if(finalScore > sessionBestScore) sessionBestScore = finalScore;
+  if(currentQueueDocId){
+    try{
+      await db.collection('queueFibo').doc(currentQueueDocId)
+        .update({ attemptsUsed: firebase.firestore.FieldValue.increment(1) });
+    }catch(e){}
+  }
+
+  // Show/hide play-again based on remaining attempts
+  const attemptsLeft = sessionAttemptsUsed < 3;
+  document.getElementById('goPlayAgainBtn').style.display = attemptsLeft ? '' : 'none';
+  const existingNotice = document.getElementById('noAttemptsNotice');
+  if(!attemptsLeft && !existingNotice){
+    const notice = document.createElement('div');
+    notice.id = 'noAttemptsNotice';
+    notice.style.cssText = 'font-size:13px;color:#e60000;font-weight:700;text-align:center;margin-bottom:6px';
+    notice.textContent = 'Keine Versuche mehr übrig';
+    document.getElementById('goPlayAgainBtn').insertAdjacentElement('beforebegin', notice);
+  }
+
   // Mark done
   if(currentQueueDocId){
     try{
@@ -1397,6 +1436,10 @@ function fireConfetti(){
 ═══════════════════════════════════════════════════════════════ */
 document.getElementById('goPlayAgainBtn').addEventListener('click', async () => {
   currentAttempt++;
+  // Reset UI for new attempt
+  document.getElementById('goPlayAgainBtn').style.display = '';
+  const notice = document.getElementById('noAttemptsNotice');
+  if(notice) notice.remove();
   // Mark as playing again
   if(currentQueueDocId){
     try{
@@ -1407,8 +1450,23 @@ document.getElementById('goPlayAgainBtn').addEventListener('click', async () => 
 });
 
 document.getElementById('goQueueBtn').addEventListener('click', () => {
-  // Go back to waiting screen
-  showScreen('screenWaiting');
+  if(sessionAttemptsUsed >= 3){
+    document.getElementById('maxBestScore').textContent = sessionBestScore;
+    showScreen('screenMaxAttempts');
+  } else {
+    showScreen('screenWaiting');
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   MAX ATTEMPTS SCREEN — REJOIN
+═══════════════════════════════════════════════════════════════ */
+document.getElementById('maxRejoinBtn').addEventListener('click', () => {
+  if(ownDocUnsub){ ownDocUnsub(); ownDocUnsub = null; }
+  if(posUnsub){ posUnsub(); posUnsub = null; }
+  currentQueueDocId = null;
+  resetRegistration();
+  showScreen('screenReg');
 });
 
 /* ═══════════════════════════════════════════════════════════════

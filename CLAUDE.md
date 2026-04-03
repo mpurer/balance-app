@@ -198,7 +198,7 @@ Registration → Waiting (live position) → "Du bist dran!" (60s countdown)
 | 2 | Live score in TV leaderboard NOW PLAYING panel | ⬜ TODO |
 | 4 | White-box bug on waiting/ready screens | ✅ Done |
 | 5 | Force landscape from ready screen onwards | ✅ Done |
-| 6 | Max 3 attempts per queue slot | ⬜ TODO |
+| 6 | Max 3 attempts per queue slot | ✅ Done |
 | 7 | Reset / delete button in export.html | ⬜ TODO |
 | 8 | Add Nachname field | ✅ Done |
 | 9 | Disclaimer text on TV leaderboard | ⬜ TODO |
