@@ -29,13 +29,14 @@
   html, body {
     width: 100%; height: 100%;
     overflow: hidden;
-    background: #000;
+    /* gradient matches template left/right edge colors — hides any letterbox bars */
+    background: linear-gradient(to right, #0033dc, #01155e);
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   }
 
   :root {
-    --lime:       #c9e52a;
-    --lime-dim:   rgba(201,229,42,0.22);
+    --lime:       #e5fe4a;
+    --lime-dim:   rgba(229,254,74,0.22);
     --panel-bg:   #0e0c20;
     --row-alt:    rgba(255,255,255,0.05);
     --row-border: rgba(255,255,255,0.08);
@@ -57,8 +58,8 @@
   /* ── QR OVERLAY ───────────────────────────────────────────── */
   #qrOverlay {
     position: absolute;
-    left: 32px; top: 163px;
-    width: 157px; height: 157px;
+    left: 53px; top: 242px;
+    width: 159px; height: 174px;
     background: #fff;
     border-radius: 4px;
     padding: 7px;
@@ -92,8 +93,8 @@
   /* ── LEADERBOARD PANEL ────────────────────────────────────── */
   /* Positioned to cover the static leaderboard in the background image */
   #lbPanel {
-    left: 549px; top: 161px;
-    width: 405px; height: 623px;
+    left: 749px; top: 253px;
+    width: 509px; height: 720px;
   }
 
   #lbTableWrap {
@@ -148,8 +149,8 @@
   /* ── NOW PLAYING PANEL ────────────────────────────────────── */
   /* Positioned to cover the static "NOW PLAYING" panel in the background image */
   #nowPanel {
-    left: 1001px; top: 161px;
-    width: 387px; height: 376px;
+    left: 1327px; top: 253px;
+    width: 475px; height: 422px;
     gap: 0;
   }
 
