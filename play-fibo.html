@@ -508,6 +508,7 @@ canvas#targetCanvas {
     <!-- Step 2b: New user -->
     <div id="regNewPhase" style="display:none">
       <input id="regFirstName" class="inp" placeholder="Vorname" autocomplete="given-name" />
+      <input id="regLastName" class="inp" placeholder="Nachname" autocomplete="family-name" />
       <input id="regUsername" class="inp" placeholder="Benutzername (auf der Rangliste)" autocomplete="off" />
       <label class="consent-label">
         <input type="checkbox" id="regConsent" />
@@ -1424,6 +1425,7 @@ function resetRegistration(){
   document.getElementById('regCardTitle').textContent = 'Melde dich an\num zu spielen!';
   document.getElementById('regEmailInput').value = '';
   document.getElementById('regFirstName').value = '';
+  document.getElementById('regLastName').value = '';
   document.getElementById('regUsername').value = '';
   document.getElementById('regConsent').checked = false;
   document.getElementById('regEmailError').textContent = '';
@@ -1507,23 +1509,26 @@ document.getElementById('regReturningBtn').addEventListener('click', async () =>
 
 // Phase 2b: New user
 const regFirstNameEl  = document.getElementById('regFirstName');
+const regLastNameEl   = document.getElementById('regLastName');
 const regUsernameEl   = document.getElementById('regUsername');
 const regConsentEl    = document.getElementById('regConsent');
 const regNewBtnEl     = document.getElementById('regNewBtn');
 
 function updateRegNewBtn(){
-  regNewBtnEl.disabled = !(regFirstNameEl.value.trim() && regUsernameEl.value.trim() && regConsentEl.checked);
+  regNewBtnEl.disabled = !(regFirstNameEl.value.trim() && regLastNameEl.value.trim() && regUsernameEl.value.trim() && regConsentEl.checked);
 }
 regFirstNameEl.addEventListener('input', updateRegNewBtn);
+regLastNameEl.addEventListener('input', updateRegNewBtn);
 regUsernameEl.addEventListener('input', updateRegNewBtn);
 regConsentEl.addEventListener('change', updateRegNewBtn);
 
 regNewBtnEl.addEventListener('click', async () => {
   const errEl = document.getElementById('regNewError');
   errEl.textContent = '';
-  const firstName = regFirstNameEl.value.trim();
+  const firstName = regFirstNameEl.value.trim() + ' ' + regLastNameEl.value.trim();
   const username  = regUsernameEl.value.trim();
-  if(!firstName){ errEl.textContent = 'Bitte gib deinen Vornamen ein.'; return; }
+  if(!regFirstNameEl.value.trim()){ errEl.textContent = 'Bitte gib deinen Vornamen ein.'; return; }
+  if(!regLastNameEl.value.trim()){  errEl.textContent = 'Bitte gib deinen Nachnamen ein.'; return; }
   if(!username){  errEl.textContent = 'Bitte wähle einen Benutzernamen.'; return; }
   if(username.length < 2){ errEl.textContent = 'Benutzername muss mindestens 2 Zeichen lang sein.'; return; }
 

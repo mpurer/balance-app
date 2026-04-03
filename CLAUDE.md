@@ -200,7 +200,7 @@ Registration → Waiting (live position) → "Du bist dran!" (60s countdown)
 | 5 | Force landscape from ready screen onwards | ⬜ TODO |
 | 6 | Max 3 attempts per queue slot | ⬜ TODO |
 | 7 | Reset / delete button in export.html | ⬜ TODO |
-| 8 | Add Nachname field | ⬜ TODO |
+| 8 | Add Nachname field | ✅ Done |
 | 9 | Disclaimer text on TV leaderboard | ⬜ TODO |
 | 10 | Landscape game-over card + rename button | ⬜ TODO |
 | 11 | Disable gyro calibration (hardcode flat-phone default) | ✅ Done |
