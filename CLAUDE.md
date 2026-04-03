@@ -188,3 +188,19 @@ Registration → Waiting (live position) → "Du bist dran!" (60s countdown)
 - `play-fibo.html` and `index-queue.html` share the same survival game constants and logic — if you change game balance, update both files
 - `queueFibo` uses an extra `ready` status (not present in `queue`) — don't confuse the two collections
 - `QR_fibo.png` must be placed in the project root manually; `firebase-leaderboard-fibo.html` shows a placeholder if it's missing
+- `firebase-leaderboard-fibo.html` uses `260326_GIB_Screendesign_YF_V2.jpg` as a 1920×1080 background image; panels are absolutely positioned over the template's static placeholders
+
+## FIBO Improvements
+
+| # | Description | Status |
+|---|---|---|
+| 1 | Screen-size-normalised difficulty | ⬜ TODO |
+| 2 | Live score in TV leaderboard NOW PLAYING panel | ⬜ TODO |
+| 4 | White-box bug on waiting/ready screens | ✅ Done |
+| 5 | Force landscape from ready screen onwards | ⬜ TODO |
+| 6 | Max 3 attempts per queue slot | ⬜ TODO |
+| 7 | Reset / delete button in export.html | ⬜ TODO |
+| 8 | Add Nachname field | ⬜ TODO |
+| 9 | Disclaimer text on TV leaderboard | ⬜ TODO |
+| 10 | Landscape game-over card + rename button | ⬜ TODO |
+| 11 | Disable gyro calibration (hardcode flat-phone default) | ✅ Done |

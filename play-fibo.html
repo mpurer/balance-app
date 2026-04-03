@@ -522,7 +522,6 @@ canvas#targetCanvas {
 <!-- ═══ WAITING SCREEN ═════════════════════════════════════════ -->
 <div id="screenWaiting" class="screen portrait-screen">
   <div class="card">
-    <img src="gibbon_logo.png" class="card-logo" id="waitLogo" alt="Gibbon" />
     <div id="waitTitle">Deine Position</div>
     <div id="waitPosNum">#1</div>
     <div id="waitPosLabel">in der Warteschlange</div>
@@ -536,7 +535,6 @@ canvas#targetCanvas {
 <!-- ═══ READY SCREEN ═══════════════════════════════════════════ -->
 <div id="screenReady" class="screen portrait-screen">
   <div class="card">
-    <img src="gibbon_logo.png" class="card-logo" style="filter:brightness(0) invert(1)" alt="Gibbon" />
     <div id="readyHero">Du bist<br>dran! 🎉</div>
 
     <div id="readyRingWrap">
@@ -1025,9 +1023,9 @@ function beginGame(){
   showScreen('screenGame');
   sizeCanvas();
 
-  // Calibrate
-  beta0 = lastBeta ?? 0;
-  gamma0 = lastGamma ?? 0;
+  // Calibrate — hardcode flat-phone default (beta=0, gamma=0)
+  beta0 = 0;
+  gamma0 = 0;
   dotPos0 = { x: arenaRect.width/2, y: arenaRect.height/2 };
   dotPos = {...dotPos0};
   dotEl.style.left = dotPos.x + 'px';
