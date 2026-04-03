@@ -683,10 +683,14 @@ const countdownNumber = document.getElementById('countdownNumber');
 const countdownFill = document.getElementById('countdownFill');
 
 let arenaRect = {};
+const REFERENCE_SHORT = 390; // iPhone 14 portrait width ≈ landscape height
+let canvasScale = 1;
+
 function sizeCanvas(){
   arenaRect = arena.getBoundingClientRect();
   canvas.width = Math.round(arenaRect.width);
   canvas.height = Math.round(arenaRect.height);
+  canvasScale = Math.min(canvas.width, canvas.height) / REFERENCE_SHORT;
 }
 
 let dotPos = { x: 0, y: 0 };
@@ -1109,7 +1113,7 @@ function resetSurvival(){
 
 function spawnShape(){
   if(!survival.rng) return;
-  const margin = 60;
+  const margin = 60 * canvasScale;
   const side = Math.floor(survival.rng() * 4);
   let x=0, y=0;
   if(side === 0){ x = -margin; y = lerp(-margin, canvas.height+margin, survival.rng()); }
@@ -1117,11 +1121,11 @@ function spawnShape(){
   else if(side === 2){ x = lerp(-margin, canvas.width+margin, survival.rng()); y = -margin; }
   else { x = lerp(-margin, canvas.width+margin, survival.rng()); y = canvas.height+margin; }
 
-  const size = lerp(18, 36, survival.rng());
+  const size = lerp(18, 36, survival.rng()) * canvasScale;
   const angleToCenter = Math.atan2(canvas.height/2 - y, canvas.width/2 - x);
   const spread = (survival.rng()-0.5) * 0.7;
   const difficulty = 1 + survival.time / 220;
-  const speed = SURVIVAL_BASE_SPEED + SURVIVAL_SPEED_GAIN * Math.log1p(difficulty);
+  const speed = (SURVIVAL_BASE_SPEED + SURVIVAL_SPEED_GAIN * Math.log1p(difficulty)) * canvasScale;
   const vx = Math.cos(angleToCenter + spread) * speed;
   const vy = Math.sin(angleToCenter + spread) * speed;
   const shapeTypeRoll = survival.rng();
@@ -1135,11 +1139,11 @@ function spawnShape(){
 function spawnLine(){
   if(!survival.rng) return;
   const side = Math.floor(survival.rng()*4);
-  const margin = 80;
-  const length = lerp(SURVIVAL_LEN_MIN, SURVIVAL_LEN_MAX, survival.rng());
+  const margin = 80 * canvasScale;
+  const length = lerp(SURVIVAL_LEN_MIN, SURVIVAL_LEN_MAX, survival.rng()) * canvasScale;
   let cx=0, cy=0, vx=0, vy=0;
   const difficulty = 1 + survival.time / 220;
-  const driftSpeed = SURVIVAL_BASE_SPEED * 0.7 + SURVIVAL_SPEED_GAIN * 0.5 * Math.log1p(difficulty);
+  const driftSpeed = (SURVIVAL_BASE_SPEED * 0.7 + SURVIVAL_SPEED_GAIN * 0.5 * Math.log1p(difficulty)) * canvasScale;
   if(side === 0){ cx = -margin; cy = lerp(-margin, canvas.height+margin, survival.rng()); vx = driftSpeed; vy = (survival.rng()-0.5)*driftSpeed*0.25; }
   else if(side === 1){ cx = canvas.width+margin; cy = lerp(-margin, canvas.height+margin, survival.rng()); vx = -driftSpeed; vy = (survival.rng()-0.5)*driftSpeed*0.25; }
   else if(side === 2){ cx = lerp(-margin, canvas.width+margin, survival.rng()); cy = -margin; vy = driftSpeed; vx = (survival.rng()-0.5)*driftSpeed*0.25; }

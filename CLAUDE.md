@@ -194,7 +194,7 @@ Registration → Waiting (live position) → "Du bist dran!" (60s countdown)
 
 | # | Description | Status |
 |---|---|---|
-| 1 | Screen-size-normalised difficulty | ⬜ TODO |
+| 1 | Screen-size-normalised difficulty | ✅ Done |
 | 2 | Live score in TV leaderboard NOW PLAYING panel | ⬜ TODO |
 | 4 | White-box bug on waiting/ready screens | ✅ Done |
 | 5 | Force landscape from ready screen onwards | ✅ Done |
