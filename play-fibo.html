@@ -655,6 +655,9 @@ canvas#targetCanvas {
         <button id="goPlayAgainBtn" class="btn btn-primary">Nochmal →</button>
         <button id="goQueueBtn" class="btn-secondary">Beenden</button>
       </div>
+      <div id="goTimeoutNotice" style="font-size:12px;color:#999;text-align:center;margin-top:6px">
+        Automatisch beendet in <span id="goTimeoutTimer">60</span>s
+      </div>
     </div>
   </div>
 </div>
@@ -706,7 +709,8 @@ const READY_TIMEOUT_SECS = 60;
 let currentPlayer = null;  // { email, firstName, username }
 let currentQueueDocId = null;
 let ownDocUnsub = null;
-let _doneMarkTimer = null; // delayed status:'done' after final game
+let _doneMarkTimer  = null; // delayed status:'done' after final game
+let _gameOverTimer  = null; // 60s auto-kick if player idles on game-over screen
 let posUnsub = null;
 let readyTimerInterval = null;
 let readySecsLeft = READY_TIMEOUT_SECS;
@@ -1029,6 +1033,42 @@ async function handleTimeout(){
   await advanceQueue();
   showScreen('screenSkipped');
   document.getElementById('skippedMsg').textContent = 'Deine Zeit von 60 Sekunden ist abgelaufen. Reihe dich erneut ein!';
+}
+
+function startGameOverTimeout(){
+  clearGameOverTimeout();
+  let remaining = 60;
+  const timerEl = document.getElementById('goTimeoutTimer');
+  if(timerEl) timerEl.textContent = remaining;
+  _gameOverTimer = setInterval(() => {
+    remaining--;
+    if(timerEl) timerEl.textContent = remaining;
+    if(remaining <= 0){
+      clearGameOverTimeout();
+      handleGameOverTimeout();
+    }
+  }, 1000);
+}
+
+function clearGameOverTimeout(){
+  if(_gameOverTimer){ clearInterval(_gameOverTimer); _gameOverTimer = null; }
+}
+
+async function handleGameOverTimeout(){
+  if(_doneMarkTimer){ clearTimeout(_doneMarkTimer); _doneMarkTimer = null; }
+  if(currentQueueDocId){
+    try{
+      await db.collection('queueFibo').doc(currentQueueDocId).update({
+        status: 'done', gameStatus: 'done'
+      });
+    }catch(e){}
+  }
+  await advanceQueue();
+  if(ownDocUnsub){ ownDocUnsub(); ownDocUnsub = null; }
+  if(posUnsub){ posUnsub(); posUnsub = null; }
+  currentQueueDocId = null;
+  showScreen('screenSkipped');
+  document.getElementById('skippedMsg').textContent = 'Zeit abgelaufen! Du kannst dich erneut anmelden und in die Warteschlange einreihen.';
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1459,6 +1499,9 @@ async function endGame(){
 
   // Render leaderboard
   await renderGameOverLeaderboard(newDocId);
+
+  // Start 60s idle timeout — auto-kick if player doesn't tap Nochmal or Beenden
+  startGameOverTimeout();
 }
 
 async function renderGameOverLeaderboard(highlightDocId){
@@ -1507,6 +1550,7 @@ function fireConfetti(){
    GAME OVER BUTTONS
 ═══════════════════════════════════════════════════════════════ */
 document.getElementById('goPlayAgainBtn').addEventListener('click', () => {
+  clearGameOverTimeout();
   currentAttempt++;
   // Reset UI for new attempt
   document.getElementById('goPlayAgainBtn').style.display = '';
@@ -1517,6 +1561,7 @@ document.getElementById('goPlayAgainBtn').addEventListener('click', () => {
 });
 
 document.getElementById('goQueueBtn').addEventListener('click', async () => {
+  clearGameOverTimeout();
   // Cancel any pending delayed done-mark (we're doing it now)
   if(_doneMarkTimer){ clearTimeout(_doneMarkTimer); _doneMarkTimer = null; }
   // Player is voluntarily ending their turn — mark done and advance queue

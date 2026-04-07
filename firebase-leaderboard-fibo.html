@@ -258,16 +258,23 @@
     color: #fff;
   }
 
-  /* Leaderboard row flash — very noticeable for 4s */
+  /* Leaderboard row flash — 3 quick blinks then 7s steady glow (9s total) */
   tr.flash-row {
     background: rgba(229,254,74,0.30) !important;
     outline: 4px solid var(--lime);
     outline-offset: -2px;
-    animation: rowglow 4s ease forwards;
+    animation: rowglow 9s ease forwards;
   }
   @keyframes rowglow {
-    0%   { box-shadow: 0 0 28px 8px rgba(229,254,74,0.65); }
-    50%  { box-shadow: 0 0 18px 4px rgba(229,254,74,0.40); }
+    /* 3 blinks in first ~2s (each cycle ≈ 0.67s = 7.4% of 9s) */
+    0%   { box-shadow: 0 0 0 3px var(--lime), 0 0 32px 12px rgba(229,254,74,0.85); }
+    4%   { box-shadow: none; }
+    8%   { box-shadow: 0 0 0 3px var(--lime), 0 0 32px 12px rgba(229,254,74,0.85); }
+    13%  { box-shadow: none; }
+    17%  { box-shadow: 0 0 0 3px var(--lime), 0 0 32px 12px rgba(229,254,74,0.85); }
+    /* hold bright, then fade out */
+    24%  { box-shadow: 0 0 28px 8px rgba(229,254,74,0.65); }
+    60%  { box-shadow: 0 0 14px 4px rgba(229,254,74,0.35); }
     100% { box-shadow: none; }
   }
   tr.flash-row td {
@@ -658,7 +665,7 @@
       tr.classList.remove('flash-row');
       _flashPlayerName = null;
       _flashDocId      = null;
-    }, 4000);
+    }, 9000);
   }
 
   // Flash the correct leaderboard row — by doc ID if available, else first name match (skip case)
