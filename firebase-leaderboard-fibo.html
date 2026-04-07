@@ -258,13 +258,26 @@
     color: #fff;
   }
 
-  /* Leaderboard row flash — uses outline so it works regardless of background */
-  @keyframes rowoutline {
-    0%   { outline: 4px solid rgba(229,254,74,0.95); box-shadow: 0 0 18px 4px rgba(229,254,74,0.5); }
-    60%  { outline: 4px solid rgba(229,254,74,0.6);  box-shadow: 0 0 10px 2px rgba(229,254,74,0.3); }
-    100% { outline: 4px solid transparent;            box-shadow: none; }
+  /* Leaderboard row flash — very noticeable for 4s */
+  tr.flash-row {
+    background: rgba(229,254,74,0.30) !important;
+    outline: 4px solid var(--lime);
+    outline-offset: -2px;
+    animation: rowglow 4s ease forwards;
   }
-  tr.flash-row { animation: rowoutline 4s ease forwards; outline-offset: -2px; }
+  @keyframes rowglow {
+    0%   { box-shadow: 0 0 28px 8px rgba(229,254,74,0.65); }
+    50%  { box-shadow: 0 0 18px 4px rgba(229,254,74,0.40); }
+    100% { box-shadow: none; }
+  }
+  tr.flash-row td {
+    font-size: 22px !important;
+    font-weight: 900 !important;
+    padding-top: 13px !important;
+    padding-bottom: 13px !important;
+    color: #fff !important;
+  }
+  tr.flash-row td.td-score { color: var(--lime) !important; }
 
   /* ── DISCLAIMER ──────────────────────────────────────────────── */
   #disclaimer {
@@ -348,6 +361,7 @@
   let _currentFinalRank   = null;
   let _waitingEntries     = [];
   let _flashPlayerName    = null;
+  let _flashDocId         = null;
 
   // ── Smooth score animation ───────────────────────────────────
   // Score formula: score = survival.time * 10 → rate = 10 pts/sec (constant)
@@ -406,8 +420,8 @@
           const rankCell = rank <= 3 ? MEDALS[rank-1] : rank;
           tr.innerHTML = `<td class="td-rank">${rankCell}</td><td class="td-name">${escapeHtml(d.playerName)}</td><td class="td-score">${d.score}</td>`;
           leaderboardBody.appendChild(tr);
-          // Flash this row if it matches the player who just finished
-          if(_flashPlayerName && d.playerName === _flashPlayerName){
+          // Flash the exact row of the latest score (by doc ID, not name)
+          if(_flashDocId && doc.id === _flashDocId){
             requestAnimationFrame(() => scheduleFlash(tr));
           }
           rank++;
@@ -430,6 +444,7 @@
           // Flash fallback for skip/Beenden cases
           if(_currentPlayerName && !_flashPlayerName){
             _flashPlayerName = _currentPlayerName;
+            // _flashDocId already set if endGame ran; keep whatever it is
             flashLeaderboardRow(_flashPlayerName);
           }
           stopScoreAnimation();
@@ -458,16 +473,17 @@
               _currentLiveScore = newScore;
               startScoreAnimation();
             } else {
-              // gameover or done — snap to exact value, stop animation
+              // countdown / gameover / done — show exact value, no animation
               _currentLiveScore = newScore;
               stopScoreAnimation(newScore);
             }
           }
 
-          // Flash triggers
+          // Flash triggers — set _flashDocId to target the exact row
           if(_prevGameStatus === 'playing' &&
              (_currentGameStatus === 'gameover' || _currentGameStatus === 'done')){
             _flashPlayerName = _currentPlayerName;
+            _flashDocId      = d.lastScoreDocId ?? null;
             flashLeaderboardRow(_flashPlayerName);
           }
         }
@@ -505,7 +521,15 @@
       nameDiv.textContent = _currentPlayerName;
       nowList.appendChild(nameDiv);
 
-      if(_currentGameStatus === 'playing' && _currentLiveScore !== null){
+      if(_currentGameStatus === 'countdown'){
+        // 3-2-1 countdown in progress — show pulsing "..." placeholder
+        const block = document.createElement('div');
+        block.id = 'liveScoreBlock';
+        block.innerHTML = `
+          <div id="liveScoreLabel"><span id="liveDot"></span>BEREIT</div>
+          <div id="liveScoreValue" style="font-size:52px;opacity:0.4">3·2·1</div>`;
+        nowList.appendChild(block);
+      } else if(_currentGameStatus === 'playing' && _currentLiveScore !== null){
         // Big live score block — RAF loop will update #liveScoreValue continuously
         const block = document.createElement('div');
         block.id = 'liveScoreBlock';
@@ -557,7 +581,11 @@
     tr.classList.remove('flash-row');
     void tr.offsetWidth; // force reflow to restart animation
     tr.classList.add('flash-row');
-    setTimeout(() => { tr.classList.remove('flash-row'); _flashPlayerName = null; }, 4000);
+    setTimeout(() => {
+      tr.classList.remove('flash-row');
+      _flashPlayerName = null;
+      _flashDocId      = null;
+    }, 4000);
   }
 
   // Fallback: called when snap.empty fires before the row has been added to the leaderboard

@@ -1088,11 +1088,11 @@ function beginGame(){
   dotEl.style.left = dotPos.x + 'px';
   dotEl.style.top = dotPos.y + 'px';
 
-  // Reset live score
+  // Reset live score — signal countdown phase (not playing yet)
   lastScoreWrite = 0;
   if(currentQueueDocId){
     db.collection('queueFibo').doc(currentQueueDocId)
-      .update({ liveScore: 0, gameStatus: 'playing' }).catch(()=>{});
+      .update({ liveScore: 0, gameStatus: 'countdown' }).catch(()=>{});
   }
 
   // Init survival
@@ -1112,6 +1112,11 @@ function beginGame(){
     resetSurvival();
     scoreDisplay.textContent = 'Survival: 0';
     timerDisplay.textContent = '0s';
+    // Game truly starts now — switch to 'playing'
+    if(currentQueueDocId){
+      db.collection('queueFibo').doc(currentQueueDocId)
+        .update({ gameStatus: 'playing' }).catch(()=>{});
+    }
   });
 }
 
@@ -1430,8 +1435,8 @@ async function endGame(){
         await db.collection('queueFibo').doc(currentQueueDocId).update({
           liveScore: finalScore,
           gameStatus: 'done',
-          finalRank: finalRank
-          // status stays 'playing' intentionally
+          finalRank: finalRank,
+          lastScoreDocId: newDocId   // leaderboard uses this to flash exact row
         });
         const docId = currentQueueDocId;
         _doneMarkTimer = setTimeout(async () => {
@@ -1445,7 +1450,8 @@ async function endGame(){
         await db.collection('queueFibo').doc(currentQueueDocId).update({
           liveScore: finalScore,
           gameStatus: 'gameover',
-          finalRank: finalRank
+          finalRank: finalRank,
+          lastScoreDocId: newDocId   // leaderboard uses this to flash exact row
         });
       }
     }catch(e){}
