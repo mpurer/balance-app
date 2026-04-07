@@ -169,8 +169,8 @@
   .now-row.is-playing {
     background: var(--lime-dim);
     color: var(--lime);
-    font-size: 27px;
-    padding: 16px 20px;
+    font-size: 22px;
+    padding: 10px 20px 6px;
     font-family: 'Bebas Neue', Impact, sans-serif;
     letter-spacing: 1px;
   }
@@ -201,23 +201,70 @@
   #skipBtn:active { transform: scale(0.97); }
 
   /* ── LIVE SCORE ──────────────────────────────────────────────── */
-  .now-score {
-    font-size: 15px; font-weight: 700;
-    color: var(--lime);
-    letter-spacing: 1px;
-    margin-top: 3px;
-    animation: pulse 1.4s ease-in-out infinite;
+  #liveScoreBlock {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 20px 12px;
+    background: rgba(229,254,74,0.06);
+    border-bottom: 1px solid var(--row-border);
   }
-  @keyframes pulse {
+  #liveScoreLabel {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: rgba(229,254,74,0.7);
+    margin-bottom: 2px;
+  }
+  #liveDot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #e60000;
+    animation: liveblink 1s step-end infinite;
+  }
+  @keyframes liveblink {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+    50% { opacity: 0; }
   }
-  .now-gameover {
-    font-size: 13px; font-weight: 700;
-    color: rgba(229,254,74,0.7);
-    margin-top: 3px;
-    letter-spacing: 1px;
+  #liveScoreValue {
+    font-family: 'Bebas Neue', Impact, sans-serif;
+    font-size: 88px; line-height: 1;
+    color: var(--lime);
+    letter-spacing: 4px;
+    text-shadow: 0 0 30px rgba(229,254,74,0.5), 0 0 60px rgba(229,254,74,0.25);
+    transition: transform 0.1s ease;
   }
+  #liveScoreValue.bump {
+    transform: scale(1.08);
+  }
+  .now-gameover-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 20px 12px;
+    background: rgba(229,254,74,0.12);
+    border-bottom: 1px solid var(--row-border);
+    animation: fadeout 4s forwards;
+  }
+  @keyframes fadeout {
+    0%, 60% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .now-gameover-title {
+    font-family: 'Bebas Neue', Impact, sans-serif;
+    font-size: 22px; letter-spacing: 3px;
+    color: var(--lime); margin-bottom: 4px;
+  }
+  .now-gameover-rank {
+    font-size: 40px; font-weight: 900;
+    color: #fff;
+  }
+
+  /* Leaderboard row flash when player finishes */
+  @keyframes rowflash {
+    0%   { background: rgba(229,254,74,0.55) !important; }
+    40%  { background: rgba(229,254,74,0.35) !important; }
+    100% { background: transparent !important; }
+  }
+  tr.flash-row td { animation: rowflash 4s ease forwards; }
 
   /* ── DISCLAIMER ──────────────────────────────────────────────── */
   #disclaimer {
@@ -293,12 +340,14 @@
   const nowList         = document.getElementById('nowList');
   const skipBtn         = document.getElementById('skipBtn');
 
-  let currentActiveDocId = null;
-  let _currentPlayerName = null;
-  let _currentLiveScore  = null;
-  let _currentGameStatus = null;
-  let _currentFinalRank  = null;
-  let _waitingEntries    = [];
+  let currentActiveDocId  = null;
+  let _currentPlayerName  = null;
+  let _currentLiveScore   = null;
+  let _currentGameStatus  = null;
+  let _prevGameStatus     = null;
+  let _currentFinalRank   = null;
+  let _waitingEntries     = [];
+  let _flashPlayerName    = null;
 
   // ── Helpers ─────────────────────────────────────────────────
   function escapeHtml(s){
@@ -330,6 +379,8 @@
           leaderboardBody.appendChild(tr);
           rank++;
         });
+        // Re-apply flash if a player just finished
+        if(_flashPlayerName) flashLeaderboardRow(_flashPlayerName);
       }, err => {
         console.error('Leaderboard error:', err);
         leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:28px;color:#e60000">Fehler beim Laden.</td></tr>`;
@@ -357,8 +408,14 @@
           skipBtn.style.display = 'block';
           _currentPlayerName  = d.username || d.firstName || '—';
           _currentLiveScore   = d.liveScore ?? null;
+          _prevGameStatus     = _currentGameStatus;
           _currentGameStatus  = d.gameStatus ?? null;
           _currentFinalRank   = d.finalRank  ?? null;
+          // Trigger leaderboard flash when game just finished
+          if(_prevGameStatus === 'playing' && _currentGameStatus === 'done'){
+            _flashPlayerName = _currentPlayerName;
+            flashLeaderboardRow(_flashPlayerName);
+          }
         }
         rebuildNowList();
       }, err => console.error('Queue playing snapshot:', err));
@@ -385,23 +442,41 @@
 
     // Current player row (highlighted)
     if(_currentPlayerName){
-      const div = document.createElement('div');
-      div.className = 'now-row is-playing';
-      div.textContent = _currentPlayerName;
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'now-row is-playing';
+      nameDiv.textContent = _currentPlayerName;
+      nowList.appendChild(nameDiv);
 
       if(_currentGameStatus === 'playing' && _currentLiveScore !== null){
-        const scoreEl = document.createElement('div');
-        scoreEl.className = 'now-score';
-        scoreEl.textContent = `Score: ${_currentLiveScore}`;
-        div.appendChild(scoreEl);
-      } else if(_currentGameStatus === 'done' && _currentFinalRank !== null){
-        const goEl = document.createElement('div');
-        goEl.className = 'now-gameover';
-        goEl.textContent = `GAME OVER — Platz ${_currentFinalRank}`;
-        div.appendChild(goEl);
+        // Big live score block
+        const block = document.createElement('div');
+        block.id = 'liveScoreBlock';
+        block.innerHTML = `
+          <div id="liveScoreLabel"><span id="liveDot"></span>LIVE SCORE</div>
+          <div id="liveScoreValue">${_currentLiveScore}</div>`;
+        nowList.appendChild(block);
+        // Brief bump animation on every score update
+        requestAnimationFrame(() => {
+          const sv = document.getElementById('liveScoreValue');
+          if(sv){ sv.classList.add('bump'); setTimeout(()=>sv.classList.remove('bump'), 120); }
+        });
+      } else if(_currentGameStatus === 'gameover' && _currentLiveScore !== null){
+        // Between attempts — show last score greyed slightly
+        const block = document.createElement('div');
+        block.id = 'liveScoreBlock';
+        block.style.opacity = '0.5';
+        block.innerHTML = `
+          <div id="liveScoreLabel">LETZTES ERGEBNIS</div>
+          <div id="liveScoreValue">${_currentLiveScore}</div>`;
+        nowList.appendChild(block);
+      } else if(_currentGameStatus === 'done'){
+        const block = document.createElement('div');
+        block.className = 'now-gameover-block';
+        block.innerHTML = `
+          <div class="now-gameover-title">GAME OVER</div>
+          ${_currentFinalRank !== null ? `<div class="now-gameover-rank">Platz ${_currentFinalRank}</div>` : ''}`;
+        nowList.appendChild(block);
       }
-
-      nowList.appendChild(div);
     }
 
     // Waiting list rows — fit as many as the panel allows
@@ -422,6 +497,22 @@
   }
 
   // ── Skip current player (staff button) ──────────────────────
+  function flashLeaderboardRow(playerName){
+    if(!playerName) return;
+    leaderboardBody.querySelectorAll('td.td-name').forEach(td => {
+      if(td.textContent.trim() === playerName){
+        const tr = td.closest('tr');
+        tr.classList.remove('flash-row');
+        void tr.offsetWidth; // force reflow to restart animation
+        tr.classList.add('flash-row');
+        setTimeout(() => {
+          tr.classList.remove('flash-row');
+          _flashPlayerName = null;
+        }, 4000);
+      }
+    });
+  }
+
   async function skipCurrentPlayer(){
     if(!currentActiveDocId) return;
     if(!confirm('Diesen Spieler überspringen?')) return;

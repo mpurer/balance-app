@@ -397,7 +397,7 @@ canvas#targetCanvas {
   width: 100%; height: 100%;
   background: var(--card);
   display: flex; flex-direction: row;
-  padding: 16px 20px;
+  padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
   gap: 20px;
   box-shadow: 0 24px 64px rgba(0,0,0,0.45);
   overflow: hidden;
@@ -1277,7 +1277,7 @@ function updateLoop(){
   if(gameActive){
     drawSurvival();
     updateSurvival(dt);
-    if(currentQueueDocId && performance.now() - lastScoreWrite > 2000){
+    if(currentQueueDocId && performance.now() - lastScoreWrite > 1000){
       db.collection('queueFibo').doc(currentQueueDocId)
         .update({ liveScore: Math.floor(score) }).catch(()=>{});
       lastScoreWrite = performance.now();
@@ -1391,20 +1391,29 @@ async function endGame(){
     document.getElementById('goPlayAgainBtn').insertAdjacentElement('beforebegin', notice);
   }
 
-  // Mark done
+  // Mark done only when all attempts are exhausted; otherwise keep status 'playing'
+  // so the queue doesn't advance prematurely while the player still has attempts left
   if(currentQueueDocId){
     try{
-      await db.collection('queueFibo').doc(currentQueueDocId).update({
-        status: 'done',
-        liveScore: finalScore,
-        gameStatus: 'done',
-        finalRank: finalRank
-      });
+      if(sessionAttemptsUsed >= 3){
+        await db.collection('queueFibo').doc(currentQueueDocId).update({
+          status: 'done',
+          liveScore: finalScore,
+          gameStatus: 'done',
+          finalRank: finalRank
+        });
+      } else {
+        await db.collection('queueFibo').doc(currentQueueDocId).update({
+          liveScore: finalScore,
+          gameStatus: 'gameover',
+          finalRank: finalRank
+        });
+      }
     }catch(e){}
   }
 
-  // Advance queue
-  await advanceQueue();
+  // Only advance queue when fully done
+  if(sessionAttemptsUsed >= 3) await advanceQueue();
 
   // Render leaderboard
   await renderGameOverLeaderboard(newDocId);
@@ -1455,27 +1464,37 @@ function fireConfetti(){
 /* ═══════════════════════════════════════════════════════════════
    GAME OVER BUTTONS
 ═══════════════════════════════════════════════════════════════ */
-document.getElementById('goPlayAgainBtn').addEventListener('click', async () => {
+document.getElementById('goPlayAgainBtn').addEventListener('click', () => {
   currentAttempt++;
   // Reset UI for new attempt
   document.getElementById('goPlayAgainBtn').style.display = '';
   const notice = document.getElementById('noAttemptsNotice');
   if(notice) notice.remove();
-  // Mark as playing again
-  if(currentQueueDocId){
-    try{
-      await db.collection('queueFibo').doc(currentQueueDocId).update({ status: 'playing' });
-    }catch(e){}
-  }
+  // Doc status is still 'playing' — beginGame() will reset liveScore + gameStatus
   beginGame();
 });
 
-document.getElementById('goQueueBtn').addEventListener('click', () => {
+document.getElementById('goQueueBtn').addEventListener('click', async () => {
+  // Player is voluntarily ending their turn — mark done and advance queue
+  if(currentQueueDocId){
+    try{
+      await db.collection('queueFibo').doc(currentQueueDocId).update({
+        status: 'done', gameStatus: 'done'
+      });
+    }catch(e){}
+  }
+  await advanceQueue();
+
   if(sessionAttemptsUsed >= 3){
     document.getElementById('maxBestScore').textContent = sessionBestScore;
     showScreen('screenMaxAttempts');
   } else {
-    showScreen('screenWaiting');
+    // Give up remaining attempts — go back to registration
+    if(ownDocUnsub){ ownDocUnsub(); ownDocUnsub = null; }
+    if(posUnsub){ posUnsub(); posUnsub = null; }
+    currentQueueDocId = null;
+    resetRegistration();
+    showScreen('screenReg');
   }
 });
 

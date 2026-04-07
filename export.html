@@ -86,7 +86,7 @@
         <tr>
           <th>#</th>
           <th>Email</th>
-          <th>First Name</th>
+          <th>Name</th>
           <th>Username</th>
           <th>Signup Date</th>
           <th>Games Played</th>
@@ -98,8 +98,8 @@
   </div>
 
   <p class="note">
-    CSV format is Klaviyo-compatible: <code>Email, First Name, Username, Signup Date, Games Played, Newsletter Consent</code>.<br>
-    In Klaviyo, map <strong>Email</strong> and <strong>First Name</strong> to their standard fields. Username and other columns become custom properties.
+    CSV format is Klaviyo-compatible: <code>Email, Name, Username, Signup Date, Games Played, Newsletter Consent</code>.<br>
+    In Klaviyo, map <strong>Email</strong> and <strong>Name</strong> to their standard fields. Username and other columns become custom properties.
   </p>
 </div>
 
@@ -318,7 +318,7 @@
   function downloadCSV(){
     if(!registrations.length) return;
 
-    const headers = ['Email','First Name','Username','Signup Date','Games Played','Newsletter Consent'];
+    const headers = ['Email','Name','Username','Signup Date','Games Played','Newsletter Consent'];
     const rows = registrations.map(r => [
       r.email, r.firstName, r.username, r.signupDate, r.gamesPlayed, r.newsletterConsent
     ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
