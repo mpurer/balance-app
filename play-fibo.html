@@ -708,6 +708,7 @@ function sizeCanvas(){
 let dotPos = { x: 0, y: 0 };
 let dotPos0 = { x: 0, y: 0 };
 let beta0 = 0, gamma0 = 0;
+let lastScoreWrite = 0;
 let lastBeta = 0, lastGamma = 0;
 let score = 0;
 let lastTime = 0;
@@ -1058,6 +1059,13 @@ function beginGame(){
   dotEl.style.left = dotPos.x + 'px';
   dotEl.style.top = dotPos.y + 'px';
 
+  // Reset live score
+  lastScoreWrite = 0;
+  if(currentQueueDocId){
+    db.collection('queueFibo').doc(currentQueueDocId)
+      .update({ liveScore: 0, gameStatus: 'playing' }).catch(()=>{});
+  }
+
   // Init survival
   resetSurvival();
   drawSurvival();
@@ -1266,7 +1274,15 @@ function updateLoop(){
   const now = performance.now();
   const dt = lastTime ? (now-lastTime)/1000 : 0;
   lastTime = now;
-  if(gameActive){ drawSurvival(); updateSurvival(dt); }
+  if(gameActive){
+    drawSurvival();
+    updateSurvival(dt);
+    if(currentQueueDocId && performance.now() - lastScoreWrite > 2000){
+      db.collection('queueFibo').doc(currentQueueDocId)
+        .update({ liveScore: Math.floor(score) }).catch(()=>{});
+      lastScoreWrite = performance.now();
+    }
+  }
   requestAnimationFrame(updateLoop);
 }
 updateLoop();
@@ -1343,13 +1359,13 @@ async function endGame(){
 
   // Save score
   let newDocId = null;
+  let finalRank = null;
   if(currentPlayer){
     newDocId = await saveFirebaseScore(currentPlayer.username, finalScore);
     recordPlay(currentPlayer.email);
-    const rank = await getPlayerRank(finalScore);
-    if(rank !== null){
-      const suffix = rank===1?'st':rank===2?'nd':rank===3?'rd':'th';
-      document.getElementById('rankDisplay').textContent = `Platz ${rank} in der Rangliste`;
+    finalRank = await getPlayerRank(finalScore);
+    if(finalRank !== null){
+      document.getElementById('rankDisplay').textContent = `Platz ${finalRank} in der Rangliste`;
     }
   }
 
@@ -1378,7 +1394,12 @@ async function endGame(){
   // Mark done
   if(currentQueueDocId){
     try{
-      await db.collection('queueFibo').doc(currentQueueDocId).update({ status: 'done' });
+      await db.collection('queueFibo').doc(currentQueueDocId).update({
+        status: 'done',
+        liveScore: finalScore,
+        gameStatus: 'done',
+        finalRank: finalRank
+      });
     }catch(e){}
   }
 

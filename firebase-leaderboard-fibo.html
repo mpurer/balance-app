@@ -200,6 +200,25 @@
   #skipBtn:hover  { background: rgba(255,60,60,0.2); border-color: rgba(255,60,60,0.5); color: #fff; }
   #skipBtn:active { transform: scale(0.97); }
 
+  /* ── LIVE SCORE ──────────────────────────────────────────────── */
+  .now-score {
+    font-size: 15px; font-weight: 700;
+    color: var(--lime);
+    letter-spacing: 1px;
+    margin-top: 3px;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .now-gameover {
+    font-size: 13px; font-weight: 700;
+    color: rgba(229,254,74,0.7);
+    margin-top: 3px;
+    letter-spacing: 1px;
+  }
+
   /* ── DISCLAIMER ──────────────────────────────────────────────── */
   #disclaimer {
     position: absolute;
@@ -276,6 +295,9 @@
 
   let currentActiveDocId = null;
   let _currentPlayerName = null;
+  let _currentLiveScore  = null;
+  let _currentGameStatus = null;
+  let _currentFinalRank  = null;
   let _waitingEntries    = [];
 
   // ── Helpers ─────────────────────────────────────────────────
@@ -325,12 +347,18 @@
           currentActiveDocId = null;
           skipBtn.style.display = 'none';
           _currentPlayerName = null;
+          _currentLiveScore  = null;
+          _currentGameStatus = null;
+          _currentFinalRank  = null;
         } else {
           const doc = snap.docs[0];
           const d   = doc.data();
           currentActiveDocId  = doc.id;
           skipBtn.style.display = 'block';
           _currentPlayerName  = d.username || d.firstName || '—';
+          _currentLiveScore   = d.liveScore ?? null;
+          _currentGameStatus  = d.gameStatus ?? null;
+          _currentFinalRank   = d.finalRank  ?? null;
         }
         rebuildNowList();
       }, err => console.error('Queue playing snapshot:', err));
@@ -360,6 +388,19 @@
       const div = document.createElement('div');
       div.className = 'now-row is-playing';
       div.textContent = _currentPlayerName;
+
+      if(_currentGameStatus === 'playing' && _currentLiveScore !== null){
+        const scoreEl = document.createElement('div');
+        scoreEl.className = 'now-score';
+        scoreEl.textContent = `Score: ${_currentLiveScore}`;
+        div.appendChild(scoreEl);
+      } else if(_currentGameStatus === 'done' && _currentFinalRank !== null){
+        const goEl = document.createElement('div');
+        goEl.className = 'now-gameover';
+        goEl.textContent = `GAME OVER — Platz ${_currentFinalRank}`;
+        div.appendChild(goEl);
+      }
+
       nowList.appendChild(div);
     }
 
