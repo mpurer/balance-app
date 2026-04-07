@@ -29,6 +29,14 @@
   #tableWrap{max-height:420px;overflow-y:auto;border-radius:8px;border:1px solid #eee}
   .empty{text-align:center;padding:32px;color:#999}
   .note{font-size:12px;color:#888;margin-top:12px;line-height:1.5}
+  .btnRed{background:#ef4444;color:#fff}
+  .btnRed:hover{background:#dc2626}
+  .btnRed:disabled{background:#fca5a5;cursor:not-allowed}
+  .btnGray{background:#e5e7eb;color:#374151}
+  .btnGray:hover{background:#d1d5db}
+  #deleteStatus{font-size:14px;font-weight:600;margin-top:12px;min-height:20px}
+  .section-title{font-size:16px;font-weight:800;margin:0 0 14px;color:#111}
+  hr.divider{border:none;border-top:1.5px solid #f0f2f8;margin:0 0 20px}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
@@ -92,6 +100,31 @@
   <p class="note">
     CSV format is Klaviyo-compatible: <code>Email, First Name, Username, Signup Date, Games Played, Newsletter Consent</code>.<br>
     In Klaviyo, map <strong>Email</strong> and <strong>First Name</strong> to their standard fields. Username and other columns become custom properties.
+  </p>
+</div>
+
+<div class="card" style="margin-top:24px">
+  <p class="section-title">Daten löschen</p>
+  <hr class="divider">
+  <div class="filters">
+    <label>
+      Von (optional)
+      <input type="date" id="delFromDate" />
+    </label>
+    <label>
+      Bis (optional)
+      <input type="date" id="delToDate" />
+    </label>
+  </div>
+  <div class="actions" style="gap:10px">
+    <button class="btn btnGray" onclick="previewDelete()">Vorschau</button>
+    <button class="btn btnRed" id="deleteRangeBtn" onclick="deleteRange()" disabled>Auswahl löschen</button>
+    <button class="btn btnRed" onclick="deleteAll()">Alles löschen</button>
+  </div>
+  <div id="deleteStatus"></div>
+  <p class="note" style="color:#e60000">
+    <strong>Achtung:</strong> Gelöschte Einträge können nicht wiederhergestellt werden.<br>
+    Betroffen: <code>registrations</code>, <code>leaderboardFiboSurvival</code>, <code>queueFibo</code>.
   </p>
 </div>
 
@@ -176,6 +209,109 @@
     }catch(e){
       console.error(e);
       status.textContent = 'Error loading data. Check console.';
+    }
+  }
+
+  // ── Delete helpers ───────────────────────────────────────────
+  function getDelRange(){
+    const fromVal = document.getElementById('delFromDate').value;
+    const toVal   = document.getElementById('delToDate').value;
+    const from = fromVal ? firebase.firestore.Timestamp.fromDate(new Date(fromVal)) : null;
+    let to = null;
+    if(toVal){
+      const d = new Date(toVal); d.setDate(d.getDate() + 1);
+      to = firebase.firestore.Timestamp.fromDate(d);
+    }
+    return { from, to };
+  }
+
+  async function fetchDocsToDelete(from, to){
+    const docs = [];
+
+    async function fetchCol(colName, field){
+      let q = db.collection(colName);
+      if(from) q = q.where(field, '>=', from);
+      if(to)   q = q.where(field, '<',  to);
+      const snap = await q.get();
+      snap.forEach(d => docs.push(d.ref));
+    }
+
+    await Promise.all([
+      fetchCol('registrations',          'createdAt'),
+      fetchCol('leaderboardFiboSurvival','timestamp'),
+      fetchCol('queueFibo',              'joinedAt'),
+    ]);
+    return docs;
+  }
+
+  async function batchDelete(refs){
+    const CHUNK = 500;
+    for(let i = 0; i < refs.length; i += CHUNK){
+      const batch = db.batch();
+      refs.slice(i, i + CHUNK).forEach(ref => batch.delete(ref));
+      await batch.commit();
+    }
+  }
+
+  async function previewDelete(){
+    const statusEl = document.getElementById('deleteStatus');
+    const btn = document.getElementById('deleteRangeBtn');
+    statusEl.style.color = '#666';
+    statusEl.textContent = 'Prüfe…';
+    btn.disabled = true;
+    try{
+      const { from, to } = getDelRange();
+      const refs = await fetchDocsToDelete(from, to);
+      if(refs.length === 0){
+        statusEl.textContent = 'Keine Einträge im gewählten Zeitraum gefunden.';
+      } else {
+        statusEl.textContent = `${refs.length} Einträge gefunden (Zeitraum).`;
+        btn.disabled = false;
+      }
+    }catch(e){
+      console.error(e);
+      statusEl.style.color = '#e60000';
+      statusEl.textContent = 'Fehler beim Laden. Siehe Konsole.';
+    }
+  }
+
+  async function deleteRange(){
+    const statusEl = document.getElementById('deleteStatus');
+    const btn = document.getElementById('deleteRangeBtn');
+    try{
+      const { from, to } = getDelRange();
+      const refs = await fetchDocsToDelete(from, to);
+      if(!refs.length){ statusEl.textContent = 'Keine Einträge gefunden.'; return; }
+      if(!confirm(`Wirklich ${refs.length} Einträge löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
+      btn.disabled = true;
+      statusEl.style.color = '#666';
+      statusEl.textContent = 'Lösche…';
+      await batchDelete(refs);
+      statusEl.style.color = '#10b981';
+      statusEl.textContent = `${refs.length} Einträge erfolgreich gelöscht.`;
+    }catch(e){
+      console.error(e);
+      statusEl.style.color = '#e60000';
+      statusEl.textContent = 'Fehler beim Löschen. Siehe Konsole.';
+    }
+  }
+
+  async function deleteAll(){
+    const statusEl = document.getElementById('deleteStatus');
+    statusEl.style.color = '#666';
+    statusEl.textContent = 'Prüfe alle Einträge…';
+    try{
+      const refs = await fetchDocsToDelete(null, null);
+      if(!refs.length){ statusEl.textContent = 'Keine Einträge vorhanden.'; return; }
+      if(!confirm(`Wirklich ALLE ${refs.length} Einträge löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
+      statusEl.textContent = 'Lösche alles…';
+      await batchDelete(refs);
+      statusEl.style.color = '#10b981';
+      statusEl.textContent = `Alle ${refs.length} Einträge erfolgreich gelöscht.`;
+    }catch(e){
+      console.error(e);
+      statusEl.style.color = '#e60000';
+      statusEl.textContent = 'Fehler beim Löschen. Siehe Konsole.';
     }
   }
 
