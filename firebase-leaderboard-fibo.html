@@ -258,13 +258,13 @@
     color: #fff;
   }
 
-  /* Leaderboard row flash when player finishes */
-  @keyframes rowflash {
-    0%   { background: rgba(229,254,74,0.55) !important; }
-    40%  { background: rgba(229,254,74,0.35) !important; }
-    100% { background: transparent !important; }
+  /* Leaderboard row flash — uses outline so it works regardless of background */
+  @keyframes rowoutline {
+    0%   { outline: 4px solid rgba(229,254,74,0.95); box-shadow: 0 0 18px 4px rgba(229,254,74,0.5); }
+    60%  { outline: 4px solid rgba(229,254,74,0.6);  box-shadow: 0 0 10px 2px rgba(229,254,74,0.3); }
+    100% { outline: 4px solid transparent;            box-shadow: none; }
   }
-  tr.flash-row td { animation: rowflash 4s ease forwards; }
+  tr.flash-row { animation: rowoutline 4s ease forwards; outline-offset: -2px; }
 
   /* ── DISCLAIMER ──────────────────────────────────────────────── */
   #disclaimer {
@@ -349,6 +349,35 @@
   let _waitingEntries     = [];
   let _flashPlayerName    = null;
 
+  // ── Smooth score animation ───────────────────────────────────
+  // Score formula: score = survival.time * 10 → rate = 10 pts/sec (constant)
+  const SCORE_RATE = 10;
+  let _animBase      = 0;   // liveScore at last Firestore update
+  let _animBaseTime  = 0;   // performance.now() when that update arrived
+  let _animFrozen    = false; // true when game is over (snap to exact value)
+  let _animRafId     = null;
+
+  function startScoreAnimation(){
+    _animFrozen = false;
+    if(_animRafId) return; // already running
+    function tick(){
+      const el = document.getElementById('liveScoreValue');
+      if(el && !_animFrozen){
+        const elapsed = (performance.now() - _animBaseTime) / 1000;
+        el.textContent = Math.max(0, Math.floor(_animBase + SCORE_RATE * elapsed));
+      }
+      _animRafId = requestAnimationFrame(tick);
+    }
+    _animRafId = requestAnimationFrame(tick);
+  }
+
+  function stopScoreAnimation(snapTo){
+    _animFrozen = true;
+    if(_animRafId){ cancelAnimationFrame(_animRafId); _animRafId = null; }
+    const el = document.getElementById('liveScoreValue');
+    if(el && snapTo !== undefined) el.textContent = snapTo;
+  }
+
   // ── Helpers ─────────────────────────────────────────────────
   function escapeHtml(s){
     return String(s||'').replace(/[&<>"']/g, ch =>
@@ -377,10 +406,12 @@
           const rankCell = rank <= 3 ? MEDALS[rank-1] : rank;
           tr.innerHTML = `<td class="td-rank">${rankCell}</td><td class="td-name">${escapeHtml(d.playerName)}</td><td class="td-score">${d.score}</td>`;
           leaderboardBody.appendChild(tr);
+          // Flash this row if it matches the player who just finished
+          if(_flashPlayerName && d.playerName === _flashPlayerName){
+            requestAnimationFrame(() => scheduleFlash(tr));
+          }
           rank++;
         });
-        // Re-apply flash if a player just finished
-        if(_flashPlayerName) flashLeaderboardRow(_flashPlayerName);
       }, err => {
         console.error('Leaderboard error:', err);
         leaderboardBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:28px;color:#e60000">Fehler beim Laden.</td></tr>`;
@@ -395,12 +426,13 @@
       .limit(1)
       .onSnapshot(snap => {
         if(snap.empty){
-          // Doc left the subscription (status became 'done' or 'skipped')
-          // If someone was playing, flash their leaderboard row now
-          if(_currentPlayerName){
+          // Doc left subscription (status became 'done' or 'skipped')
+          // Flash fallback for skip/Beenden cases
+          if(_currentPlayerName && !_flashPlayerName){
             _flashPlayerName = _currentPlayerName;
             flashLeaderboardRow(_flashPlayerName);
           }
+          stopScoreAnimation();
           currentActiveDocId = null;
           skipBtn.style.display = 'none';
           _currentPlayerName = null;
@@ -413,12 +445,28 @@
           currentActiveDocId  = doc.id;
           skipBtn.style.display = 'block';
           _currentPlayerName  = d.username || d.firstName || '—';
-          _currentLiveScore   = d.liveScore ?? null;
           _prevGameStatus     = _currentGameStatus;
           _currentGameStatus  = d.gameStatus ?? null;
           _currentFinalRank   = d.finalRank  ?? null;
-          // Flash on each game-over (between attempts: 'gameover', last attempt: rarely reaches here)
-          if(_prevGameStatus === 'playing' && _currentGameStatus === 'gameover'){
+
+          const newScore = d.liveScore ?? null;
+          if(newScore !== null){
+            if(_currentGameStatus === 'playing'){
+              // Rebase the animation from the newly received score
+              _animBase     = newScore;
+              _animBaseTime = performance.now();
+              _currentLiveScore = newScore;
+              startScoreAnimation();
+            } else {
+              // gameover or done — snap to exact value, stop animation
+              _currentLiveScore = newScore;
+              stopScoreAnimation(newScore);
+            }
+          }
+
+          // Flash triggers
+          if(_prevGameStatus === 'playing' &&
+             (_currentGameStatus === 'gameover' || _currentGameStatus === 'done')){
             _flashPlayerName = _currentPlayerName;
             flashLeaderboardRow(_flashPlayerName);
           }
@@ -439,6 +487,10 @@
   }
 
   function rebuildNowList(){
+    // Stop existing RAF before clearing DOM (avoid orphaned animation)
+    if(_animRafId && _currentGameStatus !== 'playing'){
+      cancelAnimationFrame(_animRafId); _animRafId = null;
+    }
     nowList.innerHTML = '';
 
     if(!_currentPlayerName && _waitingEntries.length === 0){
@@ -454,20 +506,18 @@
       nowList.appendChild(nameDiv);
 
       if(_currentGameStatus === 'playing' && _currentLiveScore !== null){
-        // Big live score block
+        // Big live score block — RAF loop will update #liveScoreValue continuously
         const block = document.createElement('div');
         block.id = 'liveScoreBlock';
         block.innerHTML = `
           <div id="liveScoreLabel"><span id="liveDot"></span>LIVE SCORE</div>
           <div id="liveScoreValue">${_currentLiveScore}</div>`;
         nowList.appendChild(block);
-        // Brief bump animation on every score update
-        requestAnimationFrame(() => {
-          const sv = document.getElementById('liveScoreValue');
-          if(sv){ sv.classList.add('bump'); setTimeout(()=>sv.classList.remove('bump'), 120); }
-        });
+        // Restart RAF now that the element exists in the DOM
+        _animFrozen = false;
+        if(!_animRafId) startScoreAnimation();
       } else if(_currentGameStatus === 'gameover' && _currentLiveScore !== null){
-        // Between attempts — show last score greyed slightly
+        // Between attempts — show exact last score, static
         const block = document.createElement('div');
         block.id = 'liveScoreBlock';
         block.style.opacity = '0.5';
@@ -503,19 +553,18 @@
   }
 
   // ── Skip current player (staff button) ──────────────────────
+  function scheduleFlash(tr){
+    tr.classList.remove('flash-row');
+    void tr.offsetWidth; // force reflow to restart animation
+    tr.classList.add('flash-row');
+    setTimeout(() => { tr.classList.remove('flash-row'); _flashPlayerName = null; }, 4000);
+  }
+
+  // Fallback: called when snap.empty fires before the row has been added to the leaderboard
   function flashLeaderboardRow(playerName){
     if(!playerName) return;
     leaderboardBody.querySelectorAll('td.td-name').forEach(td => {
-      if(td.textContent.trim() === playerName){
-        const tr = td.closest('tr');
-        tr.classList.remove('flash-row');
-        void tr.offsetWidth; // force reflow to restart animation
-        tr.classList.add('flash-row');
-        setTimeout(() => {
-          tr.classList.remove('flash-row');
-          _flashPlayerName = null;
-        }, 4000);
-      }
+      if(td.textContent.trim() === playerName) scheduleFlash(td.closest('tr'));
     });
   }
 

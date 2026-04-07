@@ -706,6 +706,7 @@ const READY_TIMEOUT_SECS = 60;
 let currentPlayer = null;  // { email, firstName, username }
 let currentQueueDocId = null;
 let ownDocUnsub = null;
+let _doneMarkTimer = null; // delayed status:'done' after final game
 let posUnsub = null;
 let readyTimerInterval = null;
 let readySecsLeft = READY_TIMEOUT_SECS;
@@ -1305,7 +1306,7 @@ function updateLoop(){
   if(gameActive){
     drawSurvival();
     updateSurvival(dt);
-    if(currentQueueDocId && performance.now() - lastScoreWrite > 250){
+    if(currentQueueDocId && performance.now() - lastScoreWrite > 3000){
       db.collection('queueFibo').doc(currentQueueDocId)
         .update({ liveScore: Math.floor(score) }).catch(()=>{});
       lastScoreWrite = performance.now();
@@ -1419,17 +1420,27 @@ async function endGame(){
     document.getElementById('goPlayAgainBtn').insertAdjacentElement('beforebegin', notice);
   }
 
-  // Mark done only when all attempts are exhausted; otherwise keep status 'playing'
-  // so the queue doesn't advance prematurely while the player still has attempts left
+  // Update queueFibo doc
   if(currentQueueDocId){
     try{
       if(sessionAttemptsUsed >= 3){
+        // Two-step: first announce game over while still visible in subscription
+        // so the TV leaderboard can see gameStatus:'done' + exact finalScore.
+        // Then mark status:'done' after a 2.5s window and advance the queue.
         await db.collection('queueFibo').doc(currentQueueDocId).update({
-          status: 'done',
           liveScore: finalScore,
           gameStatus: 'done',
           finalRank: finalRank
+          // status stays 'playing' intentionally
         });
+        const docId = currentQueueDocId;
+        _doneMarkTimer = setTimeout(async () => {
+          _doneMarkTimer = null;
+          try{
+            await db.collection('queueFibo').doc(docId).update({ status: 'done' });
+            await advanceQueue();
+          }catch(e){}
+        }, 2500);
       } else {
         await db.collection('queueFibo').doc(currentQueueDocId).update({
           liveScore: finalScore,
@@ -1439,9 +1450,6 @@ async function endGame(){
       }
     }catch(e){}
   }
-
-  // Only advance queue when fully done
-  if(sessionAttemptsUsed >= 3) await advanceQueue();
 
   // Render leaderboard
   await renderGameOverLeaderboard(newDocId);
@@ -1503,6 +1511,8 @@ document.getElementById('goPlayAgainBtn').addEventListener('click', () => {
 });
 
 document.getElementById('goQueueBtn').addEventListener('click', async () => {
+  // Cancel any pending delayed done-mark (we're doing it now)
+  if(_doneMarkTimer){ clearTimeout(_doneMarkTimer); _doneMarkTimer = null; }
   // Player is voluntarily ending their turn — mark done and advance queue
   if(currentQueueDocId){
     try{
