@@ -493,6 +493,34 @@ canvas#targetCanvas {
 #skippedIcon { font-size: 52px; margin-bottom: 10px; }
 #skippedTitle { font-size: 26px; font-weight: 900; color: #fff; margin-bottom: 10px; }
 #skippedMsg { font-size: 15px; color: rgba(255,255,255,0.55); line-height: 1.5; margin-bottom: 24px; }
+
+/* ═══════════════════════════════════
+   LANDSCAPE COMPACT — phone held sideways
+   on registration / ready screens
+═══════════════════════════════════ */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Tighten shared card */
+  .card {
+    padding: 16px 20px 14px;
+    margin: 10px auto 16px;
+    border-radius: 16px;
+  }
+  .card-title { font-size: 18px; margin-bottom: 12px; }
+
+  /* Inputs & button more compact */
+  .inp { padding: 10px 14px; font-size: 15px; margin-bottom: 8px; }
+  .btn { padding: 13px; font-size: 16px; }
+
+  /* Ready screen: smaller ring + hero text */
+  #readyHero { font-size: 26px; margin: 2px 0 14px; }
+  #readyRingSvg { width: 90px; height: 90px; }
+  #readyCountNum { font-size: 26px; }
+  #readyRingWrap { margin-bottom: 14px; }
+  #readyStartBtn { font-size: 17px; padding: 14px; margin-bottom: 10px; }
+
+  /* Registration: tighten vertical gaps */
+  #screenReg .card { max-height: calc(100vh - 20px); overflow-y: auto; }
+}
 </style>
 </head>
 <body>
@@ -1277,7 +1305,7 @@ function updateLoop(){
   if(gameActive){
     drawSurvival();
     updateSurvival(dt);
-    if(currentQueueDocId && performance.now() - lastScoreWrite > 1000){
+    if(currentQueueDocId && performance.now() - lastScoreWrite > 250){
       db.collection('queueFibo').doc(currentQueueDocId)
         .update({ liveScore: Math.floor(score) }).catch(()=>{});
       lastScoreWrite = performance.now();

@@ -395,6 +395,12 @@
       .limit(1)
       .onSnapshot(snap => {
         if(snap.empty){
+          // Doc left the subscription (status became 'done' or 'skipped')
+          // If someone was playing, flash their leaderboard row now
+          if(_currentPlayerName){
+            _flashPlayerName = _currentPlayerName;
+            flashLeaderboardRow(_flashPlayerName);
+          }
           currentActiveDocId = null;
           skipBtn.style.display = 'none';
           _currentPlayerName = null;
@@ -411,8 +417,8 @@
           _prevGameStatus     = _currentGameStatus;
           _currentGameStatus  = d.gameStatus ?? null;
           _currentFinalRank   = d.finalRank  ?? null;
-          // Trigger leaderboard flash when game just finished
-          if(_prevGameStatus === 'playing' && _currentGameStatus === 'done'){
+          // Flash on each game-over (between attempts: 'gameover', last attempt: rarely reaches here)
+          if(_prevGameStatus === 'playing' && _currentGameStatus === 'gameover'){
             _flashPlayerName = _currentPlayerName;
             flashLeaderboardRow(_flashPlayerName);
           }
