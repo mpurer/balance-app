@@ -94,14 +94,25 @@ pendingQueueEntries  // sorted waiting list from onSnapshot
 | `leaderboardFiboSurvival` | play-fibo.html, firebase-leaderboard-fibo.html | `playerName, score, timestamp` |
 | `registrations` | All game files, export.html | `firstName, email, username, newsletterConsent, createdAt, lastPlayedAt, gamesPlayed` |
 | `queue` | Queue mode files | `username, firstName, email, status, joinedAt, order` |
-| `queueFibo` | FIBO mode files | `username, firstName, email, status, joinedAt, order, readyAt` |
+| `queueFibo` | FIBO mode files | `username, firstName, email, status, joinedAt, order, readyAt, attemptsUsed, liveScore, gameStatus, finalRank, lastScoreDocId` |
 
 ### Queue Collection — `status` values (both `queue` and `queueFibo`)
 - `waiting` — in the waiting list
 - `ready` — it's their turn; 60s countdown started (`queueFibo` only)
-- `playing` — currently playing
-- `done` — finished playing
-- `skipped` — timed out or skipped by staff
+- `playing` — currently playing (includes all attempts; doc stays `playing` between attempts)
+- `done` — finished all attempts or voluntarily ended
+- `skipped` — timed out (ready screen or game-over screen) or skipped by staff
+
+### `queueFibo` — extra fields written during gameplay
+| Field | When written | Purpose |
+|---|---|---|
+| `attemptsUsed` | After each game | Incremented via `FieldValue.increment(1)`; max 3 |
+| `liveScore` | Every ~3s during play | Current score for TV animation; 0 at countdown start |
+| `gameStatus` | Throughout gameplay | `'countdown'` → `'playing'` → `'gameover'` (mid-session) or `'done'` (final) |
+| `finalRank` | After each game | Leaderboard rank at that moment |
+| `lastScoreDocId` | After each game | Firestore doc ID of newly saved score row — TV uses this to flash the exact row |
+
+**Two-step final write**: on the last attempt, `gameStatus:'done'` is written first (while `status` stays `'playing'` so the TV subscription still sees it), then after 2.5s `status:'done'` is written and `advanceQueue()` is called. This gives the TV time to read the final score and trigger the flash before the doc leaves the subscription.
 
 ### Queue Ordering
 `order` is a float set to `Date.now()` on join. FIFO natural sort. Bump to front sets `order = currentMinOrder - 1000`. **All queue queries use client-side sort** (no `orderBy` in Firestore) to avoid needing a composite index.
@@ -150,10 +161,13 @@ Enable Gyro → Queue Screen → [Play] → Level Select → Start → 3-2-1-GO 
 
 **FIBO mode (play-fibo.html — all on player's own phone):**
 ```
-Registration → Waiting (live position) → "Du bist dran!" (60s countdown)
-  → tap Start → [iOS gyro permission popup] → [rotate overlay if portrait]
-  → 3-2-1-GO → Survival Game → Game Over (score + leaderboard)
-  → play again OR back to Waiting
+Registration (Vorname + Nachname + Benutzername + Email + Newsletter)
+  → Waiting (live queue position) → "Du bist dran!" (60s SVG ring countdown)
+  → tap Start → [iOS gyro permission] → [rotate overlay enforced in landscape]
+  → 3-2-1-GO → Survival Game → Game Over (score + leaderboard + rank)
+  → [Nochmal →] up to 3 attempts total, or [Beenden] to end early
+  → after 3 attempts: "Versuche aufgebraucht" screen → re-register
+  → 60s idle timeout on game-over screen → auto-kick → "Zeit abgelaufen"
 ```
 
 ## Conventions & Patterns
@@ -169,14 +183,17 @@ Registration → Waiting (live position) → "Du bist dran!" (60s countdown)
 
 | Function | Purpose |
 |---|---|
-| `joinQueue(player)` | Creates `queueFibo` doc (or reattaches if page refreshed); calls `advanceQueue()` |
+| `joinQueue(player)` | Creates `queueFibo` doc with `attemptsUsed:0`; reattaches on page refresh; calls `advanceQueue()` |
 | `subscribeToOwnDoc()` | `onSnapshot` on player's own doc; reacts to `ready` / `skipped` status changes |
 | `subscribeToQueuePosition()` | `onSnapshot` on all `waiting` docs; updates live position display |
 | `advanceQueue()` | Guards for existing active player, then sets next `waiting` player to `ready` |
 | `startReadyCountdown()` | 60s SVG ring countdown; calls `handleTimeout()` on expiry |
 | `handleTimeout()` | Sets own doc to `skipped`, calls `advanceQueue()`, shows skipped screen |
-| `beginGame()` | Calibrates gyro, resets survival state, runs 3-2-1-GO countdown, starts game loop |
-| `endGame()` | Saves score to `leaderboardFiboSurvival`, marks doc `done`, calls `advanceQueue()` |
+| `beginGame()` | Hardcodes `beta0=gamma0=0` (flat-phone centre), writes `gameStatus:'countdown'`, runs 3-2-1-GO, then switches to `gameStatus:'playing'` |
+| `endGame()` | Saves score, increments `attemptsUsed`, does two-step Firestore write; only marks `status:'done'` + advances queue after attempt 3 or Beenden |
+| `startGameOverTimeout()` | Starts 60s `setInterval` on game-over screen; calls `handleGameOverTimeout()` if player idles |
+| `handleGameOverTimeout()` | Cancels `_doneMarkTimer`, marks doc `done`, advances queue, shows "Zeit abgelaufen" |
+| `sizeCanvas()` | Computes `canvasScale = min(w,h)/390` — normalises obstacle sizes/speeds across screen sizes |
 
 ## Things to Watch Out For
 
@@ -189,18 +206,40 @@ Registration → Waiting (live position) → "Du bist dran!" (60s countdown)
 - `queueFibo` uses an extra `ready` status (not present in `queue`) — don't confuse the two collections
 - `QR_fibo.png` must be placed in the project root manually; `firebase-leaderboard-fibo.html` shows a placeholder if it's missing
 - `firebase-leaderboard-fibo.html` uses `260326_GIB_Screendesign_YF_V2.jpg` as a 1920×1080 background image; panels are absolutely positioned over the template's static placeholders
+- **Parallel play guard**: `queueFibo` doc stays `status:'playing'` between attempts (attempt 1→2→3); `status:'done'` is only written after all attempts used or Beenden tapped. Do not mark done after individual games.
+- **`_doneMarkTimer`**: a 2.5s `setTimeout` that writes `status:'done'` after the final attempt's two-step write. Always cancel this timer (`clearTimeout(_doneMarkTimer)`) before any forced early exit.
+- **`_gameOverTimer`**: a 60s `setInterval` that auto-kicks idle players from the game-over screen. Cancel with `clearGameOverTimeout()` whenever a button is pressed.
+- **Firestore write budget**: liveScore is written every ~3s during play. At a full 8-hour fair this is ~5,700 writes/day — well within the 20K free tier limit. Do not reduce the interval below 2s.
+- **Live score animation on TV**: the leaderboard RAF loop counts at `+10 pts/sec` (matching `SURVIVAL_SCORE_MULT`). It is rebased on each Firestore update. On `gameStatus:'done'` it snaps to the exact final score.
+- **Flash precision**: the TV leaderboard identifies the exact row to flash via `tr[data-docid]` matched against `lastScoreDocId` from the queueFibo doc. Name-based matching is only the fallback for skip cases.
+- **`canvasScale`**: computed in `sizeCanvas()` as `min(canvas.width, canvas.height) / 390`. Applied to obstacle size, speed, and spawn margins so difficulty is consistent across screen sizes.
 
 ## FIBO Improvements
 
+### Planned feature set
 | # | Description | Status |
 |---|---|---|
-| 1 | Screen-size-normalised difficulty | ✅ Done |
+| 1 | Screen-size-normalised difficulty (`canvasScale`) | ✅ Done |
 | 2 | Live score in TV leaderboard NOW PLAYING panel | ✅ Done |
-| 4 | White-box bug on waiting/ready screens | ✅ Done |
+| 4 | White-box bug on waiting/ready screens (removed logo img) | ✅ Done |
 | 5 | Force landscape from ready screen onwards | ✅ Done |
 | 6 | Max 3 attempts per queue slot | ✅ Done |
 | 7 | Reset / delete button in export.html | ✅ Done |
-| 8 | Add Nachname field | ✅ Done |
+| 8 | Add Nachname field (combined into firstName) | ✅ Done |
 | 9 | Disclaimer text on TV leaderboard | ✅ Done |
-| 10 | Landscape game-over card + rename button | ✅ Done |
-| 11 | Disable gyro calibration (hardcode flat-phone default) | ✅ Done |
+| 10 | Landscape game-over card + rename "Warteschlange" → "Beenden" | ✅ Done |
+| 11 | Disable gyro calibration (hardcode `beta0=gamma0=0`) | ✅ Done |
+
+### Post-launch bug fixes & enhancements
+| # | Description | Status |
+|---|---|---|
+| 12 | Fix parallel playing: doc stays `playing` between attempts; `done` only after attempt 3 or Beenden | ✅ Done |
+| 13 | iPhone notch / Dynamic Island safe area: `env(safe-area-inset-*)` padding on `#gameOverCard` | ✅ Done |
+| 14 | Live score write frequency: 3s interval (safe within Firebase free tier) + RAF interpolation on TV | ✅ Done |
+| 15 | Export HTML: rename "First Name" column → "Name" | ✅ Done |
+| 16 | Two-step final write + `lastScoreDocId` for precise leaderboard row flash | ✅ Done |
+| 17 | `gameStatus:'countdown'` prevents TV score counter starting during 3-2-1 | ✅ Done |
+| 18 | TV leaderboard: animated 3→2→1 countdown (JS timer + CSS `countpop` keyframe) | ✅ Done |
+| 19 | TV leaderboard: flash exact row by `data-docid` instead of all rows matching player name | ✅ Done |
+| 20 | Flash row: 9s duration + 3 blinks in first ~2s | ✅ Done |
+| 21 | 60s idle timeout on game-over screen (all attempts); auto-kick → "Zeit abgelaufen" | ✅ Done |
