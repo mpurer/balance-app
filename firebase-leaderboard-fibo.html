@@ -199,6 +199,18 @@
   }
   #skipBtn:hover  { background: rgba(255,60,60,0.2); border-color: rgba(255,60,60,0.5); color: #fff; }
   #skipBtn:active { transform: scale(0.97); }
+
+  /* ── DISCLAIMER ──────────────────────────────────────────────── */
+  #disclaimer {
+    position: absolute;
+    left: 1327px; top: 693px;
+    width: 475px;
+    color: rgba(255,255,255,0.45);
+    font-size: 14px;
+    font-style: italic;
+    line-height: 1.45;
+    padding: 10px 0 0;
+  }
 </style>
 </head>
 <body>
@@ -236,6 +248,11 @@
       <div class="now-empty">—</div>
     </div>
     <button id="skipBtn" onclick="skipCurrentPlayer()">⏭ Überspringen</button>
+  </div>
+
+  <!-- ── Disclaimer below NOW PLAYING panel ──────────────────────── -->
+  <div id="disclaimer">
+    Das Spiel kann nur bis 16:30 gespielt werden. Pro Person kann nur 1 Board gewonnen werden.
   </div>
 
 </div><!-- /#screen -->

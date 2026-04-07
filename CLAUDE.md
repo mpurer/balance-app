@@ -201,6 +201,6 @@ Registration → Waiting (live position) → "Du bist dran!" (60s countdown)
 | 6 | Max 3 attempts per queue slot | ✅ Done |
 | 7 | Reset / delete button in export.html | ⬜ TODO |
 | 8 | Add Nachname field | ✅ Done |
-| 9 | Disclaimer text on TV leaderboard | ⬜ TODO |
+| 9 | Disclaimer text on TV leaderboard | ✅ Done |
 | 10 | Landscape game-over card + rename button | ✅ Done |
 | 11 | Disable gyro calibration (hardcode flat-phone default) | ✅ Done |
