@@ -712,6 +712,7 @@ let currentQueueDocId = null;
 let ownDocUnsub = null;
 let _doneMarkTimer  = null; // delayed status:'done' after final game
 let _gameOverTimer  = null; // 60s auto-kick if player idles on game-over screen
+let _gamePaused     = false; // true while rotate overlay is showing mid-game
 let posUnsub = null;
 let readyTimerInterval = null;
 let readySecsLeft = READY_TIMEOUT_SECS;
@@ -1118,12 +1119,25 @@ function checkOrientation(){
   const wasShowing = overlay.classList.contains('show');
   const shouldShow = onReadyOrGame && isPortrait;
   overlay.classList.toggle('show', shouldShow);
-  // Returning to landscape after rotate prompt — snap ball back to centre
-  if(wasShowing && !shouldShow && gameActive){
-    dotPos0 = { x: arenaRect.width/2, y: arenaRect.height/2 };
-    dotPos  = { ...dotPos0 };
-    dotEl.style.left = Math.round(dotPos.x) + 'px';
-    dotEl.style.top  = Math.round(dotPos.y) + 'px';
+
+  // Pause game when rotate overlay appears mid-game
+  if(shouldShow && gameActive && !_gamePaused){
+    gameActive   = false;
+    _gamePaused  = true;
+  }
+
+  // Resume when back to landscape — wait one rAF for layout to settle
+  if(wasShowing && !shouldShow && _gamePaused){
+    _gamePaused = false;
+    requestAnimationFrame(() => {
+      sizeCanvas(); // re-measure arena with settled landscape dimensions
+      dotPos0 = { x: arenaRect.width/2, y: arenaRect.height/2 };
+      dotPos  = { ...dotPos0 };
+      dotEl.style.left = Math.round(dotPos.x) + 'px';
+      dotEl.style.top  = Math.round(dotPos.y) + 'px';
+      lastTime   = performance.now(); // prevent dt spike on resume
+      gameActive = true;
+    });
   }
 }
 
@@ -1643,6 +1657,11 @@ function resetRegistration(){
   const rb = document.getElementById('regReturningBtn');
   rb.disabled = false;
   rb.textContent = 'In die Warteschlange →';
+  // Reset session counters so stale state doesn't bleed into next session
+  sessionAttemptsUsed = 0;
+  sessionBestScore = 0;
+  const staleNotice = document.getElementById('noAttemptsNotice');
+  if(staleNotice) staleNotice.remove();
   showRegPhase('email');
 }
 
