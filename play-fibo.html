@@ -1119,6 +1119,7 @@ function checkOrientation(){
 
 function beginGame(){
   showScreen('screenGame');
+  checkOrientation(); // enforce landscape on every attempt, not just the first
   sizeCanvas();
 
   // Calibrate — hardcode flat-phone default (beta=0, gamma=0)
@@ -1628,6 +1629,9 @@ function resetRegistration(){
   document.getElementById('regEmailError').textContent = '';
   document.getElementById('regNewError').textContent = '';
   document.getElementById('regNewBtn').disabled = true;
+  const rb = document.getElementById('regReturningBtn');
+  rb.disabled = false;
+  rb.textContent = 'In die Warteschlange →';
   showRegPhase('email');
 }
 
