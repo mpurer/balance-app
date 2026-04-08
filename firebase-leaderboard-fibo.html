@@ -29,8 +29,8 @@
   html, body {
     width: 100%; height: 100%;
     overflow: hidden;
-    /* solid teal matches new template body colour — hides any letterbox bars */
-    background: #5ac8bc;
+    /* exact teal from template (RGB 181,233,226) — hides letterbox/pillarbox bars */
+    background: #b5e9e2;
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   }
 
@@ -56,14 +56,14 @@
   }
 
   /* ── QR OVERLAY ───────────────────────────────────────────── */
-  /* Positioned to cover the QR placeholder in the new template */
+  /* Exact position of the white QR placeholder in the template (pixel-measured) */
   #qrOverlay {
     position: absolute;
-    left: 32px; top: 185px;
-    width: 143px; height: 143px;
+    left: 45px; top: 242px;
+    width: 175px; height: 175px;
     background: #fff;
     border-radius: 4px;
-    padding: 6px;
+    padding: 7px;
     display: flex; align-items: center; justify-content: center;
   }
   #qrImg { width: 100%; height: 100%; display: block; border-radius: 2px; }
@@ -92,9 +92,9 @@
   }
 
   /* ── LEADERBOARD PANEL ────────────────────────────────────── */
-  /* Positioned in the open centre-right area of the new template */
+  /* Header ends at y=208; figure on left ends ~x=560; positioned in open right area */
   #lbPanel {
-    left: 575px; top: 162px;
+    left: 580px; top: 218px;
     width: 525px; height: 715px;
   }
 
@@ -148,10 +148,10 @@
   tr.top-3 td.td-score { color: var(--lime); }
 
   /* ── NOW PLAYING PANEL ────────────────────────────────────── */
-  /* Positioned in the open right area of the new template */
+  /* Right column, below the header */
   #nowPanel {
-    left: 1155px; top: 162px;
-    width: 475px; height: 422px;
+    left: 1160px; top: 218px;
+    width: 475px; height: 435px;
     gap: 0;
   }
 
@@ -315,7 +315,7 @@
   /* ── DISCLAIMER ──────────────────────────────────────────────── */
   #disclaimer {
     position: absolute;
-    left: 1155px; top: 600px;
+    left: 1160px; top: 662px;
     width: 475px;
     color: rgba(255,255,255,0.45);
     font-size: 14px;
