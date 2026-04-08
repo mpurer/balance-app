@@ -312,10 +312,23 @@
     animation: countpop 1.2s ease forwards;
   }
 
+  /* ── WIN TEXT ────────────────────────────────────────────────── */
+  #winText {
+    position: absolute;
+    left: 1310px; top: 690px;
+    width: 475px;
+    font-family: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+    font-size: 38px;
+    line-height: 1.15;
+    letter-spacing: 2px;
+    color: var(--lime);
+    text-align: center;
+  }
+
   /* ── DISCLAIMER ──────────────────────────────────────────────── */
   #disclaimer {
     position: absolute;
-    left: 1310px; top: 686px;
+    left: 1310px; top: 785px;
     width: 475px;
     color: rgba(255,255,255,0.45);
     font-size: 14px;
@@ -362,7 +375,10 @@
     <button id="skipBtn" onclick="skipCurrentPlayer()">⏭ Überspringen</button>
   </div>
 
-  <!-- ── Disclaimer below NOW PLAYING panel ──────────────────────── -->
+  <!-- ── Win CTA below NOW PLAYING panel ─────────────────────────── -->
+  <div id="winText">PLAY AND HAVE A<br>CHANCE TO WIN!</div>
+
+  <!-- ── Disclaimer below win text ────────────────────────────────── -->
   <div id="disclaimer">
     Das Spiel kann nur bis 16:30 gespielt werden. Pro Person kann nur 1 Board gewonnen werden.
   </div>
