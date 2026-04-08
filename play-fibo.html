@@ -689,7 +689,8 @@ canvas#targetCanvas {
    CONFIG
 ═══════════════════════════════════════════════════════════════ */
 const DOT_RADIUS = 18;
-const MAX_TILT = 30;
+const MAX_TILT   = 30;   // up/down sensitivity (degrees to reach edge)
+const MAX_TILT_X = 20;   // left/right sensitivity — smaller = more sensitive
 const SURVIVAL_SCORE_MULT = 10;
 const SURVIVAL_MAX_OBS = 40;
 const SURVIVAL_BASE_SPEED = 88;
@@ -1390,7 +1391,7 @@ function handleOrientation(e){
   const relBeta  = (typeof e.beta  === 'number' ? e.beta  : 0) - beta0;
   const relGamma = (typeof e.gamma === 'number' ? e.gamma : 0) - gamma0;
   const {dx, dy} = mapOrientationToXY(relBeta, relGamma);
-  const scaleX = arenaRect.width  / MAX_TILT;
+  const scaleX = arenaRect.width  / MAX_TILT_X;
   const scaleY = arenaRect.height / MAX_TILT;
   dotPos.x = clamp(dotPos0.x + dx*scaleX, DOT_RADIUS, arenaRect.width -DOT_RADIUS);
   dotPos.y = clamp(dotPos0.y + dy*scaleY, DOT_RADIUS, arenaRect.height-DOT_RADIUS);
