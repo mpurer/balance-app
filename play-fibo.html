@@ -1037,9 +1037,9 @@ async function handleTimeout(){
   document.getElementById('skippedMsg').textContent = 'Deine Zeit von 60 Sekunden ist abgelaufen. Reihe dich erneut ein!';
 }
 
-function startGameOverTimeout(){
+function startGameOverTimeout(duration = 60){
   clearGameOverTimeout();
-  let remaining = 60;
+  let remaining = duration;
   const timerEl = document.getElementById('goTimeoutTimer');
   if(timerEl) timerEl.textContent = remaining;
   _gameOverTimer = setInterval(() => {
@@ -1211,6 +1211,12 @@ function startCountdown(callback){
         countdownFill.style.transform = 'rotate(0deg)';
         countdownFill.style.transition = 'none';
         canvas.style.display = 'block';
+        // Re-measure arena now that countdown is done and orientation has settled
+        sizeCanvas();
+        dotPos0 = { x: arenaRect.width/2, y: arenaRect.height/2 };
+        dotPos  = { ...dotPos0 };
+        dotEl.style.left = Math.round(dotPos.x) + 'px';
+        dotEl.style.top  = Math.round(dotPos.y) + 'px';
         dotEl.style.display = 'block';
         scoreDisplay.style.display = 'block';
         timerDisplay.style.display = 'block';
@@ -1527,8 +1533,8 @@ async function endGame(){
   // Render leaderboard
   await renderGameOverLeaderboard(newDocId);
 
-  // Start 60s idle timeout — auto-kick if player doesn't tap Nochmal or Beenden
-  startGameOverTimeout();
+  // Start idle timeout — 10s on last attempt, 60s otherwise
+  startGameOverTimeout(sessionAttemptsUsed >= 3 ? 10 : 60);
 }
 
 async function renderGameOverLeaderboard(highlightDocId){
