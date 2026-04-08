@@ -737,10 +737,6 @@ function sizeCanvas(){
   canvas.width = Math.round(arenaRect.width);
   canvas.height = Math.round(arenaRect.height);
   canvasScale = Math.min(canvas.width, canvas.height) / REFERENCE_SHORT;
-  // Re-centre the ball origin to match the new arena size (e.g. after orientation change)
-  if(gameActive){
-    dotPos0 = { x: arenaRect.width/2, y: arenaRect.height/2 };
-  }
 }
 
 let dotPos = { x: 0, y: 0 };
@@ -1118,7 +1114,17 @@ function checkOrientation(){
     document.getElementById('screenReady').classList.contains('active') ||
     document.getElementById('screenGame').classList.contains('active');
   const isPortrait = window.innerWidth < window.innerHeight;
-  document.getElementById('rotateOverlay').classList.toggle('show', onReadyOrGame && isPortrait);
+  const overlay = document.getElementById('rotateOverlay');
+  const wasShowing = overlay.classList.contains('show');
+  const shouldShow = onReadyOrGame && isPortrait;
+  overlay.classList.toggle('show', shouldShow);
+  // Returning to landscape after rotate prompt — snap ball back to centre
+  if(wasShowing && !shouldShow && gameActive){
+    dotPos0 = { x: arenaRect.width/2, y: arenaRect.height/2 };
+    dotPos  = { ...dotPos0 };
+    dotEl.style.left = Math.round(dotPos.x) + 'px';
+    dotEl.style.top  = Math.round(dotPos.y) + 'px';
+  }
 }
 
 function beginGame(){
@@ -1393,6 +1399,7 @@ function mapOrientationToXY(beta, gamma){
 
 function handleOrientation(e){
   if(!gameActive) return;
+  if(document.getElementById('rotateOverlay').classList.contains('show')) return;
   const relBeta  = (typeof e.beta  === 'number' ? e.beta  : 0) - beta0;
   const relGamma = (typeof e.gamma === 'number' ? e.gamma : 0) - gamma0;
   const {dx, dy} = mapOrientationToXY(relBeta, relGamma);
