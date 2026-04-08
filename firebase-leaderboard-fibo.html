@@ -236,6 +236,16 @@
   #liveScoreValue.bump {
     transform: scale(1.08);
   }
+  @keyframes scoreblink {
+    0%,  14% { opacity: 1; }
+    15%, 32% { opacity: 0; }
+    33%, 48% { opacity: 1; }
+    49%, 66% { opacity: 0; }
+    67%, 82% { opacity: 1; }
+    83%, 99% { opacity: 0; }
+    100%     { opacity: 1; }
+  }
+  .score-blink { animation: scoreblink 1.2s linear forwards; }
   .now-gameover-block {
     display: flex;
     flex-direction: column;
@@ -421,6 +431,7 @@
   let _waitingEntries     = [];
   let _flashPlayerName    = null;
   let _flashDocId         = null;
+  let _showScoreBlink     = false; // true for 1.2s when live→gameover transition fires
 
   // ── Countdown animation (3→2→1) ─────────────────────────────
   let _countdownStep  = 0;    // 0=idle, 1="3", 2="2", 3="1", 4=done
@@ -579,6 +590,12 @@
             }
           }
 
+          // Blink score on live→gameover transition
+          if(_prevGameStatus === 'playing' && _currentGameStatus === 'gameover'){
+            _showScoreBlink = true;
+            setTimeout(() => { _showScoreBlink = false; }, 1300);
+          }
+
           // Flash triggers — set _flashDocId to target the exact row
           if(_prevGameStatus === 'playing' &&
              (_currentGameStatus === 'gameover' || _currentGameStatus === 'done')){
@@ -652,7 +669,7 @@
         block.id = 'liveScoreBlock';
         block.innerHTML = `
           <div id="liveScoreLabel">LETZTES ERGEBNIS</div>
-          <div id="liveScoreValue">${_currentLiveScore}</div>`;
+          <div id="liveScoreValue"${_showScoreBlink ? ' class="score-blink"' : ''}>${_currentLiveScore}</div>`;
         nowList.appendChild(block);
       } else if(_currentGameStatus === 'done'){
         stopCountdownAnim();
