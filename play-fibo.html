@@ -737,6 +737,10 @@ function sizeCanvas(){
   canvas.width = Math.round(arenaRect.width);
   canvas.height = Math.round(arenaRect.height);
   canvasScale = Math.min(canvas.width, canvas.height) / REFERENCE_SHORT;
+  // Re-centre the ball origin to match the new arena size (e.g. after orientation change)
+  if(gameActive){
+    dotPos0 = { x: arenaRect.width/2, y: arenaRect.height/2 };
+  }
 }
 
 let dotPos = { x: 0, y: 0 };
