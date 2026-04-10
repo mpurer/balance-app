@@ -123,37 +123,37 @@
   th.th-score { text-align: right; }
 
   table.lbTable tbody td {
-    padding: 14px 14px;
-    font-size: 34px;
+    padding: 10px 14px;
+    font-size: 28px;
     font-weight: 700;
     color: rgba(255,255,255,0.88);
     border-bottom: 1px solid var(--row-border);
   }
   table.lbTable tbody tr:nth-child(even) { background: var(--row-alt); }
 
-  td.td-rank  { text-align: center; width: 62px; color: rgba(255,255,255,0.35); font-size: 26px; }
+  td.td-rank  { text-align: center; width: 62px; color: rgba(255,255,255,0.35); font-size: 21px; }
   td.td-name  { text-align: center; }
   td.td-score { text-align: right; font-weight: 900; }
 
   /* Top 3 highlight */
   tr.top-1 { background: rgba(201,229,42,0.13) !important; }
-  tr.top-1 td { font-size: 40px; color: #fff; }
-  tr.top-1 td.td-rank  { color: var(--lime); font-size: 30px; }
+  tr.top-1 td { font-size: 33px; color: #fff; }
+  tr.top-1 td.td-rank  { color: var(--lime); font-size: 25px; }
   tr.top-1 td.td-score { color: var(--lime); }
 
   tr.top-2 { background: rgba(201,229,42,0.08) !important; }
-  tr.top-2 td { font-size: 38px; color: rgba(255,255,255,0.95); }
+  tr.top-2 td { font-size: 31px; color: rgba(255,255,255,0.95); }
   tr.top-2 td.td-score { color: var(--lime); }
 
   tr.top-3 { background: rgba(201,229,42,0.05) !important; }
-  tr.top-3 td { font-size: 36px; }
+  tr.top-3 td { font-size: 30px; }
   tr.top-3 td.td-score { color: var(--lime); }
 
   /* ── NOW PLAYING PANEL ────────────────────────────────────── */
   /* Right column, below the header */
   #nowPanel {
     left: 1310px; top: 242px;
-    width: 475px; height: 435px;
+    width: 475px; height: 480px;
     gap: 0;
   }
 
@@ -161,7 +161,7 @@
 
   .now-row {
     padding: 12px 20px;
-    font-size: 21px;
+    font-size: 26px;
     font-weight: 800;
     color: rgba(255,255,255,0.85);
     text-align: center;
@@ -179,9 +179,9 @@
   }
 
   .now-waiting-header {
-    padding: 8px 20px 4px;
+    padding: 10px 20px 4px;
     font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
-    font-size: 15px;
+    font-size: 19px;
     font-weight: 800;
     letter-spacing: 2px;
     text-transform: uppercase;
@@ -301,12 +301,13 @@
     100% { box-shadow: none; }
   }
   tr.flash-row td {
-    font-size: 22px !important;
+    font-size: 28px !important;
     font-weight: 900 !important;
-    padding-top: 13px !important;
-    padding-bottom: 13px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
     color: #fff !important;
   }
+  tr.flash-row td.td-rank  { font-size: 21px !important; }
   tr.flash-row td.td-score { color: var(--lime) !important; }
 
   /* ── COUNTDOWN ANIMATION ────────────────────────────────────── */
@@ -337,7 +338,7 @@
   /* ── WIN TEXT — sticker style ───────────────────────────────── */
   #winText {
     position: absolute;
-    left: 1310px; top: 695px;
+    left: 1310px; top: 740px;
     width: 475px;
     font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
     font-weight: 800;
@@ -362,7 +363,7 @@
     width: 525px;
     font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
     font-weight: 700;
-    color: rgba(255,255,255,0.55);
+    color: rgba(255,255,255,0.35);
     font-size: 20px;
     line-height: 1.45;
     padding: 0;
