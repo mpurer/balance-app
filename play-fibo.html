@@ -1433,7 +1433,9 @@ function drawSurvival(){
 ═══════════════════════════════════════════════════════════════ */
 function updateLoop(){
   const now = performance.now();
-  const dt = lastTime ? (now-lastTime)/1000 : 0;
+  // Cap dt to one frame so tab-switching lag can't advance time/score without obstacles.
+  // Phone standby stops rAF entirely so lastTime stays frozen — dt is correct on wake.
+  const dt = lastTime ? Math.min((now-lastTime)/1000, 1/60) : 0;
   lastTime = now;
   if(gameActive){
     drawSurvival();
