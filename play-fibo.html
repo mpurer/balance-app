@@ -857,6 +857,7 @@ async function joinQueue(player){
   currentPlayer = player;
   sessionAttemptsUsed = 0;
   sessionBestScore = 0;
+  _readyAtMillis = null; // reset so a stale value from a previous session never triggers an immediate timeout
 
   // Check if player is already in queue (page refresh)
   const existing = await findExistingQueueDoc(player.email);
