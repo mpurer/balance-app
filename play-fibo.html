@@ -1564,7 +1564,8 @@ async function endGame(){
           liveScore: finalScore,
           gameStatus: 'done',
           finalRank: finalRank,
-          lastScoreDocId: newDocId   // leaderboard uses this to flash exact row
+          lastScoreDocId: newDocId,
+          gameOverAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         const docId = currentQueueDocId;
         _doneMarkTimer = setTimeout(async () => {
@@ -1579,7 +1580,8 @@ async function endGame(){
           liveScore: finalScore,
           gameStatus: 'gameover',
           finalRank: finalRank,
-          lastScoreDocId: newDocId   // leaderboard uses this to flash exact row
+          lastScoreDocId: newDocId,
+          gameOverAt: firebase.firestore.FieldValue.serverTimestamp()
         });
       }
     }catch(e){}

@@ -586,6 +586,7 @@
         if(snap.empty){
           // Doc left subscription (status became 'done', 'playing', or 'skipped')
           clearReadyTimeout();
+          clearGameOverTimeoutTV();
           // Flash fallback for skip/Beenden cases
           if(_currentPlayerName && !_flashPlayerName){
             _flashPlayerName = _currentPlayerName;
@@ -608,9 +609,15 @@
           // Schedule auto-skip if player is ready and their phone may be off
           if(d.status === 'ready' && d.readyAt){
             scheduleReadyTimeout(doc.id, d.readyAt.toMillis());
-          } else {
-            // Player started playing — cancel any pending ready timeout
+            clearGameOverTimeoutTV();
+          } else if((d.gameStatus === 'gameover' || d.gameStatus === 'done') && d.gameOverAt){
+            // Player is on game-over screen — kick if they lock their phone
             clearReadyTimeout();
+            scheduleGameOverTimeout(doc.id, d.gameOverAt.toMillis(), d.gameStatus === 'done');
+          } else {
+            // Playing or countdown — cancel both watchdogs
+            clearReadyTimeout();
+            clearGameOverTimeoutTV();
           }
           _currentPlayerName  = d.username || d.firstName || '—';
           _prevGameStatus     = _currentGameStatus;
@@ -835,6 +842,37 @@
 
   function clearReadyTimeout(){
     if(_readyTimeoutTimer){ clearTimeout(_readyTimeoutTimer); _readyTimeoutTimer = null; }
+  }
+
+  // ── Game-over timeout watchdog ───────────────────────────────
+  // When the TV sees gameStatus:'gameover' or 'done', schedule a server-side
+  // kick so players who lock their phone on the game-over screen get removed.
+  // Timeout: 60s for gameover (between attempts), 10s for done (last attempt).
+  const GAMEOVER_TIMEOUT_MS  = 60 * 1000;
+  const DONE_TIMEOUT_MS      = 10 * 1000;
+  let _gameOverTimeoutTimer  = null;
+
+  function scheduleGameOverTimeout(docId, gameOverAtMillis, isDone){
+    clearGameOverTimeoutTV();
+    const duration  = isDone ? DONE_TIMEOUT_MS : GAMEOVER_TIMEOUT_MS;
+    const elapsed   = Date.now() - gameOverAtMillis;
+    const remaining = Math.max(0, duration - elapsed);
+    _gameOverTimeoutTimer = setTimeout(async () => {
+      try{
+        const snap = await db.collection('queueFibo').doc(docId).get();
+        if(!snap.exists) return;
+        const d = snap.data();
+        // Only kick if still on a game-over screen (not already done/skipped/playing)
+        if(d.status !== 'playing') return;
+        if(d.gameStatus !== 'gameover' && d.gameStatus !== 'done') return;
+        await db.collection('queueFibo').doc(docId).update({ status: 'done', gameStatus: 'done' });
+        await advanceQueue();
+      }catch(e){ console.error('gameOverTimeout:', e); }
+    }, remaining);
+  }
+
+  function clearGameOverTimeoutTV(){
+    if(_gameOverTimeoutTimer){ clearTimeout(_gameOverTimeoutTimer); _gameOverTimeoutTimer = null; }
   }
 
   // ── Init ─────────────────────────────────────────────────────
