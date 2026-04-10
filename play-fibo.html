@@ -1010,15 +1010,34 @@ function _computeReadySecsLeft(){
 // either skip immediately or restart the countdown from the correct value.
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState !== 'visible') return;
-  if(!_readyAtMillis) return;
-  const readyVisible = document.getElementById('screenReady').classList.contains('active');
-  if(!readyVisible) return;
-  const secsLeft = _computeReadySecsLeft();
-  if(secsLeft <= 0){
-    stopReadyCountdown();
-    handleTimeout();
-  } else {
-    startReadyCountdown(secsLeft);
+
+  // Ready screen — recalculate from server readyAt timestamp
+  if(_readyAtMillis){
+    const readyVisible = document.getElementById('screenReady').classList.contains('active');
+    if(readyVisible){
+      const secsLeft = _computeReadySecsLeft();
+      if(secsLeft <= 0){
+        stopReadyCountdown();
+        handleTimeout();
+      } else {
+        startReadyCountdown(secsLeft);
+      }
+    }
+  }
+
+  // Game-over screen — recalculate from local deadline timestamp
+  if(_gameOverDeadline){
+    const goVisible = document.getElementById('screenGameOver').classList.contains('active');
+    if(goVisible){
+      const secsLeft = Math.ceil((_gameOverDeadline - Date.now()) / 1000);
+      if(secsLeft <= 0){
+        clearGameOverTimeout();
+        handleGameOverTimeout();
+      } else {
+        // Restart interval so the displayed counter is correct immediately
+        startGameOverTimeout(secsLeft);
+      }
+    }
   }
 });
 
@@ -1070,15 +1089,17 @@ async function handleTimeout(){
   document.getElementById('skippedMsg').textContent = 'Deine Zeit von 60 Sekunden ist abgelaufen. Reihe dich erneut ein!';
 }
 
+let _gameOverDeadline = null; // wall-clock ms when the game-over timeout expires
+
 function startGameOverTimeout(duration = 60){
   clearGameOverTimeout();
-  let remaining = duration;
+  _gameOverDeadline = Date.now() + duration * 1000;
   const timerEl = document.getElementById('goTimeoutTimer');
-  if(timerEl) timerEl.textContent = remaining;
+  if(timerEl) timerEl.textContent = duration;
   _gameOverTimer = setInterval(() => {
-    remaining--;
-    if(timerEl) timerEl.textContent = remaining;
-    if(remaining <= 0){
+    const secsLeft = Math.ceil((_gameOverDeadline - Date.now()) / 1000);
+    if(timerEl) timerEl.textContent = Math.max(0, secsLeft);
+    if(secsLeft <= 0){
       clearGameOverTimeout();
       handleGameOverTimeout();
     }
@@ -1087,6 +1108,7 @@ function startGameOverTimeout(duration = 60){
 
 function clearGameOverTimeout(){
   if(_gameOverTimer){ clearInterval(_gameOverTimer); _gameOverTimer = null; }
+  _gameOverDeadline = null;
 }
 
 async function handleGameOverTimeout(){
