@@ -1551,7 +1551,7 @@ async function endGame(){
             await db.collection('queueFibo').doc(docId).update({ status: 'done' });
             await advanceQueue();
           }catch(e){}
-        }, 2500);
+        }, 10000);
       } else {
         await db.collection('queueFibo').doc(currentQueueDocId).update({
           liveScore: finalScore,

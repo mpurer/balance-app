@@ -701,7 +701,7 @@
         // Show score + rank after every attempt; stays until player acts or doc leaves
         const block = document.createElement('div');
         block.id = 'liveScoreBlock';
-        const rankHtml = _currentFinalRank !== null ? `<div style="font-size:22px;font-weight:700;letter-spacing:2px;color:var(--yellow);margin-top:6px">PLATZ ${_currentFinalRank}</div>` : '';
+        const rankHtml = _currentFinalRank !== null ? `<div style="font-size:22px;font-weight:700;letter-spacing:2px;color:#ffffff;margin-top:6px">PLATZ ${_currentFinalRank}</div>` : '';
         block.innerHTML = `
           <div id="liveScoreLabel">ERGEBNIS</div>
           <div id="liveScoreValue"${_showScoreBlink ? ' class="score-blink"' : ''}>${_currentLiveScore}</div>
