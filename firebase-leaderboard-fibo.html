@@ -763,10 +763,33 @@
     this.parentElement.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f0f0f0;border-radius:2px;font-size:11px;color:#999;text-align:center;padding:10px">QR_fibo.png<br>platzieren</div>';
   });
 
+  // ── Ready-timeout watchdog ────────────────────────────────────
+  // Runs every 10s on the TV (which is always on). If a player has been in
+  // status:'ready' for longer than the 60s timeout, auto-skip them — this
+  // covers phones that are in standby or have the browser closed.
+  const READY_TIMEOUT_MS = 60 * 1000;
+  function startReadyWatchdog(){
+    setInterval(async () => {
+      try{
+        const snap = await db.collection('queueFibo')
+          .where('status','==','ready').limit(1).get();
+        if(snap.empty) return;
+        const doc = snap.docs[0];
+        const readyAt = doc.data().readyAt;
+        if(!readyAt) return;
+        if(Date.now() - readyAt.toMillis() > READY_TIMEOUT_MS + 5000){
+          await db.collection('queueFibo').doc(doc.id).update({ status: 'skipped' });
+          await advanceQueue();
+        }
+      }catch(e){ console.error('readyWatchdog:', e); }
+    }, 10000);
+  }
+
   // ── Init ─────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
     subscribeToLeaderboard();
     subscribeToQueue();
+    startReadyWatchdog();
   });
 </script>
 </body>

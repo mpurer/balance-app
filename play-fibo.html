@@ -918,13 +918,30 @@ function subscribeToOwnDoc(){
       const status = data.status;
 
       if(status === 'ready'){
-        // Only transition to ready screen if we're on waiting screen
+        // Calculate remaining time from server timestamp so standby/backgrounded
+        // phones resume with the correct remaining seconds instead of restarting from 60.
+        const readyAt = data.readyAt;
+        let secsLeft = READY_TIMEOUT_SECS;
+        if(readyAt){
+          const elapsed = Math.floor((Date.now() - readyAt.toMillis()) / 1000);
+          secsLeft = READY_TIMEOUT_SECS - elapsed;
+        }
+        if(secsLeft <= 0){
+          // Time already expired while phone was asleep — skip immediately.
+          handleTimeout();
+          return;
+        }
         const waitingVisible = document.getElementById('screenWaiting').classList.contains('active');
-        const regVisible = document.getElementById('screenReg').classList.contains('active');
+        const regVisible    = document.getElementById('screenReg').classList.contains('active');
+        const readyVisible  = document.getElementById('screenReady').classList.contains('active');
         if(waitingVisible || regVisible){
           showScreen('screenReady');
-          startReadyCountdown();
           checkOrientation();
+        }
+        // (Re)start countdown whenever we learn the remaining time — covers both
+        // first transition and waking from standby while already on the ready screen.
+        if(waitingVisible || regVisible || readyVisible){
+          startReadyCountdown(secsLeft);
         }
       } else if(status === 'skipped'){
         // Skipped by staff or timed out externally
@@ -989,9 +1006,9 @@ function updateWaitingUI(entries){
 /* ═══════════════════════════════════════════════════════════════
    READY COUNTDOWN (60s SVG ring)
 ═══════════════════════════════════════════════════════════════ */
-function startReadyCountdown(){
+function startReadyCountdown(secsLeft){
   stopReadyCountdown();
-  readySecsLeft = READY_TIMEOUT_SECS;
+  readySecsLeft = (secsLeft !== undefined) ? Math.max(1, secsLeft) : READY_TIMEOUT_SECS;
   updateReadyRing();
 
   readyTimerInterval = setInterval(() => {
@@ -1383,7 +1400,7 @@ function updateLoop(){
   if(gameActive){
     drawSurvival();
     updateSurvival(dt);
-    if(currentQueueDocId && performance.now() - lastScoreWrite > 3000){
+    if(currentQueueDocId && performance.now() - lastScoreWrite > 4000){
       db.collection('queueFibo').doc(currentQueueDocId)
         .update({ liveScore: Math.floor(score) }).catch(()=>{});
       lastScoreWrite = performance.now();
