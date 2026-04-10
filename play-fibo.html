@@ -716,6 +716,7 @@ let _gamePaused     = false; // true while rotate overlay is showing mid-game
 let posUnsub = null;
 let readyTimerInterval = null;
 let readySecsLeft = READY_TIMEOUT_SECS;
+let _readyAtMillis = null; // wall-clock ms when this player was set to ready (from Firestore)
 const RING_CIRCUM = 2 * Math.PI * 52; // matches SVG r=52
 
 // Game state
@@ -918,13 +919,23 @@ function subscribeToOwnDoc(){
       const status = data.status;
 
       if(status === 'ready'){
-        // Only transition to ready screen if we're on waiting screen
+        const readyAt = data.readyAt;
+        if(readyAt) _readyAtMillis = readyAt.toMillis();
+
+        const secsLeft = _computeReadySecsLeft();
+        if(secsLeft <= 0){
+          handleTimeout();
+          return;
+        }
         const waitingVisible = document.getElementById('screenWaiting').classList.contains('active');
-        const regVisible = document.getElementById('screenReg').classList.contains('active');
+        const regVisible    = document.getElementById('screenReg').classList.contains('active');
+        const readyVisible  = document.getElementById('screenReady').classList.contains('active');
         if(waitingVisible || regVisible){
           showScreen('screenReady');
-          startReadyCountdown();
           checkOrientation();
+        }
+        if(waitingVisible || regVisible || readyVisible){
+          startReadyCountdown(secsLeft);
         }
       } else if(status === 'skipped'){
         // Skipped by staff or timed out externally
@@ -989,9 +1000,30 @@ function updateWaitingUI(entries){
 /* ═══════════════════════════════════════════════════════════════
    READY COUNTDOWN (60s SVG ring)
 ═══════════════════════════════════════════════════════════════ */
-function startReadyCountdown(){
+function _computeReadySecsLeft(){
+  if(!_readyAtMillis) return READY_TIMEOUT_SECS;
+  return READY_TIMEOUT_SECS - Math.floor((Date.now() - _readyAtMillis) / 1000);
+}
+
+// When phone wakes from standby, recalculate remaining time and
+// either skip immediately or restart the countdown from the correct value.
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState !== 'visible') return;
+  if(!_readyAtMillis) return;
+  const readyVisible = document.getElementById('screenReady').classList.contains('active');
+  if(!readyVisible) return;
+  const secsLeft = _computeReadySecsLeft();
+  if(secsLeft <= 0){
+    stopReadyCountdown();
+    handleTimeout();
+  } else {
+    startReadyCountdown(secsLeft);
+  }
+});
+
+function startReadyCountdown(secsLeft){
   stopReadyCountdown();
-  readySecsLeft = READY_TIMEOUT_SECS;
+  readySecsLeft = (secsLeft !== undefined) ? Math.max(1, secsLeft) : READY_TIMEOUT_SECS;
   updateReadyRing();
 
   readyTimerInterval = setInterval(() => {
@@ -1383,7 +1415,7 @@ function updateLoop(){
   if(gameActive){
     drawSurvival();
     updateSurvival(dt);
-    if(currentQueueDocId && performance.now() - lastScoreWrite > 3000){
+    if(currentQueueDocId && performance.now() - lastScoreWrite > 4000){
       db.collection('queueFibo').doc(currentQueueDocId)
         .update({ liveScore: Math.floor(score) }).catch(()=>{});
       lastScoreWrite = performance.now();

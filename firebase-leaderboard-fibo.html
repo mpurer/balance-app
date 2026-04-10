@@ -551,7 +551,8 @@
       .limit(1)
       .onSnapshot(snap => {
         if(snap.empty){
-          // Doc left subscription (status became 'done' or 'skipped')
+          // Doc left subscription (status became 'done', 'playing', or 'skipped')
+          clearReadyTimeout();
           // Flash fallback for skip/Beenden cases
           if(_currentPlayerName && !_flashPlayerName){
             _flashPlayerName = _currentPlayerName;
@@ -570,6 +571,14 @@
           const d   = doc.data();
           currentActiveDocId  = doc.id;
           skipBtn.style.display = 'block';
+
+          // Schedule auto-skip if player is ready and their phone may be off
+          if(d.status === 'ready' && d.readyAt){
+            scheduleReadyTimeout(doc.id, d.readyAt.toMillis());
+          } else {
+            // Player started playing — cancel any pending ready timeout
+            clearReadyTimeout();
+          }
           _currentPlayerName  = d.username || d.firstName || '—';
           _prevGameStatus     = _currentGameStatus;
           _currentGameStatus  = d.gameStatus ?? null;
@@ -762,6 +771,32 @@
     this.style.display = 'none';
     this.parentElement.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f0f0f0;border-radius:2px;font-size:11px;color:#999;text-align:center;padding:10px">QR_fibo.png<br>platzieren</div>';
   });
+
+  // ── Ready-timeout watchdog ────────────────────────────────────
+  // The TV is always on. When the queue subscription sees a player enter
+  // 'ready', we set a precise setTimeout for when their 60s expires.
+  // This reliably auto-skips players whose phone is off or browser is closed.
+  const READY_TIMEOUT_MS = 60 * 1000;
+  let _readyTimeoutTimer = null;
+
+  function scheduleReadyTimeout(docId, readyAtMillis){
+    clearReadyTimeout();
+    const elapsed = Date.now() - readyAtMillis;
+    const remaining = Math.max(0, READY_TIMEOUT_MS - elapsed);
+    _readyTimeoutTimer = setTimeout(async () => {
+      try{
+        // Re-check the doc is still ready before skipping (player may have started)
+        const snap = await db.collection('queueFibo').doc(docId).get();
+        if(!snap.exists || snap.data().status !== 'ready') return;
+        await db.collection('queueFibo').doc(docId).update({ status: 'skipped' });
+        await advanceQueue();
+      }catch(e){ console.error('readyTimeout:', e); }
+    }, remaining);
+  }
+
+  function clearReadyTimeout(){
+    if(_readyTimeoutTimer){ clearTimeout(_readyTimeoutTimer); _readyTimeoutTimer = null; }
+  }
 
   // ── Init ─────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
