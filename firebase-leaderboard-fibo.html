@@ -502,6 +502,26 @@
     if(el && snapTo !== undefined) el.textContent = snapTo;
   }
 
+  // Smoothly count from the currently displayed value to targetScore over durationMs.
+  // Used on the playing→gameover transition so overshooting animation glides to the
+  // final score instead of jumping back.
+  function glideToScore(targetScore, durationMs = 400){
+    _animFrozen = true;
+    if(_animRafId){ cancelAnimationFrame(_animRafId); _animRafId = null; }
+    const el = document.getElementById('liveScoreValue');
+    if(!el){ return; }
+    const startVal  = parseInt(el.textContent) || 0;
+    if(startVal === targetScore){ el.textContent = targetScore; return; }
+    const startTime = performance.now();
+    function tick(){
+      const t   = Math.min(1, (performance.now() - startTime) / durationMs);
+      el.textContent = Math.round(startVal + (targetScore - startVal) * t);
+      if(t < 1){ _animRafId = requestAnimationFrame(tick); }
+      else { _animRafId = null; }
+    }
+    _animRafId = requestAnimationFrame(tick);
+  }
+
   // ── Helpers ─────────────────────────────────────────────────
   function escapeHtml(s){
     return String(s||'').replace(/[&<>"']/g, ch =>
@@ -592,6 +612,11 @@
               _animBaseTime = performance.now();
               _currentLiveScore = newScore;
               startScoreAnimation();
+            } else if(_prevGameStatus === 'playing' &&
+                      (_currentGameStatus === 'gameover' || _currentGameStatus === 'done')){
+              // Glide from whatever the animation overshot to the real final score
+              _currentLiveScore = newScore;
+              glideToScore(newScore);
             } else {
               // countdown / gameover / done — show exact value, no animation
               _currentLiveScore = newScore;
