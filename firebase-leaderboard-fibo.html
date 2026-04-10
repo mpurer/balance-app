@@ -551,7 +551,8 @@
       .limit(1)
       .onSnapshot(snap => {
         if(snap.empty){
-          // Doc left subscription (status became 'done' or 'skipped')
+          // Doc left subscription (status became 'done', 'playing', or 'skipped')
+          clearReadyTimeout();
           // Flash fallback for skip/Beenden cases
           if(_currentPlayerName && !_flashPlayerName){
             _flashPlayerName = _currentPlayerName;
@@ -570,6 +571,14 @@
           const d   = doc.data();
           currentActiveDocId  = doc.id;
           skipBtn.style.display = 'block';
+
+          // Schedule auto-skip if player is ready and their phone may be off
+          if(d.status === 'ready' && d.readyAt){
+            scheduleReadyTimeout(doc.id, d.readyAt.toMillis());
+          } else {
+            // Player started playing — cancel any pending ready timeout
+            clearReadyTimeout();
+          }
           _currentPlayerName  = d.username || d.firstName || '—';
           _prevGameStatus     = _currentGameStatus;
           _currentGameStatus  = d.gameStatus ?? null;
@@ -764,32 +773,35 @@
   });
 
   // ── Ready-timeout watchdog ────────────────────────────────────
-  // Runs every 10s on the TV (which is always on). If a player has been in
-  // status:'ready' for longer than the 60s timeout, auto-skip them — this
-  // covers phones that are in standby or have the browser closed.
+  // The TV is always on. When the queue subscription sees a player enter
+  // 'ready', we set a precise setTimeout for when their 60s expires.
+  // This reliably auto-skips players whose phone is off or browser is closed.
   const READY_TIMEOUT_MS = 60 * 1000;
-  function startReadyWatchdog(){
-    setInterval(async () => {
+  let _readyTimeoutTimer = null;
+
+  function scheduleReadyTimeout(docId, readyAtMillis){
+    clearReadyTimeout();
+    const elapsed = Date.now() - readyAtMillis;
+    const remaining = Math.max(0, READY_TIMEOUT_MS - elapsed);
+    _readyTimeoutTimer = setTimeout(async () => {
       try{
-        const snap = await db.collection('queueFibo')
-          .where('status','==','ready').limit(1).get();
-        if(snap.empty) return;
-        const doc = snap.docs[0];
-        const readyAt = doc.data().readyAt;
-        if(!readyAt) return;
-        if(Date.now() - readyAt.toMillis() > READY_TIMEOUT_MS + 5000){
-          await db.collection('queueFibo').doc(doc.id).update({ status: 'skipped' });
-          await advanceQueue();
-        }
-      }catch(e){ console.error('readyWatchdog:', e); }
-    }, 10000);
+        // Re-check the doc is still ready before skipping (player may have started)
+        const snap = await db.collection('queueFibo').doc(docId).get();
+        if(!snap.exists || snap.data().status !== 'ready') return;
+        await db.collection('queueFibo').doc(docId).update({ status: 'skipped' });
+        await advanceQueue();
+      }catch(e){ console.error('readyTimeout:', e); }
+    }, remaining);
+  }
+
+  function clearReadyTimeout(){
+    if(_readyTimeoutTimer){ clearTimeout(_readyTimeoutTimer); _readyTimeoutTimer = null; }
   }
 
   // ── Init ─────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
     subscribeToLeaderboard();
     subscribeToQueue();
-    startReadyWatchdog();
   });
 </script>
 </body>

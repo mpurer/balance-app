@@ -716,6 +716,7 @@ let _gamePaused     = false; // true while rotate overlay is showing mid-game
 let posUnsub = null;
 let readyTimerInterval = null;
 let readySecsLeft = READY_TIMEOUT_SECS;
+let _readyAtMillis = null; // wall-clock ms when this player was set to ready (from Firestore)
 const RING_CIRCUM = 2 * Math.PI * 52; // matches SVG r=52
 
 // Game state
@@ -918,16 +919,11 @@ function subscribeToOwnDoc(){
       const status = data.status;
 
       if(status === 'ready'){
-        // Calculate remaining time from server timestamp so standby/backgrounded
-        // phones resume with the correct remaining seconds instead of restarting from 60.
         const readyAt = data.readyAt;
-        let secsLeft = READY_TIMEOUT_SECS;
-        if(readyAt){
-          const elapsed = Math.floor((Date.now() - readyAt.toMillis()) / 1000);
-          secsLeft = READY_TIMEOUT_SECS - elapsed;
-        }
+        if(readyAt) _readyAtMillis = readyAt.toMillis();
+
+        const secsLeft = _computeReadySecsLeft();
         if(secsLeft <= 0){
-          // Time already expired while phone was asleep — skip immediately.
           handleTimeout();
           return;
         }
@@ -938,8 +934,6 @@ function subscribeToOwnDoc(){
           showScreen('screenReady');
           checkOrientation();
         }
-        // (Re)start countdown whenever we learn the remaining time — covers both
-        // first transition and waking from standby while already on the ready screen.
         if(waitingVisible || regVisible || readyVisible){
           startReadyCountdown(secsLeft);
         }
@@ -1006,6 +1000,27 @@ function updateWaitingUI(entries){
 /* ═══════════════════════════════════════════════════════════════
    READY COUNTDOWN (60s SVG ring)
 ═══════════════════════════════════════════════════════════════ */
+function _computeReadySecsLeft(){
+  if(!_readyAtMillis) return READY_TIMEOUT_SECS;
+  return READY_TIMEOUT_SECS - Math.floor((Date.now() - _readyAtMillis) / 1000);
+}
+
+// When phone wakes from standby, recalculate remaining time and
+// either skip immediately or restart the countdown from the correct value.
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState !== 'visible') return;
+  if(!_readyAtMillis) return;
+  const readyVisible = document.getElementById('screenReady').classList.contains('active');
+  if(!readyVisible) return;
+  const secsLeft = _computeReadySecsLeft();
+  if(secsLeft <= 0){
+    stopReadyCountdown();
+    handleTimeout();
+  } else {
+    startReadyCountdown(secsLeft);
+  }
+});
+
 function startReadyCountdown(secsLeft){
   stopReadyCountdown();
   readySecsLeft = (secsLeft !== undefined) ? Math.max(1, secsLeft) : READY_TIMEOUT_SECS;
