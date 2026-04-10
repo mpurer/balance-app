@@ -82,13 +82,15 @@
   .panel-header {
     background: var(--lime);
     color: #111;
-    font-family: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+    font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
     font-size: 23px;
+    font-weight: 800;
     letter-spacing: 3px;
     text-align: center;
     padding: 11px 12px 9px;
     line-height: 1;
     flex-shrink: 0;
+    text-transform: uppercase;
   }
 
   /* ── LEADERBOARD PANEL ────────────────────────────────────── */
@@ -108,43 +110,43 @@
   table.lbTable { width: 100%; border-collapse: collapse; }
 
   table.lbTable thead th {
-    font-family: 'Bebas Neue', Impact, sans-serif;
-    font-size: 16px; letter-spacing: 2px;
+    font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
+    font-size: 20px; font-weight: 800; letter-spacing: 2px;
     color: var(--lime);
-    padding: 8px 14px;
+    padding: 10px 14px;
     border-bottom: 2px solid rgba(201,229,42,0.3);
     background: rgba(0,0,0,0.25);
     text-transform: uppercase;
   }
-  th.th-rank  { text-align: center; width: 52px; }
+  th.th-rank  { text-align: center; width: 58px; }
   th.th-name  { text-align: left; }
   th.th-score { text-align: right; }
 
   table.lbTable tbody td {
-    padding: 8px 14px;
-    font-size: 18px;
+    padding: 9px 14px;
+    font-size: 22px;
     font-weight: 700;
     color: rgba(255,255,255,0.88);
     border-bottom: 1px solid var(--row-border);
   }
   table.lbTable tbody tr:nth-child(even) { background: var(--row-alt); }
 
-  td.td-rank  { text-align: center; width: 52px; color: rgba(255,255,255,0.35); font-size: 15px; }
+  td.td-rank  { text-align: center; width: 58px; color: rgba(255,255,255,0.35); font-size: 18px; }
   td.td-name  { text-align: left; }
   td.td-score { text-align: right; font-weight: 900; }
 
   /* Top 3 highlight */
   tr.top-1 { background: rgba(201,229,42,0.13) !important; }
-  tr.top-1 td { font-size: 22px; color: #fff; }
-  tr.top-1 td.td-rank  { color: var(--lime); font-size: 18px; }
+  tr.top-1 td { font-size: 26px; color: #fff; }
+  tr.top-1 td.td-rank  { color: var(--lime); font-size: 22px; }
   tr.top-1 td.td-score { color: var(--lime); }
 
   tr.top-2 { background: rgba(201,229,42,0.08) !important; }
-  tr.top-2 td { font-size: 20px; color: rgba(255,255,255,0.95); }
+  tr.top-2 td { font-size: 24px; color: rgba(255,255,255,0.95); }
   tr.top-2 td.td-score { color: var(--lime); }
 
   tr.top-3 { background: rgba(201,229,42,0.05) !important; }
-  tr.top-3 td { font-size: 19px; }
+  tr.top-3 td { font-size: 23px; }
   tr.top-3 td.td-score { color: var(--lime); }
 
   /* ── NOW PLAYING PANEL ────────────────────────────────────── */
@@ -174,6 +176,16 @@
     padding: 10px 20px 6px;
     font-family: 'Bebas Neue', Impact, sans-serif;
     letter-spacing: 1px;
+  }
+
+  .now-waiting-header {
+    padding: 8px 20px 4px;
+    font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
   }
 
   .now-empty {
@@ -351,7 +363,7 @@
     font-family: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
     font-weight: 700;
     color: #1d182c;
-    font-size: 16px;
+    font-size: 20px;
     line-height: 1.45;
     padding: 10px 0 0;
     text-align: center;
@@ -396,7 +408,7 @@
   </div>
 
   <!-- ── Win CTA below NOW PLAYING panel ─────────────────────────── -->
-  <div id="winText">PLAY AND HAVE A<br>CHANCE TO WIN!</div>
+  <div id="winText">SCAN, PLAY &amp; HAVE A<br>CHANCE TO WIN!</div>
 
   <!-- ── Disclaimer below win text ────────────────────────────────── -->
   <div id="disclaimer">
@@ -712,7 +724,14 @@
 
     // Waiting list rows — fit as many as the panel allows
     const maxWaiting = _currentPlayerName ? 5 : 7;
-    _waitingEntries.slice(0, maxWaiting).forEach(d => {
+    const waitingSlice = _waitingEntries.slice(0, maxWaiting);
+    if(waitingSlice.length > 0){
+      const header = document.createElement('div');
+      header.className = 'now-waiting-header';
+      header.textContent = 'Nächste Spieler:';
+      nowList.appendChild(header);
+    }
+    waitingSlice.forEach(d => {
       const div = document.createElement('div');
       div.className = 'now-row';
       div.textContent = escapeHtml(d.username || d.firstName || '?');
