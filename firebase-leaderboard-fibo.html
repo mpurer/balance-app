@@ -696,22 +696,16 @@
         // Restart RAF now that the element exists in the DOM
         _animFrozen = false;
         if(!_animRafId) startScoreAnimation();
-      } else if(_currentGameStatus === 'gameover' && _currentLiveScore !== null){
+      } else if((_currentGameStatus === 'gameover' || _currentGameStatus === 'done') && _currentLiveScore !== null){
         stopCountdownAnim();
-        // Between attempts — show exact last score, static
+        // Show score + rank after every attempt; stays until player acts or doc leaves
         const block = document.createElement('div');
         block.id = 'liveScoreBlock';
+        const rankHtml = _currentFinalRank !== null ? `<div style="font-size:22px;font-weight:700;letter-spacing:2px;color:var(--yellow);margin-top:6px">PLATZ ${_currentFinalRank}</div>` : '';
         block.innerHTML = `
-          <div id="liveScoreLabel">LETZTES ERGEBNIS</div>
-          <div id="liveScoreValue"${_showScoreBlink ? ' class="score-blink"' : ''}>${_currentLiveScore}</div>`;
-        nowList.appendChild(block);
-      } else if(_currentGameStatus === 'done'){
-        stopCountdownAnim();
-        const block = document.createElement('div');
-        block.className = 'now-gameover-block';
-        block.innerHTML = `
-          <div class="now-gameover-title">GAME OVER</div>
-          ${_currentFinalRank !== null ? `<div class="now-gameover-rank">Platz ${_currentFinalRank}</div>` : ''}`;
+          <div id="liveScoreLabel">ERGEBNIS</div>
+          <div id="liveScoreValue"${_showScoreBlink ? ' class="score-blink"' : ''}>${_currentLiveScore}</div>
+          ${rankHtml}`;
         nowList.appendChild(block);
       }
     }
